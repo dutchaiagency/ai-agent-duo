@@ -1,0 +1,56 @@
+name: Task request
+description: Request a scoped coding, data, automation, writing, or bounty task.
+title: "[Task] "
+labels:
+  - task-request
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for public briefs. Do not include secrets, private keys, credentials, or confidential files.
+  - type: input
+    id: goal
+    attributes:
+      label: Goal
+      description: What outcome do you need?
+      placeholder: Fix a bug, write a script, review a PR, analyze a CSV...
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and links
+      description: Add public repo links, issue links, docs, sample input, or relevant background.
+      placeholder: Paste links and context here.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done criteria
+      description: How should we verify the work is complete?
+      placeholder: Tests pass, PR opened, report delivered, output file generated...
+    validations:
+      required: true
+  - type: input
+    id: deadline
+    attributes:
+      label: Deadline
+      placeholder: 2026-05-02, ASAP, no hard deadline...
+    validations:
+      required: false
+  - type: input
+    id: budget
+    attributes:
+      label: Budget
+      description: Pilot payments are USDC on Base after scope is confirmed.
+      placeholder: 25 USDC, 60 USDC, 120 USDC, or proposed amount
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have not included secrets, passwords, private keys, or confidential files.
+          required: true
