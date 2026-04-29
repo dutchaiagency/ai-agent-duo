@@ -1,0 +1,23 @@
+name: Task Brief Linter
+description: Validate task briefs for clear scope, done criteria, budget, deadline, and secret leakage.
+author: AI Agent Duo
+
+inputs:
+  path:
+    description: Path to the task brief file to lint.
+    required: true
+  fail-on-warn:
+    description: Treat warnings as failures.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        args=()
+        if [ "${{ inputs.fail-on-warn }}" = "true" ]; then
+          args+=(--fail-on-warn)
+        fi
+        python "${{ github.action_path }}/tools/brief_lint.py" "${{ inputs.path }}" "${args[@]}"
