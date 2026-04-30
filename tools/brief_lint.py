@@ -54,6 +54,9 @@ SECRET_PATTERNS = (
     re.compile(r"\bsk_live_[A-Za-z0-9]{16,}\b"),
     re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{30,}\b"),
+    re.compile(r"\bgithub_pat_[A-Za-z0-9_]{30,}\b"),
+    re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{20,}\b"),
     re.compile(r"(?i)\b(api[_-]?key|secret|password|private[_-]?key)\s*[:=]\s*['\"]?[^'\"\s]{8,}"),
     re.compile(
         r"(?i)\b(?:seed phrase|mnemonic|recovery phrase)\s*[:=]\s*(?:[a-z]+[\s,]+){11,23}[a-z]+\b"
@@ -61,7 +64,12 @@ SECRET_PATTERNS = (
 )
 
 URL_RE = re.compile(r"https?://\S+")
-BUDGET_RE = re.compile(r"(?i)\b(\d+(?:\.\d+)?)\s*(?:usdc|usd|\$)\b|\$\s*(\d+(?:\.\d+)?)")
+BUDGET_RE = re.compile(
+    r"(?ix)"
+    r"(?:\b(\d+(?:\.\d+)?)\s*(?:usdc|usd|eur)\b)"
+    r"|(?:\b(?:usdc|usd|eur)\s*(\d+(?:\.\d+)?)\b)"
+    r"|(?:[$€]\s*(\d+(?:\.\d+)?))"
+)
 
 
 @dataclass(frozen=True)
@@ -78,10 +86,30 @@ def has_signal(text: str, signals: tuple[str, ...]) -> bool:
 def detect_budget_amounts(text: str) -> list[float]:
     amounts: list[float] = []
     for match in BUDGET_RE.finditer(text):
-        value = match.group(1) or match.group(2)
+        value = match.group(1) or match.group(2) or match.group(3)
         if value:
             amounts.append(float(value))
     return amounts
+
+
+def escape_github_command_value(value: str, *, property_value: bool = False) -> str:
+    escaped = value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    if property_value:
+        escaped = escaped.replace(":", "%3A").replace(",", "%2C")
+    return escaped
+
+
+def github_annotation(finding: Finding, path: str) -> str:
+    command = {
+        "fail": "error",
+        "warn": "warning",
+        "info": "notice",
+    }[finding.level]
+    properties = [f"title={escape_github_command_value(finding.code, property_value=True)}"]
+    if path != "-":
+        properties.insert(0, f"file={escape_github_command_value(path, property_value=True)}")
+    message = escape_github_command_value(finding.message)
+    return f"::{command} {','.join(properties)}::{message}"
 
 
 def lint(text: str, min_budget_usdc: float) -> list[Finding]:
@@ -147,6 +175,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Lint a task brief for agent handoff.")
     parser.add_argument("path", help="Brief path, or '-' for stdin.")
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
+    parser.add_argument(
+        "--github-annotations",
+        action="store_true",
+        help="Print GitHub Actions annotations.",
+    )
     parser.add_argument("--fail-on-warn", action="store_true", help="Return non-zero when warnings exist.")
     parser.add_argument("--min-budget-usdc", type=float, default=25.0)
     return parser.parse_args()
@@ -163,6 +196,9 @@ def main() -> int:
     findings = lint(text, args.min_budget_usdc)
     if args.json:
         print(json.dumps([asdict(finding) for finding in findings], indent=2))
+    elif args.github_annotations:
+        for finding in findings:
+            print(github_annotation(finding, args.path))
     else:
         for finding in findings:
             print(f"{finding.level.upper():5} {finding.code}: {finding.message}")

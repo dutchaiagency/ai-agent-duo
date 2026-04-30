@@ -1,0 +1,13 @@
+.secrets/
+.env
+.env.*
+!.env.example
+*.key
+*.seed
+state-history.md
+state/
+heartbeat.log
+__pycache__/
+*.pyc
+node_modules/
+dist/

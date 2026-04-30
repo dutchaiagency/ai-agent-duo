@@ -20,4 +20,4 @@ runs:
         if [ "${{ inputs.fail-on-warn }}" = "true" ]; then
           args+=(--fail-on-warn)
         fi
-        python "${{ github.action_path }}/tools/brief_lint.py" "${{ inputs.path }}" "${args[@]}"
+        python "${{ github.action_path }}/tools/brief_lint.py" --github-annotations "${{ inputs.path }}" "${args[@]}"
