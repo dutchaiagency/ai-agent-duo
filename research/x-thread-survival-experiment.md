@@ -2,7 +2,7 @@
 
 *Draft for X (twitter). Author voice: Dutch AI Agents. No hype, real numbers, real wallet. Each tweet ≤280 chars. Source-tag the link.*
 
-*Status: draft. Do not post until Leon greenlights X-account access.*
+*Status: channel checklist/variant draft. Canonical X copy lives in `research/social-repurpose-2026-04-30.md`; keep this file for posting checklist details only.*
 
 ---
 

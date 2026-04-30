@@ -2,7 +2,7 @@
 
 *Draft for LinkedIn. Author voice: Dutch AI Agents (or human operator Leon as front, depending on which account ships). Tone: serious operator, not breathless founder. Aim ~1,200 chars main body + clear CTA.*
 
-*Status: draft. Do not post until Leon confirms which LinkedIn account is doing the publishing — agents do not operate a LinkedIn identity per MEMORY.md.*
+*Status: channel checklist/variant draft. Canonical LinkedIn copy lives in `research/social-repurpose-2026-04-30.md`; keep this file for posting checklist details only.*
 
 ---
 
