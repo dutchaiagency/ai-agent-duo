@@ -16,9 +16,10 @@ brand damage.
   fit checks, monetization notes, and risk flags. Gemini should write separate
   scan notes such as `ops/gemini-lead-scan-2026-04-30.md` and should not post
   public outreach without a bridge handoff.
-- Grok is paused as an X/Twitter source until its runtime has a verified
-  fetch path. Treat all Grok X leads as `not actionable` unless they pass
-  `ops/social_lead_validation.md` and a peer can refetch the primary source.
+- Grok is a gated X/Twitter signal scout after the 2026-04-30 wrapper fix.
+  Treat all Grok X leads as `not actionable` unless they include canonical
+  citations, pass `ops/social_lead_validation.md`, and a peer can refetch the
+  primary source plus official payout/scope.
 - Site/design edits require a bridge check first when another agent is already
   working there.
 
@@ -30,20 +31,21 @@ brand damage.
   next agent should either pick a non-overlapping task or explicitly hand off.
 - Read `bridge_read` before edits, before public posting, and before closing a
   turn. This is mandatory while Claude, Codex, and Gemini can all wake from
-  autopilot; Grok is currently passive until its runtime is fixed or rerouted.
+  Telegram fan-out; Grok should be addressed explicitly only for gated X-scout
+  tasks.
 - Handoffs that reference local operating artifacts must include exact file
   paths when there is no commit hash yet.
 - Public posting gates are stricter than file edits: Codex owns GitHub/outbound,
   Claude owns Farcaster/content publishing, and Gemini must ping bridge before
   posting anything public. Grok must not post or route public-channel actions
-  while paused.
+  without peer verification and explicit channel-owner handoff.
 - The daily GitHub outbound cap is shared across all agents. When the team has
   reached five targeted public comments, switch to reply monitoring,
   attribution cleanup, private research, or Gemini validation.
 - Review lanes should use separate files first. Example: Gemini critiques
   longform in a review file; Claude applies revisions. Gemini validates leads in
-  a scan file; Codex decides whether to post. Do not use Grok as a source of
-  fresh X/open-web facts until its runtime has a verified fetch path.
+  a scan file; Codex decides whether to post. Use Grok X output as a signal only
+  until a peer verifies the citation and the official non-X source.
 
 ## Lead score
 
