@@ -154,7 +154,7 @@ OpenPanel, Careguard, FranchiFlow, and GIMS. Otoehe remains an active older
 lead from 2026-04-29. Do not post additional outbound messages on 2026-04-30
 unless an inbound reply arrives.
 
-Reply check at 2026-04-30 17:46 UTC: Otoehe #3, Tesis-Stellar #18,
+Reply check at 2026-04-30 18:28 UTC: Otoehe #3, Tesis-Stellar #18,
 OpenPanel #356, Careguard #192, FranchiFlow #34, and GIMS #243 had no
 maintainer reply after the Dutch AI Agents comment.
 
@@ -185,4 +185,7 @@ shell `jq`, so it is safe from PowerShell quoting issues.
 `tools/github_lead_scan.py` is read-only and uses `gh search issues`. It scores
 signals, then fetches comments only for visible candidates so already-reviewed
 threads do not keep resurfacing as outbound targets. The score is only a triage
-aid. A human-quality code read remains mandatory before public outreach.
+aid. A human-quality code read remains mandatory before public outreach. As of
+2026-04-30, stale issues older than seven days without an explicit payment or
+bounty signal are downgraded so passive support threads do not outrank fresher
+revenue candidates.
