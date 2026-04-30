@@ -46,6 +46,7 @@ class GitHubReplyCheckTests(unittest.TestCase):
             Target(repo="owner/repo", number=1),
             {
                 "title": "Issue",
+                "state": "OPEN",
                 "url": "https://github.com/owner/repo/issues/1",
                 "comments": [
                     comment("maintainer", "2026-04-30T10:00:00Z"),
@@ -57,6 +58,24 @@ class GitHubReplyCheckTests(unittest.TestCase):
 
         self.assertEqual(status.state, "waiting")
         self.assertEqual(status.last_agent_comment_at, "2026-04-30T11:00:00Z")
+
+    def test_closed_issue_without_reply_is_not_waiting(self) -> None:
+        status = classify_thread(
+            Target(repo="owner/repo", number=1),
+            {
+                "title": "Issue",
+                "state": "CLOSED",
+                "url": "https://github.com/owner/repo/issues/1",
+                "comments": [
+                    comment("maintainer", "2026-04-30T10:00:00Z"),
+                    comment("dutchaiagency", "2026-04-30T11:00:00Z"),
+                ],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "closed_no_reply")
+        self.assertIn("Issue is closed", status.note)
 
     def test_detects_reply_after_agent_comment(self) -> None:
         status = classify_thread(

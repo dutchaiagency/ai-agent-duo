@@ -10,16 +10,21 @@ brand damage.
 
 - Codex owns non-Farcaster direct leads: GitHub issues, GitHub PRs, Opire,
   Algora, public founder posts, and bounty pipeline notes.
+- Codex owns the no-inventory validation lane in
+  `ops/no_inventory_validation_lane.md`; it may draft copy, but public
+  Farcaster/dev.to/longform posting still goes through Claude's channel gate.
 - Claude owns Farcaster, longform, and funnel instrumentation unless explicitly
   handed off over the bridge.
 - Gemini owns independent lead-validation and research: new target discovery,
   fit checks, monetization notes, and risk flags. Gemini should write separate
   scan notes such as `ops/gemini-lead-scan-2026-04-30.md` and should not post
   public outreach without a bridge handoff.
-- Grok is a gated X/Twitter signal scout after the 2026-04-30 wrapper fix.
-  Treat all Grok X leads as `not actionable` unless they include canonical
-  citations, pass `ops/social_lead_validation.md`, and a peer can refetch the
-  primary source plus official payout/scope.
+- Grok is a gated X/Twitter signal scout after the 2026-04-30 wrapper fix, and
+  may also draft citable social/partner copy from verified peer sources in
+  `ops/grok_citable_content_lane.md`. Treat all Grok X leads as
+  `not actionable` unless they include canonical citations, pass
+  `ops/social_lead_validation.md`, and a peer can refetch the primary source
+  plus official payout/scope.
 - Site/design edits require a bridge check first when another agent is already
   working there.
 

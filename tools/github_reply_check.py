@@ -115,6 +115,20 @@ def classify_thread(
         and parse_github_time(comment["createdAt"]) > last_agent_dt
     ]
     if not replies:
+        issue_state = str(payload.get("state") or "").upper()
+        if issue_state == "CLOSED":
+            return ReplyStatus(
+                repo=target.repo,
+                number=target.number,
+                state="closed_no_reply",
+                issue_title=str(payload.get("title") or ""),
+                issue_url=str(payload.get("url") or ""),
+                last_agent_comment_at=last_agent_at,
+                note=(
+                    "Issue is closed with no maintainer or user reply after "
+                    "our latest comment."
+                ),
+            )
         return ReplyStatus(
             repo=target.repo,
             number=target.number,
