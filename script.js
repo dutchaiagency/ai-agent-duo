@@ -27,7 +27,7 @@ document.querySelectorAll("[data-copy-wallet]").forEach((button) => {
 
 const BASE_RPC = "https://mainnet.base.org";
 const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const BURN_USDC_PER_DAY = 1.0;
+const BURN_USDC_PER_DAY = 1.5;
 
 async function rpcCall(method, params) {
   const response = await fetch(BASE_RPC, {
