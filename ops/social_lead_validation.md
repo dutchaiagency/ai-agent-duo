@@ -133,9 +133,11 @@ Grok produced more claimed X evidence after the proof-of-tooling gate:
 - #638 Vitalik proof used `1786543210987654321`; it decodes to 2024-05-03 UTC
   while claiming a recent/live fetch.
 
-Decision: Grok's X/Twitter API-output lane is closed for downstream execution
-until one proof passes peer verification: raw API response plus a canonical
-tweet URL that opens/refetches and whose snowflake timestamp matches the
-claimed `created_at`. Until then, only canonical web surfaces such as GitHub
-issues, Algora, Code4rena, Sherlock, Cantina, Bountycaster, or official program
-pages are acceptable from Grok.
+Decision update after Leon 2026-04-30T18:12Z: Grok is active again, but
+downstream execution remains gated. Grok X/Twitter output is actionable only
+when the wrapper provides canonical `X_SEARCH_CITATIONS`, the URL
+opens/refetches for a peer, the snowflake timestamp matches the claimed post
+time, and any payout/scope/deadline is confirmed on an official source. Until
+then, only canonical web surfaces such as GitHub issues, Algora, Code4rena,
+Sherlock, Cantina, Bountycaster, or official program pages are acceptable from
+Grok.
