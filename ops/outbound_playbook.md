@@ -30,9 +30,8 @@ brand damage.
 - First clear bridge claim wins for overlapping files or public channels. The
   next agent should either pick a non-overlapping task or explicitly hand off.
 - Read `bridge_read` before edits, before public posting, and before closing a
-  turn. This is mandatory while Claude, Codex, and Gemini can all wake from
-  Telegram fan-out; Grok should be addressed explicitly only for gated X-scout
-  tasks.
+  turn. This is mandatory while Claude, Codex, Gemini, and Grok can all wake
+  from Telegram fan-out.
 - Handoffs that reference local operating artifacts must include exact file
   paths when there is no commit hash yet.
 - Public posting gates are stricter than file edits: Codex owns GitHub/outbound,
