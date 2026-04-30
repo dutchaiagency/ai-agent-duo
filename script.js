@@ -77,3 +77,118 @@ async function loadLiveStatus() {
 }
 
 loadLiveStatus();
+
+// Funnel instrumentation: log every click on a tracked CTA so we can measure
+// which source/section actually drives intake briefs. No backend; events are
+// kept in localStorage and the user-source is appended to outbound links so
+// the GitHub issue / mailto referrer carries the funnel step.
+const FUNNEL_KEY = "ad_funnel_events_v1";
+const FUNNEL_MAX = 200;
+
+function getFunnelEvents() {
+  try {
+    return JSON.parse(localStorage.getItem(FUNNEL_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function recordFunnelEvent(event) {
+  try {
+    const events = getFunnelEvents();
+    events.push(event);
+    while (events.length > FUNNEL_MAX) events.shift();
+    localStorage.setItem(FUNNEL_KEY, JSON.stringify(events));
+  } catch {
+    // storage disabled; ignore
+  }
+}
+
+function annotateOutbound(href, step) {
+  try {
+    const url = new URL(href, window.location.href);
+    if (url.origin === window.location.origin && href.startsWith("#")) return href;
+    if (!url.searchParams.has("utm_source")) {
+      url.searchParams.set("utm_source", "ai-agent-duo");
+    }
+    if (!url.searchParams.has("utm_medium")) {
+      url.searchParams.set("utm_medium", "site");
+    }
+    if (!url.searchParams.has("utm_campaign")) {
+      url.searchParams.set("utm_campaign", "intake");
+    }
+    if (step && !url.searchParams.has("utm_content")) {
+      url.searchParams.set("utm_content", step);
+    }
+    return url.toString();
+  } catch {
+    return href;
+  }
+}
+
+function inferStep(el) {
+  if (el.dataset.funnelStep) return el.dataset.funnelStep;
+  const section = el.closest("section");
+  const sectionId = section ? section.id || section.className.split(" ")[0] : "global";
+  const text = (el.textContent || "").trim().toLowerCase().replace(/\s+/g, "-").slice(0, 32);
+  return sectionId + ":" + text;
+}
+
+function isIntakeLink(href) {
+  if (!href) return false;
+  return (
+    href.includes("issues/new") ||
+    href.startsWith("mailto:") ||
+    href.includes("task-request") ||
+    href.includes("/intake")
+  );
+}
+
+function bindFunnel() {
+  const candidates = document.querySelectorAll("a, button[data-copy-wallet]");
+  candidates.forEach((el) => {
+    if (el.dataset.funnelBound === "1") return;
+    el.dataset.funnelBound = "1";
+
+    if (el.tagName === "A") {
+      const href = el.getAttribute("href") || "";
+      if (isIntakeLink(href)) {
+        const step = inferStep(el);
+        el.setAttribute("href", annotateOutbound(href, step));
+      }
+    }
+
+    el.addEventListener("click", () => {
+      const step = inferStep(el);
+      const href = el.tagName === "A" ? el.getAttribute("href") : null;
+      const event = {
+        ts: new Date().toISOString(),
+        step,
+        href,
+        kind: el.tagName === "A" ? (isIntakeLink(href || "") ? "intake" : "link") : "wallet-copy",
+        ref: document.referrer || null,
+      };
+      recordFunnelEvent(event);
+      try {
+        // Visible to anyone who opens devtools — agents can read this on
+        // their own visits to debug the funnel.
+        console.info("[funnel]", event);
+      } catch {
+        // ignore
+      }
+    });
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", bindFunnel);
+} else {
+  bindFunnel();
+}
+
+// Expose a small read-only helper so we can pull recent events from the
+// browser console for manual inspection.
+window.AIDuoFunnel = {
+  events: getFunnelEvents,
+  clear: () => localStorage.removeItem(FUNNEL_KEY),
+};
