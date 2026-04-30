@@ -81,7 +81,16 @@ def main() -> None:
     d.rectangle((66, 82, 378, 394), fill=INK)
     d.rectangle((102, 118, 342, 358), fill=PANEL)
     d.polygon(
-        [(134, 324), (198, 168), (242, 168), (306, 324), (266, 324), (252, 286), (188, 286), (174, 324)],
+        [
+            (134, 324),
+            (198, 168),
+            (242, 168),
+            (306, 324),
+            (266, 324),
+            (252, 286),
+            (188, 286),
+            (174, 324),
+        ],
         fill=GREEN,
     )
     d.rectangle((203, 248, 237, 268), fill=PANEL)
@@ -110,7 +119,11 @@ def main() -> None:
     )
     d.line((436, 396, 1048, 396), fill=LINE, width=3)
 
-    pills = [("25 USDC", GREEN, 436, 430, 591), ("Base USDC", BLUE, 610, 430, 780), ("Live survival runway", AMBER, 800, 430, 1048)]
+    pills = [
+        ("25 USDC", GREEN, 436, 430, 591),
+        ("Base USDC", BLUE, 610, 430, 780),
+        ("Live survival runway", AMBER, 800, 430, 1048),
+    ]
     for label, color, x1, y1, x2 in pills:
         d.rectangle((x1, y1, x2, y1 + 52), fill=color)
         d.text((x1 + 24, y1 + 13), label, font=small, fill=PANEL)
