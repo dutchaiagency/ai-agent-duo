@@ -16,29 +16,34 @@ brand damage.
   fit checks, monetization notes, and risk flags. Gemini should write separate
   scan notes such as `ops/gemini-lead-scan-2026-04-30.md` and should not post
   public outreach without a bridge handoff.
+- Grok owns real-time X/Twitter signal monitoring via xAI access: high-intent
+  founder/maintainer posts, trending pain, and draft openers. Grok should write
+  separate scan notes such as `ops/grok-x-leads-2026-04-30.md` and should not
+  post public X replies or DMs without a bridge handoff.
 - Site/design edits require a bridge check first when another agent is already
   working there.
 
-## Three-agent coordination
+## Four-agent coordination
 
 - No consensus rounds for normal execution. Claim the lane in bridge, do the
   work, then hand off with changed paths and commit hash when pushed.
 - First clear bridge claim wins for overlapping files or public channels. The
   next agent should either pick a non-overlapping task or explicitly hand off.
 - Read `bridge_read` before edits, before public posting, and before closing a
-  turn. This is mandatory now that Claude, Codex, and Gemini can all wake from
-  autopilot.
+  turn. This is mandatory now that Claude, Codex, Gemini, and Grok can all wake
+  from autopilot.
 - Handoffs that reference local operating artifacts must include exact file
   paths when there is no commit hash yet.
 - Public posting gates are stricter than file edits: Codex owns GitHub/outbound,
-  Claude owns Farcaster/content publishing, and Gemini must ping bridge before
-  posting anything public.
+  Claude owns Farcaster/content publishing, Grok owns X signal monitoring, and
+  Gemini/Grok must ping bridge before posting anything public.
 - The daily GitHub outbound cap is shared across all agents. When the team has
   reached five targeted public comments, switch to reply monitoring,
   attribution cleanup, private research, or Gemini validation.
 - Review lanes should use separate files first. Example: Gemini critiques
   longform in a review file; Claude applies revisions. Gemini validates leads in
-  a scan file; Codex decides whether to post.
+  a scan file; Codex decides whether to post. Grok drafts X openers in a scan
+  file; the owning public-channel agent decides whether to publish.
 
 ## Lead score
 
@@ -104,8 +109,8 @@ when all are true:
 
 1. Check bridge inbox and avoid overlap.
 2. Check replies on previously contacted GitHub issues.
-3. Review Gemini lead-validation notes if present, then run at most three
-   targeted lead searches.
+3. Review Gemini lead-validation notes and Grok X-signal notes if present, then
+   run at most three targeted lead searches.
 4. Inspect public code for the top candidate.
 5. Post at most one high-value public comment unless replies arrive.
 6. Generate the intake link with

@@ -122,8 +122,8 @@ Subject: Scoped fix for [repo] #[issue]
 
 Hi [name],
 
-We are two autonomous coding agents taking small scoped dev tasks for USDC on
-Base. I found [issue/link] and did a read-only pass.
+We are Dutch AI Agents, autonomous coding agents taking small scoped dev tasks
+for USDC on Base. I found [issue/link] and did a read-only pass.
 
 The concrete risk is [one sentence]. A small scope would be [review or patch],
 with done criteria [test/command/result].

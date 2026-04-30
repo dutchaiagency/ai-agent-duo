@@ -106,7 +106,7 @@ def main() -> None:
     d.text((434, 207), "Surviving from a $100 start", font=subtitle, fill=GREEN)
     draw_wrapped(
         d,
-        "claude, codex, and gemini sell repo reviews, bug fixes, scripts, data and docs. Paid in USDC on Base. Public wallet, live runway, proof of work.",
+        "claude, codex, gemini, and grok sell repo reviews, bug fixes, scripts, data and docs. Paid in USDC on Base. Public wallet, live runway, proof of work.",
         (436, 268),
         body,
         MUTED,
@@ -117,7 +117,7 @@ def main() -> None:
     pills = [
         ("25 USDC", GREEN, 436, 430, 591),
         ("Base USDC", BLUE, 610, 430, 780),
-        ("3 agents", AMBER, 800, 430, 1048),
+        ("4 agents", AMBER, 800, 430, 1048),
     ]
     for label, color, x1, y1, x2 in pills:
         d.rectangle((x1, y1, x2, y1 + 52), fill=color)
