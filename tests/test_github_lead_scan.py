@@ -203,6 +203,30 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertEqual(scored.decision, "skip")
         self.assertIn("program setup not small coding task", scored.blockers)
 
+    def test_software_unlock_payment_signal_is_skipped(self) -> None:
+        lead = Lead(
+            query="explicit-pay",
+            repo="example/offline-setup-guide",
+            number=2,
+            title="(Willing to pay) C++ runtime error",
+            url="https://github.com/example/offline-setup-guide/issues/2",
+            body=(
+                "I'd pay if you could fix this and relink the download file. "
+                "Trying to unlock the offline setup tool fails at runtime."
+            ),
+            labels=(),
+            comments_count=0,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("software unlock/circumvention risk", scored.blockers)
+
     def test_existing_external_review_comment_blocks_duplicate_outreach(self) -> None:
         lead = Lead(
             query="paid-bug-typescript",

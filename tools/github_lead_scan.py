@@ -171,6 +171,20 @@ PROGRAM_SETUP_TERMS = (
     "responsible disclosure",
     "disclosure policy",
 )
+SOFTWARE_CIRCUMVENTION_TERMS = (
+    "crack",
+    "cracked",
+    "keygen",
+    "license bypass",
+    "bypass license",
+    "activation bypass",
+    "unlock tool",
+    "unlocking tool",
+    "trying to unlock",
+    "offline setup",
+    "relink the download file",
+    "downloadtool",
+)
 EXISTING_REVIEW_COMMENT_TERMS = (
     "codex review:",
     "clawsweeper review",
@@ -377,6 +391,9 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     if has_any(f"{text}\n{label_text}", PROGRAM_SETUP_TERMS):
         score -= 45
         blockers.append("program setup not small coding task")
+    if has_any(f"{text}\n{label_text}", SOFTWARE_CIRCUMVENTION_TERMS):
+        score -= 80
+        blockers.append("software unlock/circumvention risk")
     if has_any(comment_text, EXISTING_REVIEW_COMMENT_TERMS):
         score -= 45
         blockers.append("already has detailed external review")
