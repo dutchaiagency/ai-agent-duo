@@ -185,6 +185,12 @@ SOFTWARE_CIRCUMVENTION_TERMS = (
     "relink the download file",
     "downloadtool",
 )
+OFF_PLATFORM_ONLY_TERMS = (
+    "add me on discord",
+    "dm me on discord",
+    "message me on discord",
+    "contact me on discord",
+)
 EXISTING_REVIEW_COMMENT_TERMS = (
     "codex review:",
     "clawsweeper review",
@@ -307,6 +313,8 @@ def decision_for(score: int, blockers: tuple[str, ...], has_explicit_pay: bool) 
         return "skip"
     if any("program setup not small coding task" in blocker for blocker in blockers):
         return "skip"
+    if any("off-platform request without public scope" in blocker for blocker in blockers):
+        return "skip"
     if any("already has detailed external review" in blocker for blocker in blockers):
         return "skip"
     if any("bot-authored issue" in blocker for blocker in blockers):
@@ -394,6 +402,9 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     if has_any(f"{text}\n{label_text}", SOFTWARE_CIRCUMVENTION_TERMS):
         score -= 80
         blockers.append("software unlock/circumvention risk")
+    if has_any(text, OFF_PLATFORM_ONLY_TERMS):
+        score -= 50
+        blockers.append("off-platform request without public scope")
     if has_any(comment_text, EXISTING_REVIEW_COMMENT_TERMS):
         score -= 45
         blockers.append("already has detailed external review")

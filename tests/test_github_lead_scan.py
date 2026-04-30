@@ -227,6 +227,27 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertEqual(scored.decision, "skip")
         self.assertIn("software unlock/circumvention risk", scored.blockers)
 
+    def test_discord_only_payment_signal_is_skipped(self) -> None:
+        lead = Lead(
+            query="explicit-pay",
+            repo="example/no-public-scope",
+            number=3,
+            title="Willing to pay you",
+            url="https://github.com/example/no-public-scope/issues/3",
+            body="add me on discord man",
+            labels=(),
+            comments_count=0,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("off-platform request without public scope", scored.blockers)
+
     def test_existing_external_review_comment_blocks_duplicate_outreach(self) -> None:
         lead = Lead(
             query="paid-bug-typescript",
