@@ -154,6 +154,31 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertNotIn("explicit payment/bounty signal", scored.reasons)
         self.assertLess(scored.score, 50)
 
+    def test_stale_no_payment_issue_is_downgraded_to_watch(self) -> None:
+        lead = Lead(
+            query="paid-bug-typescript",
+            repo="example/provider-routing",
+            number=3569,
+            title="Model appears to route through another billing provider",
+            url="https://github.com/example/provider-routing/issues/3569",
+            body=(
+                "Expected behavior: configured provider is preserved.\n"
+                "Relevant files: src/tools/delegate-task/model-selection.ts.\n"
+                "Actual behavior: billing label differs from the configured model."
+            ),
+            labels=(),
+            comments_count=0,
+            created_at="2026-04-22T04:23:11Z",
+            updated_at="2026-04-22T04:23:11Z",
+            assignees=(),
+            state="open",
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "watch")
+        self.assertIn("stale without payment signal", scored.blockers)
+
     def test_market_validation_issue_is_not_coding_lead(self) -> None:
         lead = Lead(
             query="explicit-pay",

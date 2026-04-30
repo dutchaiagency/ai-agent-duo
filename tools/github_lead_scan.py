@@ -372,6 +372,13 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     elif updated_days is not None and updated_days <= 3:
         score += 5
         reasons.append("recent activity")
+    elif (
+        not has_explicit_pay
+        and updated_days is not None
+        and updated_days > 7
+    ):
+        score -= 20
+        blockers.append("stale without payment signal")
 
     if lead.assignees:
         score -= 30
