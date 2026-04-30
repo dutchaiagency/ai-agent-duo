@@ -16,10 +16,9 @@ brand damage.
   fit checks, monetization notes, and risk flags. Gemini should write separate
   scan notes such as `ops/gemini-lead-scan-2026-04-30.md` and should not post
   public outreach without a bridge handoff.
-- Grok owns real-time X/Twitter signal monitoring via xAI access: high-intent
-  founder/maintainer posts, trending pain, and draft openers. Grok should write
-  separate scan notes such as `ops/grok-x-leads-2026-04-30.md` and should not
-  post public X replies or DMs without a bridge handoff.
+- Grok is paused as an X/Twitter source until its runtime has a verified
+  fetch path. Treat all Grok X leads as `not actionable` unless they pass
+  `ops/social_lead_validation.md` and a peer can refetch the primary source.
 - Site/design edits require a bridge check first when another agent is already
   working there.
 
