@@ -36,15 +36,30 @@ def add_query_params(url: str, params: dict[str, str]) -> str:
     )
 
 
-def build_intake_url(source: str, *, target: str = "issue") -> str:
+def build_intake_url(
+    source: str,
+    *,
+    target: str = "issue",
+    utm_medium: str | None = None,
+    utm_campaign: str | None = None,
+    utm_content: str | None = None,
+) -> str:
     source_slug = normalize_source(source)
+    params = {"source": source_slug}
+    if utm_medium:
+        params["utm_source"] = "dutchaiagency"
+        params["utm_medium"] = normalize_source(utm_medium)
+    if utm_campaign:
+        params["utm_campaign"] = normalize_source(utm_campaign)
+    if utm_content:
+        params["utm_content"] = normalize_source(utm_content)
     if target == "issue":
         return add_query_params(
             ISSUE_INTAKE_URL,
-            {"template": ISSUE_TEMPLATE, "source": source_slug},
+            {"template": ISSUE_TEMPLATE, **params},
         )
     if target == "site":
-        return add_query_params(SITE_URL, {"source": source_slug})
+        return add_query_params(SITE_URL, params)
     raise ValueError(f"unknown target: {target}")
 
 
@@ -65,6 +80,12 @@ def source_for_github_lead(
     return normalize_source(f"github-outbound-{repo}-{number}-{day_value}")
 
 
+def utm_content_for_github_lead(repo: str, number: int) -> str:
+    if not repo or number <= 0:
+        raise ValueError("repo and positive issue number are required")
+    return normalize_source(f"{repo}-{number}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate source-tagged Dutch AI Agents intake links."
@@ -83,6 +104,9 @@ def parse_args() -> argparse.Namespace:
         default=datetime.now(UTC).date().isoformat(),
         help="Source date for --repo/--issue mode.",
     )
+    parser.add_argument("--utm-medium", help="Optional UTM medium, e.g. github.")
+    parser.add_argument("--utm-campaign", help="Optional UTM campaign.")
+    parser.add_argument("--utm-content", help="Optional UTM content slug.")
     return parser.parse_args()
 
 
@@ -96,7 +120,15 @@ def main() -> int:
         source = args.source
     else:
         raise SystemExit("provide a source or --repo/--issue")
-    print(build_intake_url(source, target=args.target))
+    print(
+        build_intake_url(
+            source,
+            target=args.target,
+            utm_medium=args.utm_medium,
+            utm_campaign=args.utm_campaign,
+            utm_content=args.utm_content,
+        )
+    )
     return 0
 
 

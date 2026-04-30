@@ -273,6 +273,33 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertEqual(scored.decision, "skip")
         self.assertIn("off-platform request without public scope", scored.blockers)
 
+    def test_vague_intermittent_ui_perf_bug_is_not_deep_read(self) -> None:
+        lead = Lead(
+            query="fresh-help-wanted",
+            repo="example/landing-page",
+            number=371,
+            title="[BUG]",
+            url="https://github.com/example/landing-page/issues/371",
+            body=(
+                "Steps to reproduce: open the website and scroll to pricing.\n"
+                "Expected behavior: scrolling should remain smooth.\n"
+                "Actual behavior: occasionally scrolling becomes slightly "
+                "laggy / stuttery. Rare / intermittent and not consistently "
+                "reproducible."
+            ),
+            labels=("bug",),
+            comments_count=0,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("vague intermittent ui performance report", scored.blockers)
+
     def test_existing_external_review_comment_blocks_duplicate_outreach(self) -> None:
         lead = Lead(
             query="paid-bug-typescript",
@@ -339,6 +366,7 @@ class GitHubLeadScanTests(unittest.TestCase):
                 "updatedAt": "2026-04-30T12:00:00Z",
                 "assignees": [],
                 "state": "OPEN",
+                "authorAssociation": "NONE",
                 "author": {
                     "login": "github-actions[bot]",
                     "type": "Bot",
@@ -348,7 +376,66 @@ class GitHubLeadScanTests(unittest.TestCase):
         )
 
         self.assertTrue(lead.author_is_bot)
+        self.assertEqual(lead.author_association, "NONE")
         self.assertEqual(score_lead(lead, now=NOW).decision, "skip")
+
+    def test_non_maintainer_report_without_payment_is_downgraded(self) -> None:
+        lead = Lead(
+            query="paid-bug-typescript",
+            repo="example/landing",
+            number=371,
+            title="[BUG]",
+            url="https://github.com/example/landing/issues/371",
+            body=(
+                "Steps to reproduce: scroll down to the Pricing / Plan "
+                "(Free vs Paid) section. Expected behavior: scrolling "
+                "should remain smooth consistently."
+            ),
+            labels=("bug",),
+            comments_count=0,
+            created_at="2026-04-30T19:00:00Z",
+            updated_at="2026-04-30T19:00:00Z",
+            assignees=(),
+            state="open",
+            author_association="NONE",
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "watch")
+        self.assertIn(
+            "non-maintainer reporter without payment signal",
+            scored.blockers,
+        )
+
+    def test_maintainer_report_without_payment_keeps_deep_read(self) -> None:
+        lead = Lead(
+            query="paid-bug-typescript",
+            repo="example/landing",
+            number=372,
+            title="[BUG]",
+            url="https://github.com/example/landing/issues/372",
+            body=(
+                "Steps to reproduce: scroll down to the Pricing / Plan "
+                "(Free vs Paid) section. Expected behavior: scrolling "
+                "should remain smooth consistently."
+            ),
+            labels=("bug",),
+            comments_count=0,
+            created_at="2026-04-30T19:00:00Z",
+            updated_at="2026-04-30T19:00:00Z",
+            assignees=(),
+            state="open",
+            author_association="OWNER",
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "deep_read")
+        self.assertNotIn(
+            "non-maintainer reporter without payment signal",
+            scored.blockers,
+        )
 
     def test_comment_enrichment_fetches_only_candidates_with_comments(self) -> None:
         with_comments = Lead(
@@ -444,6 +531,10 @@ class GitHubLeadScanTests(unittest.TestCase):
             "source=github-outbound-example-app-1-2026-04-30",
             markdown,
         )
+        self.assertIn("utm_source=dutchaiagency", markdown)
+        self.assertIn("utm_medium=github", markdown)
+        self.assertIn("utm_campaign=outbound-2026-04-30", markdown)
+        self.assertIn("utm_content=example-app-1", markdown)
 
     def test_active_pipeline_targets_are_filtered_by_default(self) -> None:
         active_lead = Lead(

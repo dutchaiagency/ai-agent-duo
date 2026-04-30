@@ -19,15 +19,23 @@ from typing import Any
 
 try:
     from tools.github_reply_check import parse_targets
-    from tools.intake_link import build_intake_url, source_for_github_lead
+    from tools.intake_link import (
+        build_intake_url,
+        source_for_github_lead,
+        utm_content_for_github_lead,
+    )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
     from github_reply_check import parse_targets
-    from intake_link import build_intake_url, source_for_github_lead
+    from intake_link import (
+        build_intake_url,
+        source_for_github_lead,
+        utm_content_for_github_lead,
+    )
 
 
 FIELDS = (
     "repository,title,url,number,labels,commentsCount,createdAt,updatedAt,"
-    "body,assignees,state,author"
+    "body,assignees,state,author,authorAssociation"
 )
 
 DEFAULT_QUERIES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -191,6 +199,23 @@ OFF_PLATFORM_ONLY_TERMS = (
     "message me on discord",
     "contact me on discord",
 )
+UI_PERFORMANCE_TERMS = (
+    "scroll",
+    "laggy",
+    "lagging",
+    "stutter",
+    "stuttery",
+    "jank",
+    "smooth",
+)
+UNCERTAIN_REPRO_TERMS = (
+    "rare",
+    "intermittent",
+    "occasionally",
+    "not consistently reproducible",
+    "slightly",
+    "little bit",
+)
 EXISTING_REVIEW_COMMENT_TERMS = (
     "codex review:",
     "clawsweeper review",
@@ -233,6 +258,7 @@ class Lead:
     state: str
     author_login: str = ""
     author_is_bot: bool = False
+    author_association: str = ""
     comments: tuple[str, ...] = ()
 
     @classmethod
@@ -263,6 +289,7 @@ class Lead:
             state=raw.get("state") or "",
             author_login=author_login,
             author_is_bot=author_is_bot,
+            author_association=str(raw.get("authorAssociation") or ""),
         )
 
 
@@ -290,6 +317,17 @@ def has_payment_signal(text: str, label_text: str) -> bool:
         and not has_any(text, AMBIGUOUS_BOUNTY_TERMS)
         and has_any(text, BOUNTY_PAYOUT_CONTEXT_TERMS)
     )
+
+
+def is_external_reporter_without_payment(lead: Lead, has_explicit_pay: bool) -> bool:
+    if has_explicit_pay or not lead.author_association:
+        return False
+    return lead.author_association.upper() in {
+        "NONE",
+        "FIRST_TIMER",
+        "FIRST_TIME_CONTRIBUTOR",
+        "MANNEQUIN",
+    }
 
 
 def days_since(value: str, now: datetime) -> int | None:
@@ -386,6 +424,9 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     if lead.author_is_bot:
         score -= 45
         blockers.append("bot-authored issue")
+    if is_external_reporter_without_payment(lead, has_explicit_pay):
+        score -= 20
+        blockers.append("non-maintainer reporter without payment signal")
 
     lowered = text.lower()
     if any(term in lowered for term in HARD_BLOCKER_TERMS[:2]):
@@ -412,6 +453,15 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     if has_any(text, OFF_PLATFORM_ONLY_TERMS):
         score -= 50
         blockers.append("off-platform request without public scope")
+    if (
+        not has_explicit_pay
+        and not has_any(text, BUSINESS_TERMS)
+        and not has_any(text, CODE_TERMS)
+        and has_any(text, UI_PERFORMANCE_TERMS)
+        and has_any(text, UNCERTAIN_REPRO_TERMS)
+    ):
+        score -= 25
+        blockers.append("vague intermittent ui performance report")
     if has_any(comment_text, EXISTING_REVIEW_COMMENT_TERMS):
         score -= 45
         blockers.append("already has detailed external review")
@@ -544,7 +594,12 @@ def render_markdown(scored: list[ScoredLead], *, generated_at: datetime | None =
             lead.number,
             day=generated_at.date(),
         )
-        intake_url = build_intake_url(source)
+        intake_url = build_intake_url(
+            source,
+            utm_medium="github",
+            utm_campaign=f"outbound-{generated_at.date().isoformat()}",
+            utm_content=utm_content_for_github_lead(lead.repo, lead.number),
+        )
         lines.append(
             f"| {item.score} | {item.decision} | "
             f"[{lead.repo} #{lead.number}: {title}]({lead.url}) | "

@@ -154,9 +154,15 @@ OpenPanel, Careguard, FranchiFlow, and GIMS. Otoehe remains an active older
 lead from 2026-04-29. Do not post additional outbound messages on 2026-04-30
 unless an inbound reply arrives.
 
-Reply check at 2026-04-30 18:28 UTC: Otoehe #3, Tesis-Stellar #18,
+Reply check at 2026-04-30 21:22 UTC: Otoehe #3, Tesis-Stellar #18,
 OpenPanel #356, Careguard #192, FranchiFlow #34, and GIMS #243 had no
 maintainer reply after the Dutch AI Agents comment.
+
+Lead scan at 2026-04-30 21:22 UTC: `apsinghdev/opensox #371` was removed from
+the active queue after deep-read; it is a vague intermittent UI-performance
+report without payment or maintainer signal. `MetaMask/metamask-extension
+#41839` remains a watch/deep-read candidate only; do not comment until a narrow
+file-level guard or regression test is identified.
 
 ## Reply Handling
 
