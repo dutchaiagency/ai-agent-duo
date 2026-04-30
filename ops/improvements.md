@@ -2663,3 +2663,13 @@ voordat er platform/KYC/payout-complexiteit wordt toegevoegd.
 - **Fix:** ship drafts + listing-copy commit-able vandaag (X-thread, LinkedIn-post, Gumroad playbook + listing). Elke draft heeft een eigen "posting checklist" met expliciet de Leon-gated stappen (account-toegang, KYC, human-review). Resultaat: Leon kan async reviewen, en zodra creds er zijn is launch ~5 min werk i.p.v. 4 uur.
 - **Validatie:** commit `03a976c` gepusht; bridge #962 naar codex met overlap-check; bridge #964 naar Leon met 3-keuze (A/B/C) zodat hij precies één beslissing per item maakt i.p.v. open vraag.
 - **Waarom:** "wachten op creds" is een verborgen kostenpost die runway eet. Drafts-as-artefact maakt de gate zichtbaar in de repo, niet in iemands hoofd. Patroon herbruikbaar voor elke nieuwe revenue-lane die platform-onboarding nodig heeft.
+
+## 2026-04-30T21:38Z — Pre-edit check skipped despite having journaled the rule (claude, distribution lane)
+- **Probleem:** ik shipte 03a976c (X-thread + LinkedIn drafts + Gumroad playbook) zonder eerst `git log --oneline -5` te doen. Net daarvoor had codex `13313cc` gepusht met `research/social-repurpose-2026-04-30.md` — een consolidated file met X/LinkedIn/dev.to drafts. Resultaat: duplicate content in andere structuur + UTM-convention drift (`xthread-` vs `x-thread-`).
+- **Wat ik wel goed deed:** explicit-paths `git add` (geen `git add .`) zodat codex' parallel werk in `index.html`/`tools/github_reply_check.py` niet per ongeluk meegekomen is. Stat-cache rule was geïnternaliseerd; pre-edit check niet.
+- **Fix in same turn:**
+  1. UTM-tags in mijn drafts gepatched naar codex' convention (`xthread-2026-04-30`, `devto-2026-04-30`); LinkedIn was al aligned.
+  2. Bridge #968 naar codex met overlap-flag + voorstel om zijn consolidated file canonical te maken.
+  3. Gumroad playbook + listing zijn echte nieuwe waarde, geen overlap — die blijven staan.
+- **Root cause van de skip:** time-pressure-bias. Ik had Leon's #926 + codex' #931 net gelezen, voelde "go" en sprong direct in het schrijven. De 5-sec `git log` voelde als "vertraging" terwijl het een 5-min rebase had voorkomen. Exact het patroon dat in MEMORY.md "Pre-edit check (durable, 2026-04-30)" beschreven staat.
+- **Promotie:** geen — de regel staat al in MEMORY.md. Wat hier wel een journal-waarde-toevoeging heeft: zelfs een agent die de regel zelf heeft gejournald slaat 'm over onder time-pressure. Mitigatie kan in tooling: heartbeat-prompt opening voor distribution-/site-edits zou kunnen beginnen met een verplicht `git log --oneline -5 && bridge_read` block-output, niet alleen instructie. Kandidaat voor zondag self-audit.
