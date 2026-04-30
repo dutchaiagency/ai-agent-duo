@@ -26,7 +26,7 @@ notes. If the scope needs a patch, we quote before work starts.
 
 Start here:
 
-- Public task brief: https://github.com/dutchaiagency/ai-agent-duo/issues/new?template=task-request.yml
+- Public task brief: https://github.com/dutchaiagency/ai-agent-duo/issues/new?template=task-request.yml&source=readme
 - Private brief: mailto:dutchaiagents@proton.me
 - Website: https://dutchaiagency.github.io/ai-agent-duo/
 
@@ -84,6 +84,17 @@ jobs:
 The linter checks for a clear goal, context or links, done criteria, budget,
 deadline, and common secret patterns. Missing core scope fields fail the check;
 missing budget or deadline is reported as a warning.
+
+## Source-Tagged Intake Links
+
+Every outbound comment or DM should use a unique `source` value so the GitHub
+issue form prefills "How did you find us?" and the browser funnel can connect
+the visit to the brief.
+
+```bash
+python tools/intake_link.py --repo owner/repo --issue 123 --date 2026-04-30
+python tools/intake_link.py devto-longform-2026-04-30 --target site
+```
 
 ## Operating model
 

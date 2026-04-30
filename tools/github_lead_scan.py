@@ -1,0 +1,436 @@
+#!/usr/bin/env python3
+"""Score public GitHub issues for direct outbound and bounty follow-up.
+
+The scanner is intentionally read-only. It never comments, claims, forks, or
+messages anyone. The output is a short decision list for the next agent to
+review before doing a manual code read and, only then, targeted outreach.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+try:
+    from tools.intake_link import build_intake_url, source_for_github_lead
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from intake_link import build_intake_url, source_for_github_lead
+
+
+FIELDS = (
+    "repository,title,url,number,labels,commentsCount,createdAt,updatedAt,"
+    "body,assignees,state"
+)
+
+DEFAULT_QUERIES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "paid-bug-typescript",
+        (
+            "paid",
+            "bug",
+            "--state",
+            "open",
+            "--created",
+            ">2026-04-01",
+            "--language",
+            "TypeScript",
+            "--comments",
+            "<10",
+        ),
+    ),
+    (
+        "explicit-pay",
+        (
+            "willing to pay",
+            "--state",
+            "open",
+            "--created",
+            ">2026-01-01",
+        ),
+    ),
+    (
+        "fresh-help-wanted",
+        (
+            "help wanted",
+            "bug",
+            "--state",
+            "open",
+            "--created",
+            ">2026-04-29",
+            "--comments",
+            "<5",
+        ),
+    ),
+    (
+        "fresh-bounty-typescript",
+        (
+            "bounty",
+            "--state",
+            "open",
+            "--created",
+            ">2026-04-01",
+            "--language",
+            "TypeScript",
+            "--comments",
+            "<10",
+        ),
+    ),
+)
+
+PAY_TERMS = (
+    "pay even",
+    "willing to pay",
+    "budget",
+    "bounty",
+    "reward",
+)
+BUSINESS_TERMS = (
+    "checkout",
+    "billing",
+    "subscription",
+    "invoice",
+    "payment",
+    "order",
+    "inventory",
+    "revenue",
+    "customer",
+)
+SCOPE_TERMS = (
+    "acceptance criteria",
+    "expected behavior",
+    "steps to reproduce",
+    "done criteria",
+    "requirements",
+    "scope",
+)
+CODE_TERMS = (
+    "relevant files",
+    "files affected",
+    "file:",
+    ".ts",
+    ".tsx",
+    ".py",
+    ".js",
+    ".jsx",
+    "backend/",
+    "src/",
+)
+GOOD_LABEL_TERMS = (
+    "bug",
+    "help wanted",
+    "bounty",
+    "critical",
+    "priority: high",
+    "priority: critical",
+    "good first issue",
+)
+HARD_BLOCKER_TERMS = (
+    "unsolicited \"i can implement this\" replies will be treated as spam",
+    "unsolicited replies will be treated as spam",
+    "reserved for",
+    "requires 4+ merged",
+    "assigned to",
+    "application was accepted",
+    "your application was accepted",
+    "due on april",
+)
+LOW_VALUE_TERMS = (
+    "$fndry",
+    "fndry",
+    "points",
+    "wave program",
+    "eligible for a share",
+    "token",
+)
+AMBIGUOUS_BOUNTY_TERMS = (
+    "bounty-hunt",
+    "bounty hunt",
+    "bounty hunter",
+)
+BOUNTY_PAYOUT_CONTEXT_TERMS = (
+    "$",
+    " usd",
+    " usdc",
+    "payout",
+    "paid",
+    "reward",
+    "compensation",
+    "algora",
+    "opire",
+)
+PAY_TERMS_EXCEPT_BOUNTY = tuple(term for term in PAY_TERMS if term != "bounty")
+
+
+@dataclass(frozen=True)
+class Lead:
+    query: str
+    repo: str
+    number: int
+    title: str
+    url: str
+    body: str
+    labels: tuple[str, ...]
+    comments_count: int
+    created_at: str
+    updated_at: str
+    assignees: tuple[str, ...]
+    state: str
+
+    @classmethod
+    def from_gh(cls, query: str, raw: dict[str, Any]) -> "Lead":
+        repo = raw.get("repository") or {}
+        labels = tuple(label.get("name", "") for label in raw.get("labels", []))
+        assignees = tuple(user.get("login", "") for user in raw.get("assignees", []))
+        return cls(
+            query=query,
+            repo=repo.get("nameWithOwner", ""),
+            number=int(raw.get("number") or 0),
+            title=raw.get("title") or "",
+            url=raw.get("url") or "",
+            body=raw.get("body") or "",
+            labels=labels,
+            comments_count=int(raw.get("commentsCount") or 0),
+            created_at=raw.get("createdAt") or "",
+            updated_at=raw.get("updatedAt") or "",
+            assignees=assignees,
+            state=raw.get("state") or "",
+        )
+
+
+@dataclass(frozen=True)
+class ScoredLead:
+    lead: Lead
+    score: int
+    decision: str
+    reasons: tuple[str, ...]
+    blockers: tuple[str, ...]
+
+
+def has_any(text: str, terms: tuple[str, ...]) -> bool:
+    normalized = text.lower()
+    return any(term in normalized for term in terms)
+
+
+def has_payment_signal(text: str, label_text: str) -> bool:
+    if has_any(label_text, ("bounty",)):
+        return True
+    if has_any(text, PAY_TERMS_EXCEPT_BOUNTY):
+        return True
+    return (
+        "bounty" in text.lower()
+        and not has_any(text, AMBIGUOUS_BOUNTY_TERMS)
+        and has_any(text, BOUNTY_PAYOUT_CONTEXT_TERMS)
+    )
+
+
+def days_since(value: str, now: datetime) -> int | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return max(0, (now - parsed.astimezone(UTC)).days)
+
+
+def decision_for(score: int, blockers: tuple[str, ...], has_explicit_pay: bool) -> str:
+    if any("anti-solicitation" in blocker for blocker in blockers):
+        return "skip"
+    if any("assigned" in blocker for blocker in blockers):
+        return "skip"
+    if score >= 70 and has_explicit_pay:
+        return "contact_or_patch"
+    if score >= 50:
+        return "deep_read"
+    if score >= 35:
+        return "watch"
+    return "skip"
+
+
+def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
+    now = now or datetime.now(UTC)
+    text = f"{lead.title}\n{lead.body}"
+    label_text = " ".join(lead.labels)
+    score = 0
+    reasons: list[str] = []
+    blockers: list[str] = []
+
+    has_explicit_pay = has_payment_signal(text, label_text)
+    if has_explicit_pay:
+        score += 25
+        reasons.append("explicit payment/bounty signal")
+    if has_any(text, BUSINESS_TERMS):
+        score += 10
+        reasons.append("commercial surface")
+    if has_any(text, SCOPE_TERMS):
+        score += 20
+        reasons.append("clear scope or acceptance criteria")
+    if has_any(text, CODE_TERMS):
+        score += 15
+        reasons.append("specific code surface")
+    if has_any(label_text, GOOD_LABEL_TERMS):
+        score += 15
+        reasons.append("useful labels")
+
+    if lead.comments_count <= 2:
+        score += 10
+        reasons.append("low comment competition")
+    elif lead.comments_count <= 5:
+        score += 5
+        reasons.append("moderate comment competition")
+    elif lead.comments_count > 8:
+        score -= 20
+        blockers.append("crowded thread")
+
+    created_days = days_since(lead.created_at, now)
+    updated_days = days_since(lead.updated_at, now)
+    if created_days is not None and created_days <= 3:
+        score += 10
+        reasons.append("fresh issue")
+    elif updated_days is not None and updated_days <= 3:
+        score += 5
+        reasons.append("recent activity")
+
+    if lead.assignees:
+        score -= 30
+        blockers.append("already assigned")
+
+    lowered = text.lower()
+    if any(term in lowered for term in HARD_BLOCKER_TERMS[:2]):
+        score -= 80
+        blockers.append("explicit anti-solicitation")
+    if any(term in lowered for term in HARD_BLOCKER_TERMS[2:]):
+        score -= 40
+        blockers.append("assigned/gated bounty")
+    if has_any(text, AMBIGUOUS_BOUNTY_TERMS) and not has_explicit_pay:
+        score -= 20
+        blockers.append("ambiguous bounty wording")
+    if has_any(text, LOW_VALUE_TERMS):
+        score -= 20
+        blockers.append("token/points payout risk")
+
+    final_score = max(0, min(100, score))
+    blocker_tuple = tuple(dict.fromkeys(blockers))
+    return ScoredLead(
+        lead=lead,
+        score=final_score,
+        decision=decision_for(final_score, blocker_tuple, has_explicit_pay),
+        reasons=tuple(dict.fromkeys(reasons)),
+        blockers=blocker_tuple,
+    )
+
+
+def run_query(name: str, args: tuple[str, ...], limit: int) -> list[Lead]:
+    cmd = [
+        "gh",
+        "search",
+        "issues",
+        *args,
+        "--limit",
+        str(limit),
+        "--json",
+        FIELDS,
+    ]
+    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    rows = json.loads(proc.stdout or "[]")
+    return [Lead.from_gh(name, row) for row in rows]
+
+
+def collect_leads(limit_per_query: int) -> list[Lead]:
+    by_url: dict[str, Lead] = {}
+    for name, args in DEFAULT_QUERIES:
+        for lead in run_query(name, args, limit_per_query):
+            by_url.setdefault(lead.url, lead)
+    return list(by_url.values())
+
+
+def render_markdown(scored: list[ScoredLead], *, generated_at: datetime | None = None) -> str:
+    generated_at = generated_at or datetime.now(UTC)
+    lines = [
+        f"# GitHub Lead Scan - {generated_at.strftime('%Y-%m-%d %H:%M UTC')}",
+        "",
+        "Read-only scan. Do not post from this file alone; deep-read the repo first.",
+        "",
+        "| Score | Decision | Lead | Source | Intake | Reasons | Blockers |",
+        "| ---: | --- | --- | --- | --- | --- | --- |",
+    ]
+    for item in scored:
+        lead = item.lead
+        reasons = ", ".join(item.reasons) if item.reasons else "-"
+        blockers = ", ".join(item.blockers) if item.blockers else "-"
+        title = ascii_safe(lead.title).replace("|", "\\|")
+        source = source_for_github_lead(
+            lead.repo,
+            lead.number,
+            day=generated_at.date(),
+        )
+        intake_url = build_intake_url(source)
+        lines.append(
+            f"| {item.score} | {item.decision} | "
+            f"[{lead.repo} #{lead.number}: {title}]({lead.url}) | "
+            f"`{source}` | [brief]({intake_url}) | "
+            f"{reasons} | {blockers} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def ascii_safe(value: str) -> str:
+    return value.encode("ascii", "backslashreplace").decode("ascii")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Score GitHub issues for outbound leads.")
+    parser.add_argument("--limit-per-query", type=int, default=20)
+    parser.add_argument("--min-score", type=int, default=35)
+    parser.add_argument("--write", type=Path, help="Write markdown report to this path.")
+    parser.add_argument("--json", action="store_true", help="Print scored leads as JSON.")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    try:
+        leads = collect_leads(args.limit_per_query)
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+        print(f"github-lead-scan: {exc}", file=sys.stderr)
+        return 2
+
+    scored = [score_lead(lead) for lead in leads]
+    scored.sort(key=lambda item: (-item.score, item.lead.updated_at, item.lead.url))
+    filtered = [item for item in scored if item.score >= args.min_score or item.decision != "skip"]
+
+    if args.json:
+        payload = [
+            {
+                "score": item.score,
+                "decision": item.decision,
+                "repo": item.lead.repo,
+                "number": item.lead.number,
+                "title": item.lead.title,
+                "url": item.lead.url,
+                "reasons": list(item.reasons),
+                "blockers": list(item.blockers),
+                "query": item.lead.query,
+            }
+            for item in filtered
+        ]
+        output = json.dumps(payload, indent=2)
+    else:
+        output = render_markdown(filtered)
+
+    if args.write:
+        args.write.parent.mkdir(parents=True, exist_ok=True)
+        args.write.write_text(output, encoding="utf-8")
+    else:
+        print(output, end="")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
