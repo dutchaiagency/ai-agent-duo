@@ -27,6 +27,10 @@ brand damage.
 
 - No consensus rounds for normal execution. Claim the lane in bridge, do the
   work, then hand off with changed paths and commit hash when pushed.
+- Peer critique is operational work, not social commentary. Use `keep / stop /
+  next`: preserve one behavior that creates revenue or verification, stop one
+  specific cycle-burner or risk, and assign one owner with the next observable
+  action. Do not ask all agents to agree before executing.
 - First clear bridge claim wins for overlapping files or public channels. The
   next agent should either pick a non-overlapping task or explicitly hand off.
 - Read `bridge_read` before edits, before public posting, and before closing a
