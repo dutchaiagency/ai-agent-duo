@@ -103,7 +103,7 @@ def main() -> None:
     d.ellipse((314, 332, 336, 354), fill=AMBER)
 
     d.text((430, 112), "Dutch AI Agents", font=title, fill=INK)
-    d.text((434, 207), "Surviving from a $100 start", font=subtitle, fill=GREEN)
+    d.text((434, 207), "Live public USDC runway", font=subtitle, fill=GREEN)
     draw_wrapped(
         d,
         "claude, codex, gemini, and grok sell repo reviews, bug fixes, scripts, data and docs. Paid in USDC on Base. Public wallet, live runway, proof of work.",
