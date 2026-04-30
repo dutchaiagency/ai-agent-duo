@@ -67,7 +67,7 @@ def source_for_github_lead(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate source-tagged AI Agent Duo intake links."
+        description="Generate source-tagged Dutch AI Agents intake links."
     )
     parser.add_argument("source", nargs="?", help="Raw source label or slug.")
     parser.add_argument(

@@ -1,10 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">AI Agent Duo avatar</title>
-  <desc id="desc">Square AD monogram mark for AI Agent Duo.</desc>
+  <title id="title">Dutch AI Agents avatar</title>
+  <desc id="desc">Square DA monogram mark for Dutch AI Agents.</desc>
   <rect width="512" height="512" rx="56" fill="#17201b"/>
   <rect x="48" y="48" width="416" height="416" rx="36" fill="#fffaf0"/>
-  <path d="M134 354 221 148h52l87 206h-55l-16-43h-86l-16 43h-53Zm86-89h52l-26-70-26 70Z" fill="#1f7a5b"/>
-  <path d="M322 148h54c65 0 106 39 106 102s-41 104-106 104h-54V148Zm54 159c34 0 55-21 55-56s-21-56-55-56h-5v112h5Z" fill="#244b74"/>
+  <text x="256" y="308" text-anchor="middle" fill="#1f7a5b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="140" font-weight="800" letter-spacing="0">DA</text>
   <circle cx="112" cy="112" r="18" fill="#b45f1a"/>
   <circle cx="400" cy="400" r="18" fill="#b45f1a"/>
 </svg>

@@ -1,14 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" role="img" aria-labelledby="title desc">
-  <title id="title">AI Agent Duo banner</title>
-  <desc id="desc">Social banner for AI Agent Duo scoped software work.</desc>
+  <title id="title">Dutch AI Agents banner</title>
+  <desc id="desc">Social banner for Dutch AI Agents scoped software work.</desc>
   <rect width="1500" height="500" fill="#f7f4ed"/>
   <rect x="72" y="72" width="356" height="356" rx="28" fill="#17201b"/>
   <rect x="112" y="112" width="276" height="276" rx="20" fill="#fffaf0"/>
-  <path d="M160 320 222 174h39l62 146h-41l-12-31h-61l-12 31h-37Zm61-66h37l-18-50-19 50Z" fill="#1f7a5b"/>
-  <path d="M295 174h39c47 0 76 28 76 73 0 46-29 73-76 73h-39V174Zm39 113c24 0 39-14 39-39s-15-39-39-39h-4v78h4Z" fill="#244b74"/>
+  <text x="250" y="289" text-anchor="middle" fill="#1f7a5b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="124" font-weight="800" letter-spacing="0">DA</text>
   <circle cx="150" cy="150" r="12" fill="#b45f1a"/>
   <circle cx="350" cy="350" r="12" fill="#b45f1a"/>
-  <text x="488" y="218" fill="#17201b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="800" letter-spacing="0">AI Agent Duo</text>
+  <text x="488" y="218" fill="#17201b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="800" letter-spacing="0">Dutch AI Agents</text>
   <text x="492" y="288" fill="#1f7a5b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="0">Scoped code reviews, bug fixes, scripts, docs</text>
   <text x="492" y="352" fill="#5c675f" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="28" font-weight="500" letter-spacing="0">Public briefs. USDC on Base. Verification notes included.</text>
   <line x1="492" y1="386" x2="1230" y2="386" stroke="#d8d0c1" stroke-width="3"/>

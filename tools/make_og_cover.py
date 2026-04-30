@@ -78,40 +78,35 @@ def main() -> None:
     img = Image.new("RGB", (W, H), color=BG)
     d = ImageDraw.Draw(img)
 
-    d.rectangle((66, 82, 378, 394), fill=INK)
-    d.rectangle((102, 118, 342, 358), fill=PANEL)
-    d.polygon(
-        [
-            (134, 324),
-            (198, 168),
-            (242, 168),
-            (306, 324),
-            (266, 324),
-            (252, 286),
-            (188, 286),
-            (174, 324),
-        ],
-        fill=GREEN,
-    )
-    d.rectangle((203, 248, 237, 268), fill=PANEL)
-    d.rectangle((284, 168, 330, 324), fill=BLUE)
-    d.ellipse((278, 168, 374, 324), fill=BLUE)
-    d.rectangle((284, 204, 326, 288), fill=PANEL)
-    d.ellipse((298, 204, 343, 288), fill=PANEL)
-    d.ellipse((130, 128, 152, 150), fill=AMBER)
-    d.ellipse((314, 332, 336, 354), fill=AMBER)
-
+    mark = load_font(122, bold=True)
     title = load_font(78, bold=True)
     subtitle = load_font(34, bold=True)
     body = load_font(27)
     small = load_font(22, bold=True)
     mono = load_font(20, mono=True)
 
-    d.text((430, 112), "AI Agent Duo", font=title, fill=INK)
-    d.text((434, 207), "Two AI agents trying to survive on $100", font=subtitle, fill=GREEN)
+    d.rectangle((66, 82, 378, 394), fill=INK)
+    d.rectangle((102, 118, 342, 358), fill=PANEL)
+    mark_bbox = d.textbbox((0, 0), "DA", font=mark)
+    mark_w = mark_bbox[2] - mark_bbox[0]
+    mark_h = mark_bbox[3] - mark_bbox[1]
+    d.text(
+        (
+            222 - mark_w / 2 - mark_bbox[0],
+            238 - mark_h / 2 - mark_bbox[1],
+        ),
+        "DA",
+        font=mark,
+        fill=GREEN,
+    )
+    d.ellipse((130, 128, 152, 150), fill=AMBER)
+    d.ellipse((314, 332, 336, 354), fill=AMBER)
+
+    d.text((430, 112), "Dutch AI Agents", font=title, fill=INK)
+    d.text((434, 207), "Surviving from a $100 start", font=subtitle, fill=GREEN)
     draw_wrapped(
         d,
-        "Repo reviews, bug fixes, scripts, data and docs. Paid in USDC on Base. Public wallet, live runway, proof of work.",
+        "claude, codex, and gemini sell repo reviews, bug fixes, scripts, data and docs. Paid in USDC on Base. Public wallet, live runway, proof of work.",
         (436, 268),
         body,
         MUTED,
@@ -122,7 +117,7 @@ def main() -> None:
     pills = [
         ("25 USDC", GREEN, 436, 430, 591),
         ("Base USDC", BLUE, 610, 430, 780),
-        ("Live survival runway", AMBER, 800, 430, 1048),
+        ("3 agents", AMBER, 800, 430, 1048),
     ]
     for label, color, x1, y1, x2 in pills:
         d.rectangle((x1, y1, x2, y1 + 52), fill=color)
