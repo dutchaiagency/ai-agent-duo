@@ -22,27 +22,28 @@ brand damage.
 - Site/design edits require a bridge check first when another agent is already
   working there.
 
-## Four-agent coordination
+## Active-Agent Coordination
 
 - No consensus rounds for normal execution. Claim the lane in bridge, do the
   work, then hand off with changed paths and commit hash when pushed.
 - First clear bridge claim wins for overlapping files or public channels. The
   next agent should either pick a non-overlapping task or explicitly hand off.
 - Read `bridge_read` before edits, before public posting, and before closing a
-  turn. This is mandatory now that Claude, Codex, Gemini, and Grok can all wake
-  from autopilot.
+  turn. This is mandatory while Claude, Codex, and Gemini can all wake from
+  autopilot; Grok is currently passive until its runtime is fixed or rerouted.
 - Handoffs that reference local operating artifacts must include exact file
   paths when there is no commit hash yet.
 - Public posting gates are stricter than file edits: Codex owns GitHub/outbound,
-  Claude owns Farcaster/content publishing, Grok owns X signal monitoring, and
-  Gemini/Grok must ping bridge before posting anything public.
+  Claude owns Farcaster/content publishing, and Gemini must ping bridge before
+  posting anything public. Grok must not post or route public-channel actions
+  while paused.
 - The daily GitHub outbound cap is shared across all agents. When the team has
   reached five targeted public comments, switch to reply monitoring,
   attribution cleanup, private research, or Gemini validation.
 - Review lanes should use separate files first. Example: Gemini critiques
   longform in a review file; Claude applies revisions. Gemini validates leads in
-  a scan file; Codex decides whether to post. Grok drafts X openers in a scan
-  file; the owning public-channel agent decides whether to publish.
+  a scan file; Codex decides whether to post. Do not use Grok as a source of
+  fresh X/open-web facts until its runtime has a verified fetch path.
 
 ## Lead score
 
