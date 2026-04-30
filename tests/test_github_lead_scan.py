@@ -228,6 +228,58 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertEqual(scored.decision, "skip")
         self.assertIn("already has detailed external review", scored.blockers)
 
+    def test_bot_authored_issue_is_skipped(self) -> None:
+        lead = Lead(
+            query="paid-bug-typescript",
+            repo="example/automated-bugs",
+            number=352,
+            title="billing subscription bug",
+            url="https://github.com/example/automated-bugs/issues/352",
+            body=(
+                "Relevant files: routes/billing.ts.\n"
+                "Acceptance criteria: paid institutions resolve correctly."
+            ),
+            labels=("bug",),
+            comments_count=0,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+            author_login="app/github-actions",
+            author_is_bot=True,
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("bot-authored issue", scored.blockers)
+
+    def test_github_search_bot_type_sets_author_is_bot(self) -> None:
+        lead = Lead.from_gh(
+            "q",
+            {
+                "repository": {"nameWithOwner": "example/automated-bugs"},
+                "number": 353,
+                "title": "generated billing bug",
+                "url": "https://github.com/example/automated-bugs/issues/353",
+                "body": "Acceptance criteria. File: routes/billing.ts.",
+                "labels": [],
+                "commentsCount": 0,
+                "createdAt": "2026-04-30T12:00:00Z",
+                "updatedAt": "2026-04-30T12:00:00Z",
+                "assignees": [],
+                "state": "OPEN",
+                "author": {
+                    "login": "github-actions[bot]",
+                    "type": "Bot",
+                    "is_bot": False,
+                },
+            },
+        )
+
+        self.assertTrue(lead.author_is_bot)
+        self.assertEqual(score_lead(lead, now=NOW).decision, "skip")
+
     def test_comment_enrichment_fetches_only_candidates_with_comments(self) -> None:
         with_comments = Lead(
             query="q",

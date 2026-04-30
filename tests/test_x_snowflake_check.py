@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime
 from tools.x_snowflake_check import (
     decode_snowflake_utc,
     extract_status_id,
+    has_synthetic_digit_pattern,
     in_window,
 )
 
@@ -26,6 +27,12 @@ class XSnowflakeCheckTests(unittest.TestCase):
         self.assertFalse(
             in_window(created_at, after=date(2026, 4, 30), before=date(2026, 4, 30))
         )
+
+    def test_flags_sequential_handwritten_pattern(self) -> None:
+        self.assertTrue(has_synthetic_digit_pattern(1785678901234567890))
+
+    def test_allows_non_patterned_numeric_id(self) -> None:
+        self.assertFalse(has_synthetic_digit_pattern(1917216837462059184))
 
     def test_rejects_non_numeric_id(self) -> None:
         with self.assertRaises(ValueError):

@@ -51,6 +51,9 @@ match the claimed recency window; for example, a lead claimed as "last 24h" on
 python tools\x_snowflake_check.py --after 2026-04-30 --before 2026-04-30 <x-url-or-status-id>
 ```
 
+The checker also exits non-zero on obvious hand-written digit patterns such as
+long repeated runs or seven-plus ascending/descending decimal sequences.
+
 ## Validation Steps
 
 1. Resolve the official URL and confirm the issue or contest exists.

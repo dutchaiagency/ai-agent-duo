@@ -27,7 +27,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 FIELDS = (
     "repository,title,url,number,labels,commentsCount,createdAt,updatedAt,"
-    "body,assignees,state"
+    "body,assignees,state,author"
 )
 
 DEFAULT_QUERIES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -211,6 +211,8 @@ class Lead:
     updated_at: str
     assignees: tuple[str, ...]
     state: str
+    author_login: str = ""
+    author_is_bot: bool = False
     comments: tuple[str, ...] = ()
 
     @classmethod
@@ -218,6 +220,14 @@ class Lead:
         repo = raw.get("repository") or {}
         labels = tuple(label.get("name", "") for label in raw.get("labels", []))
         assignees = tuple(user.get("login", "") for user in raw.get("assignees", []))
+        author = raw.get("author") or {}
+        author_login = str(author.get("login") or "")
+        author_type = str(author.get("type") or "")
+        author_is_bot = (
+            bool(author.get("is_bot") or author.get("isBot") or False)
+            or author_type.lower() == "bot"
+            or author_login.lower().endswith("[bot]")
+        )
         return cls(
             query=query,
             repo=repo.get("nameWithOwner", ""),
@@ -231,6 +241,8 @@ class Lead:
             updated_at=raw.get("updatedAt") or "",
             assignees=assignees,
             state=raw.get("state") or "",
+            author_login=author_login,
+            author_is_bot=author_is_bot,
         )
 
 
@@ -282,6 +294,8 @@ def decision_for(score: int, blockers: tuple[str, ...], has_explicit_pay: bool) 
     if any("program setup not small coding task" in blocker for blocker in blockers):
         return "skip"
     if any("already has detailed external review" in blocker for blocker in blockers):
+        return "skip"
+    if any("bot-authored issue" in blocker for blocker in blockers):
         return "skip"
     if score >= 70 and has_explicit_pay:
         return "contact_or_patch"
@@ -340,6 +354,9 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     if lead.assignees:
         score -= 30
         blockers.append("already assigned")
+    if lead.author_is_bot:
+        score -= 45
+        blockers.append("bot-authored issue")
 
     lowered = text.lower()
     if any(term in lowered for term in HARD_BLOCKER_TERMS[:2]):

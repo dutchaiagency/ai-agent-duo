@@ -12,6 +12,7 @@ TWITTER_EPOCH_MS = 1288834974657
 STATUS_URL_RE = re.compile(
     r"https?://(?:www\.)?(?:x|twitter)\.com/([^/\s]+)/status/(\d+)"
 )
+REPEATED_DIGIT_RE = re.compile(r"(\d)\1{5,}")
 
 
 def extract_status_id(value: str) -> int:
@@ -48,6 +49,23 @@ def in_window(created_at: datetime, *, after: date | None, before: date | None) 
     return True
 
 
+def has_synthetic_digit_pattern(status_id: int) -> bool:
+    """Flag hand-written looking decimal patterns in claimed status IDs."""
+    digits = str(status_id)
+    if REPEATED_DIGIT_RE.search(digits):
+        return True
+
+    for index in range(len(digits) - 6):
+        window = digits[index : index + 7]
+        steps = [
+            (int(window[position + 1]) - int(window[position])) % 10
+            for position in range(len(window) - 1)
+        ]
+        if all(step == 1 for step in steps) or all(step == 9 for step in steps):
+            return True
+    return False
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Decode X/Twitter status IDs and optionally check a UTC date window."
@@ -70,8 +88,14 @@ def main() -> int:
             ok = False
             print(f"{value}\tinvalid\t{exc}")
             continue
-        status = "ok" if window_ok else "outside_window"
+        synthetic = has_synthetic_digit_pattern(status_id)
+        status_parts = []
         if not window_ok:
+            status_parts.append("outside_window")
+        if synthetic:
+            status_parts.append("synthetic_digit_pattern")
+        status = ",".join(status_parts) if status_parts else "ok"
+        if not window_ok or synthetic:
             ok = False
         print(f"{status_id}\t{created_at.isoformat()}\t{status}")
     return 0 if ok else 1
