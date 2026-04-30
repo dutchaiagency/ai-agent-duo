@@ -12,7 +12,7 @@ import argparse
 import json
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -163,6 +163,21 @@ MARKET_VALIDATION_TERMS = (
     "buyer identity",
     "type/experiment",
 )
+PROGRAM_SETUP_TERMS = (
+    "public bug-bounty program",
+    "bug bounty program",
+    "bug-bounty program",
+    "immunefi",
+    "responsible disclosure",
+    "disclosure policy",
+)
+EXISTING_REVIEW_COMMENT_TERMS = (
+    "codex review:",
+    "clawsweeper review",
+    "clawsweeper-review",
+    "<!-- clawsweeper-review",
+    "review details</summary>",
+)
 AMBIGUOUS_BOUNTY_TERMS = (
     "bounty-hunt",
     "bounty hunt",
@@ -196,6 +211,7 @@ class Lead:
     updated_at: str
     assignees: tuple[str, ...]
     state: str
+    comments: tuple[str, ...] = ()
 
     @classmethod
     def from_gh(cls, query: str, raw: dict[str, Any]) -> "Lead":
@@ -263,6 +279,10 @@ def decision_for(score: int, blockers: tuple[str, ...], has_explicit_pay: bool) 
         return "skip"
     if any("market validation not coding task" in blocker for blocker in blockers):
         return "skip"
+    if any("program setup not small coding task" in blocker for blocker in blockers):
+        return "skip"
+    if any("already has detailed external review" in blocker for blocker in blockers):
+        return "skip"
     if score >= 70 and has_explicit_pay:
         return "contact_or_patch"
     if score >= 50:
@@ -275,6 +295,7 @@ def decision_for(score: int, blockers: tuple[str, ...], has_explicit_pay: bool) 
 def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     now = now or datetime.now(UTC)
     text = f"{lead.title}\n{lead.body}"
+    comment_text = "\n".join(lead.comments)
     label_text = " ".join(lead.labels)
     score = 0
     reasons: list[str] = []
@@ -336,6 +357,12 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     if has_any(f"{text}\n{label_text}", MARKET_VALIDATION_TERMS):
         score -= 45
         blockers.append("market validation not coding task")
+    if has_any(f"{text}\n{label_text}", PROGRAM_SETUP_TERMS):
+        score -= 45
+        blockers.append("program setup not small coding task")
+    if has_any(comment_text, EXISTING_REVIEW_COMMENT_TERMS):
+        score -= 45
+        blockers.append("already has detailed external review")
 
     final_score = max(0, min(100, score))
     blocker_tuple = tuple(dict.fromkeys(blockers))
@@ -370,6 +397,43 @@ def collect_leads(limit_per_query: int) -> list[Lead]:
         for lead in run_query(name, args, limit_per_query):
             by_url.setdefault(lead.url, lead)
     return list(by_url.values())
+
+
+def fetch_issue_comment_bodies(lead: Lead) -> tuple[str, ...]:
+    cmd = [
+        "gh",
+        "issue",
+        "view",
+        str(lead.number),
+        "--repo",
+        lead.repo,
+        "--json",
+        "comments",
+    ]
+    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    payload = json.loads(proc.stdout or "{}")
+    return tuple(
+        str(comment.get("body") or "")
+        for comment in payload.get("comments", [])
+    )
+
+
+def enrich_scored_with_comments(
+    scored: list[ScoredLead], *, now: datetime | None = None
+) -> list[ScoredLead]:
+    enriched: list[ScoredLead] = []
+    for item in scored:
+        lead = item.lead
+        if lead.comments or lead.comments_count <= 0:
+            enriched.append(item)
+            continue
+        try:
+            comments = fetch_issue_comment_bodies(lead)
+        except (subprocess.CalledProcessError, json.JSONDecodeError):
+            enriched.append(item)
+            continue
+        enriched.append(score_lead(replace(lead, comments=comments), now=now))
+    return enriched
 
 
 def lead_key(repo: str, number: int) -> tuple[str, int]:
@@ -462,6 +526,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Include leads classified as skip.",
     )
+    parser.add_argument(
+        "--no-comment-enrichment",
+        action="store_true",
+        help="Do not fetch candidate issue comments to suppress duplicate-review leads.",
+    )
     parser.add_argument("--write", type=Path, help="Write markdown report to this path.")
     parser.add_argument("--json", action="store_true", help="Print scored leads as JSON.")
     return parser.parse_args()
@@ -484,6 +553,16 @@ def main() -> int:
         include_active=args.include_active,
         include_skip=args.include_skip,
     )
+    if not args.no_comment_enrichment:
+        filtered = enrich_scored_with_comments(filtered)
+        filtered.sort(key=lambda item: (-item.score, item.lead.updated_at, item.lead.url))
+        filtered = filter_scored(
+            filtered,
+            min_score=args.min_score,
+            active_keys=active_target_keys(args.pipeline),
+            include_active=args.include_active,
+            include_skip=args.include_skip,
+        )
 
     if args.json:
         payload = [

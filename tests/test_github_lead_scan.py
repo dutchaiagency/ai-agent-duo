@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from tools.github_lead_scan import (
     Lead,
     active_target_keys,
+    enrich_scored_with_comments,
     filter_scored,
     render_markdown,
     score_lead,
@@ -177,6 +178,106 @@ class GitHubLeadScanTests(unittest.TestCase):
 
         self.assertEqual(scored.decision, "skip")
         self.assertIn("market validation not coding task", scored.blockers)
+
+    def test_bug_bounty_program_setup_is_not_small_fix_lead(self) -> None:
+        lead = Lead(
+            query="fresh-bounty-typescript",
+            repo="example/security-program",
+            number=88,
+            title="H4: Public bug-bounty program",
+            url="https://github.com/example/security-program/issues/88",
+            body=(
+                "Launch a public bug-bounty program on Immunefi with a "
+                "responsible disclosure policy and triage process."
+            ),
+            labels=("bounty",),
+            comments_count=0,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("program setup not small coding task", scored.blockers)
+
+    def test_existing_external_review_comment_blocks_duplicate_outreach(self) -> None:
+        lead = Lead(
+            query="paid-bug-typescript",
+            repo="example/openclaw",
+            number=64129,
+            title="Paid heartbeat usage bug",
+            url="https://github.com/example/openclaw/issues/64129",
+            body=(
+                "Acceptance criteria: paid heartbeat traffic does not start "
+                "after provider setup. Relevant files: src/setup.ts."
+            ),
+            labels=("bug",),
+            comments_count=1,
+            created_at="2026-04-29T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+            comments=("Codex review: keeping this open for maintainer follow-up.",),
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("already has detailed external review", scored.blockers)
+
+    def test_comment_enrichment_fetches_only_candidates_with_comments(self) -> None:
+        with_comments = Lead(
+            query="q",
+            repo="owner/reviewed",
+            number=1,
+            title="Fix paid checkout",
+            url="https://github.com/owner/reviewed/issues/1",
+            body="Acceptance criteria. Budget 25 USDC. File: src/app.ts",
+            labels=("bug",),
+            comments_count=1,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+        )
+        no_comments = Lead(
+            query="q",
+            repo="owner/no-comments",
+            number=2,
+            title="Fix paid checkout",
+            url="https://github.com/owner/no-comments/issues/2",
+            body="Acceptance criteria. Budget 25 USDC. File: src/app.ts",
+            labels=("bug",),
+            comments_count=0,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+        )
+
+        import tools.github_lead_scan as scan
+
+        original = scan.fetch_issue_comment_bodies
+        calls: list[str] = []
+
+        def fake_fetch(lead: Lead) -> tuple[str, ...]:
+            calls.append(lead.repo)
+            return ("<!-- clawsweeper-review item=1 -->",)
+
+        self.addCleanup(setattr, scan, "fetch_issue_comment_bodies", original)
+        scan.fetch_issue_comment_bodies = fake_fetch
+
+        enriched = enrich_scored_with_comments(
+            [score_lead(with_comments, now=NOW), score_lead(no_comments, now=NOW)],
+            now=NOW,
+        )
+
+        self.assertEqual(calls, ["owner/reviewed"])
+        self.assertEqual(enriched[0].decision, "skip")
+        self.assertEqual(enriched[1].decision, "contact_or_patch")
 
     def test_markdown_escapes_table_pipes(self) -> None:
         lead = Lead(

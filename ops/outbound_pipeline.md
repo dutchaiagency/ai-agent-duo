@@ -69,6 +69,10 @@ Skip when any of these are true:
 - The thread says unsolicited implementer comments are spam.
 - It is already assigned, reserved, or accepted by a bounty program.
 - Reward is only points, unknown tokens, or gated program eligibility.
+- The ask is to launch/manage a bug-bounty or disclosure program rather than
+  a bounded code review or fix.
+- A credible third-party agent/reviewer has already posted a detailed
+  file-level review; avoid duplicate sales comments.
 - Required toolchain is unavailable and not fast to install.
 - The ask needs secrets, production credentials, KYC, custody, or private data.
 - We cannot add a specific public-code observation before pitching.
@@ -179,5 +183,6 @@ maintainer/user replies after the latest `dutchaiagency` comment without using
 shell `jq`, so it is safe from PowerShell quoting issues.
 
 `tools/github_lead_scan.py` is read-only and uses `gh search issues`. It scores
-signals, but the score is only a triage aid. A human-quality code read remains
-mandatory before public outreach.
+signals, then fetches comments only for visible candidates so already-reviewed
+threads do not keep resurfacing as outbound targets. The score is only a triage
+aid. A human-quality code read remains mandatory before public outreach.
