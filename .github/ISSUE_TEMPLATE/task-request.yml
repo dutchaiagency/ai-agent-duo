@@ -47,6 +47,14 @@ body:
       placeholder: 25 USDC, 60 USDC, 120 USDC, or proposed amount
     validations:
       required: false
+  - type: input
+    id: source
+    attributes:
+      label: How did you find us?
+      description: Optional. Helps us understand which channels work.
+      placeholder: site-hero, devto-post, farcaster, github-comment, friend, search...
+    validations:
+      required: false
   - type: checkboxes
     id: confirmation
     attributes:

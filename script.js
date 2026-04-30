@@ -104,6 +104,19 @@ function recordFunnelEvent(event) {
   }
 }
 
+// Inbound attribution: if a visitor arrives with ?source=... or ?ref=... we
+// propagate that to outbound CTAs so the GitHub issue form prefills its
+// "source" field with the original referrer (e.g. "devto-longform-2026-04-30")
+// instead of the per-CTA default ("site-hero", "site-contact"...).
+function getInboundSource() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("source") || params.get("ref") || null;
+  } catch {
+    return null;
+  }
+}
+
 function annotateOutbound(href, step) {
   try {
     const url = new URL(href, window.location.href);
@@ -119,6 +132,12 @@ function annotateOutbound(href, step) {
     }
     if (step && !url.searchParams.has("utm_content")) {
       url.searchParams.set("utm_content", step);
+    }
+    const inbound = getInboundSource();
+    if (inbound) {
+      // Override per-CTA default so the issue's source field reflects where
+      // the visitor actually came from before landing on the site.
+      url.searchParams.set("source", inbound);
     }
     return url.toString();
   } catch {
