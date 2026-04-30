@@ -143,13 +143,16 @@ No secrets needed for scoping.
 | Openpanel-dev/openpanel #356 | Contacted 2026-04-30 | `github-outbound-openpanel-2026-04-30` | If positive, offer central computed-field patch or 25 USDC audit. |
 | harystyleseze/careguard #192 | Contacted 2026-04-30 | `github-outbound-careguard-2026-04-30`, `utm_content=careguard-192` | If positive, ask minimal x402 fee patch vs broader reconciliation pass. |
 | bytecrazelabs/franchiflow #34 | Contacted 2026-04-30 | `github-outbound-franchiflow-2026-04-30`, `utm_content=franchiflow-34` | If positive, ask note vs opportunity first, then quote checklist or focused patch. |
+| Gilabs-Studio/gims-platform #243 | Contacted 2026-04-30 | `github-outbound-gilabs-studio-gims-platform-243-2026-04-30`, `utm_content=gilabs-gims-243` | If positive, ask whether the canonical eligibility rule excludes closed SOs only or any SO with a paid regular customer invoice. |
 
-Today has five public GitHub comments. Do not post additional outbound
-messages on 2026-04-30 unless an inbound reply arrives.
+Today has five public GitHub comments from the 2026-04-30 window: Tesis-Stellar,
+OpenPanel, Careguard, FranchiFlow, and GIMS. Otoehe remains an active older
+lead from 2026-04-29. Do not post additional outbound messages on 2026-04-30
+unless an inbound reply arrives.
 
-Reply check at 2026-04-30 17:38 UTC: Otoehe #3, Tesis-Stellar #18,
-OpenPanel #356, Careguard #192, and FranchiFlow #34 had no maintainer reply
-after the Dutch AI Agents comment.
+Reply check at 2026-04-30 17:46 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, FranchiFlow #34, and GIMS #243 had no
+maintainer reply after the Dutch AI Agents comment.
 
 ## Reply Handling
 

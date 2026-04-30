@@ -18,8 +18,10 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from tools.github_reply_check import parse_targets
     from tools.intake_link import build_intake_url, source_for_github_lead
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from github_reply_check import parse_targets
     from intake_link import build_intake_url, source_for_github_lead
 
 
@@ -146,7 +148,20 @@ LOW_VALUE_TERMS = (
     "points",
     "wave program",
     "eligible for a share",
-    "token",
+    "token payout",
+    "paid in token",
+    "paid in tokens",
+    "reward token",
+)
+MARKET_VALIDATION_TERMS = (
+    "willingness-to-pay",
+    "validate willingness-to-pay",
+    "structured pricing interviews",
+    "target participant / customer",
+    "recruiting path",
+    "community channel conversion",
+    "buyer identity",
+    "type/experiment",
 )
 AMBIGUOUS_BOUNTY_TERMS = (
     "bounty-hunt",
@@ -244,6 +259,10 @@ def decision_for(score: int, blockers: tuple[str, ...], has_explicit_pay: bool) 
         return "skip"
     if any("assigned" in blocker for blocker in blockers):
         return "skip"
+    if any("token/points payout risk" in blocker for blocker in blockers):
+        return "skip"
+    if any("market validation not coding task" in blocker for blocker in blockers):
+        return "skip"
     if score >= 70 and has_explicit_pay:
         return "contact_or_patch"
     if score >= 50:
@@ -314,6 +333,9 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     if has_any(text, LOW_VALUE_TERMS):
         score -= 20
         blockers.append("token/points payout risk")
+    if has_any(f"{text}\n{label_text}", MARKET_VALIDATION_TERMS):
+        score -= 45
+        blockers.append("market validation not coding task")
 
     final_score = max(0, min(100, score))
     blocker_tuple = tuple(dict.fromkeys(blockers))
@@ -348,6 +370,42 @@ def collect_leads(limit_per_query: int) -> list[Lead]:
         for lead in run_query(name, args, limit_per_query):
             by_url.setdefault(lead.url, lead)
     return list(by_url.values())
+
+
+def lead_key(repo: str, number: int) -> tuple[str, int]:
+    return (repo.lower(), number)
+
+
+def active_target_keys(pipeline: Path) -> set[tuple[str, int]]:
+    try:
+        markdown = pipeline.read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    return {lead_key(target.repo, target.number) for target in parse_targets(markdown)}
+
+
+def filter_scored(
+    scored: list[ScoredLead],
+    *,
+    min_score: int,
+    active_keys: set[tuple[str, int]] | None = None,
+    include_active: bool = False,
+    include_skip: bool = False,
+) -> list[ScoredLead]:
+    active_keys = active_keys or set()
+    filtered: list[ScoredLead] = []
+    for item in scored:
+        lead = item.lead
+        if (
+            not include_active
+            and lead_key(lead.repo, lead.number) in active_keys
+        ):
+            continue
+        if item.decision == "skip" and not include_skip:
+            continue
+        if item.score >= min_score or item.decision != "skip":
+            filtered.append(item)
+    return filtered
 
 
 def render_markdown(scored: list[ScoredLead], *, generated_at: datetime | None = None) -> str:
@@ -388,6 +446,22 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Score GitHub issues for outbound leads.")
     parser.add_argument("--limit-per-query", type=int, default=20)
     parser.add_argument("--min-score", type=int, default=35)
+    parser.add_argument(
+        "--pipeline",
+        type=Path,
+        default=Path("ops/outbound_pipeline.md"),
+        help="Pipeline file whose active target queue is excluded by default.",
+    )
+    parser.add_argument(
+        "--include-active",
+        action="store_true",
+        help="Include leads already present in the active target queue.",
+    )
+    parser.add_argument(
+        "--include-skip",
+        action="store_true",
+        help="Include leads classified as skip.",
+    )
     parser.add_argument("--write", type=Path, help="Write markdown report to this path.")
     parser.add_argument("--json", action="store_true", help="Print scored leads as JSON.")
     return parser.parse_args()
@@ -403,7 +477,13 @@ def main() -> int:
 
     scored = [score_lead(lead) for lead in leads]
     scored.sort(key=lambda item: (-item.score, item.lead.updated_at, item.lead.url))
-    filtered = [item for item in scored if item.score >= args.min_score or item.decision != "skip"]
+    filtered = filter_scored(
+        scored,
+        min_score=args.min_score,
+        active_keys=active_target_keys(args.pipeline),
+        include_active=args.include_active,
+        include_skip=args.include_skip,
+    )
 
     if args.json:
         payload = [
