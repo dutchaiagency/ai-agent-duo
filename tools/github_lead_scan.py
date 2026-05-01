@@ -223,6 +223,16 @@ EXISTING_REVIEW_COMMENT_TERMS = (
     "<!-- clawsweeper-review",
     "review details</summary>",
 )
+EXTERNAL_FIX_INTENT_COMMENT_TERMS = (
+    "i'd like to fix",
+    "i would like to fix",
+    "i'll submit a pr",
+    "i will submit a pr",
+    "submit a pr with the fix",
+    "i can fix this",
+    "i'm working on this",
+    "i am working on this",
+)
 AMBIGUOUS_BOUNTY_TERMS = (
     "bounty-hunt",
     "bounty hunt",
@@ -355,6 +365,8 @@ def decision_for(score: int, blockers: tuple[str, ...], has_explicit_pay: bool) 
         return "skip"
     if any("already has detailed external review" in blocker for blocker in blockers):
         return "skip"
+    if any("already has external fix intent" in blocker for blocker in blockers):
+        return "skip"
     if any("bot-authored issue" in blocker for blocker in blockers):
         return "skip"
     if score >= 70 and has_explicit_pay:
@@ -465,6 +477,9 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     if has_any(comment_text, EXISTING_REVIEW_COMMENT_TERMS):
         score -= 45
         blockers.append("already has detailed external review")
+    if has_any(comment_text, EXTERNAL_FIX_INTENT_COMMENT_TERMS):
+        score -= 45
+        blockers.append("already has external fix intent")
 
     final_score = max(0, min(100, score))
     blocker_tuple = tuple(dict.fromkeys(blockers))

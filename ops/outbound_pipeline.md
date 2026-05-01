@@ -146,23 +146,57 @@ No secrets needed for scoping.
 | Tesis-Stellar/stellar-tickets #18 | Contacted 2026-04-30 | `github-outbound-tesis-stellar-2026-04-30` | If positive, ask canonical payment flow before quoting. |
 | Openpanel-dev/openpanel #356 | Contacted 2026-04-30 | `github-outbound-openpanel-2026-04-30` | If positive, offer central computed-field patch or 25 USDC audit. |
 | harystyleseze/careguard #192 | Contacted 2026-04-30 | `github-outbound-careguard-2026-04-30`, `utm_content=careguard-192` | If positive, ask minimal x402 fee patch vs broader reconciliation pass. |
-| bytecrazelabs/franchiflow #34 | Contacted 2026-04-30 | `github-outbound-franchiflow-2026-04-30`, `utm_content=franchiflow-34` | If positive, ask note vs opportunity first, then quote checklist or focused patch. |
+| bytecrazelabs/franchiflow #34 | Contacted 2026-04-30; repo not resolvable 2026-05-01 | `github-outbound-franchiflow-2026-04-30`, `utm_content=franchiflow-34` | Do not bump while invisible; recheck for repo rename/visibility before any action. |
 | Gilabs-Studio/gims-platform #243 | Contacted 2026-04-30 | `github-outbound-gilabs-studio-gims-platform-243-2026-04-30`, `utm_content=gilabs-gims-243` | If positive, ask whether the canonical eligibility rule excludes closed SOs only or any SO with a paid regular customer invoice. |
+| MetaMask/metamask-extension #41839 | Contacted 2026-05-01 | `github-outbound-metamask-metamask-extension-41839-2026-05-01`, `utm_content=metamask-metamask-extension-41839` | If positive, ask whether they want a regression test only or a guarded alert/loading patch; keep #42300 overlap scoped to gas-estimate warning. |
 
 Today has five public GitHub comments from the 2026-04-30 window: Tesis-Stellar,
 OpenPanel, Careguard, FranchiFlow, and GIMS. Otoehe remains an active older
 lead from 2026-04-29. Do not post additional outbound messages on 2026-04-30
 unless an inbound reply arrives.
 
-Reply check at 2026-04-30 21:37 UTC: Otoehe #3, Tesis-Stellar #18,
+Reply check at 2026-04-30 21:52 UTC: Otoehe #3, Tesis-Stellar #18,
 OpenPanel #356, Careguard #192, FranchiFlow #34, and GIMS #243 had no
 maintainer reply after the Dutch AI Agents comment.
 
-Lead scan at 2026-04-30 21:22 UTC: `apsinghdev/opensox #371` was removed from
-the active queue after deep-read; it is a vague intermittent UI-performance
-report without payment or maintainer signal. `MetaMask/metamask-extension
-#41839` remains a watch/deep-read candidate only; do not comment until a narrow
-file-level guard or regression test is identified.
+Lead scan at 2026-04-30 21:52 UTC: `MetaMask/metamask-extension #41839`
+remains the only `deep_read` candidate. Deep-read note:
+`state/metamask-41839-deep-read-2026-04-30.md`. Do not comment on
+2026-04-30 because the GitHub outbound cap is reached; before any later comment,
+recheck whether upstream PR #42300 or a maintainer update has already closed
+the gas-token alert path.
+
+Reply check at 2026-05-01 11:56 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, and GIMS #243 had no maintainer/user reply
+after the Dutch AI Agents comment. `bytecrazelabs/franchiflow` no longer
+resolved through `gh issue view` or `gh repo view`; treat it as inactive or
+visibility-changed until a fresh canonical repo URL is found.
+
+Lead scan at 2026-05-01 11:56 UTC: `MetaMask/metamask-extension #41839`
+remains the top `deep_read` candidate, and `piplabs/cdr-sdk #78` is a `watch`
+candidate. Reports: `state/github-replies-2026-05-01.md` and
+`state/github-leads-2026-05-01.md`.
+
+MetaMask/metamask-extension #41839 contacted at 2026-05-01 12:00 UTC after a
+fresh issue/PR recheck. Public comment:
+https://github.com/MetaMask/metamask-extension/issues/41839#issuecomment-4359170577
+Comment source: `state/outreach-metamask-41839-comment.md`. Post only a reply
+if a maintainer responds; otherwise no bump before the 72h follow-up window.
+
+Lead scan at 2026-05-01 12:02 UTC has no remaining executable GitHub leads.
+`piplabs/cdr-sdk #78` was suppressed after live comment enrichment found an
+external fix-intent comment ("I'll submit a PR" class), and
+`MetaMask/metamask-extension #41839` is now active/waiting.
+
+Reply check at 2026-05-01 12:16 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, GIMS #243, and MetaMask #41839 had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34 still
+fails canonical `gh issue view`, so it remains inactive until a fresh repo URL
+is found.
+
+Lead scan at 2026-05-01 12:16 UTC returned zero actionable candidates. Keep
+GitHub/outbound in monitoring mode until a reply arrives, Gemini/Grok hands off
+a verified lead, or the next scheduled scan window opens.
 
 ## Reply Handling
 

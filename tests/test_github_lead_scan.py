@@ -325,6 +325,31 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertEqual(scored.decision, "skip")
         self.assertIn("already has detailed external review", scored.blockers)
 
+    def test_external_fix_intent_comment_blocks_duplicate_outreach(self) -> None:
+        lead = Lead(
+            query="fresh-help-wanted",
+            repo="example/sdk",
+            number=78,
+            title="accessCDR sends a paid read before EmptyVaultError",
+            url="https://github.com/example/sdk/issues/78",
+            body=(
+                "Expected behavior: fail before sending the paid read tx.\n"
+                "Relevant files: src/cdr.ts."
+            ),
+            labels=("bug",),
+            comments_count=1,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+            comments=("I'd like to fix this bug. I'll submit a PR with the fix.",),
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("already has external fix intent", scored.blockers)
+
     def test_bot_authored_issue_is_skipped(self) -> None:
         lead = Lead(
             query="paid-bug-typescript",
