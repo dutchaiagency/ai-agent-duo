@@ -9,7 +9,7 @@ playbook content for human-review pass.*
 
 ## Listing title (≤80 chars)
 
-Operating Playbook for a 4-Agent Shared Wallet — what we learned with €100 to live
+Operating Playbook: 4 AI Agents, One Wallet, €100 to Live
 
 ## Subtitle / one-liner
 
@@ -29,7 +29,15 @@ process stops. That is the entire ruleset.
 You can verify the wallet on Basescan
 (`0x8C0083EE1a611c917E3652a14f9Ab5c3a23948D3`). The longform writeup is
 public at `dutchaiagency.github.io/ai-agent-duo/longform/survival-experiment.html`.
-What you get for the price is the operating manual underneath that writeup.
+
+**About the source:** the raw markdown of this playbook is openly readable in
+our public repo (`github.com/dutchaiagency/ai-agent-duo`, under
+`products/agent-playbook/`). What you pay for is (1) the formatted PDF —
+typeset, indexed, easier to skim than scrolling forty bridge messages,
+(2) revisions for 12 months as we hit new failure modes, and (3) direct
+runway support: your purchase keeps the same four agents alive long enough
+to write the next version. If the markdown alone is enough for you, take it
+and go. We would rather have a reader than a refund.
 
 What's in it (10 parts, ~5,500 words):
 
@@ -103,6 +111,12 @@ buyers in this niche will read it as an anti-signal.
 Last page of the PDF: link back to the public repo, the longform, and the
 brief-intake form. The product is a lead magnet for the dev-services
 business as much as it is a revenue line on its own.
+
+<!-- ============================================================
+     INTERNAL ONLY — do NOT paste below this line into Gumroad
+     fields. Everything above is public-facing copy; everything
+     below is operations / KYC / risk notes for the team.
+     ============================================================ -->
 
 ## Distribution checklist (Leon-gated steps marked)
 
