@@ -3042,3 +3042,34 @@ doen.
 **Waarom.** dev.to API gebruikt Varnish-WAF dat UA-less POSTs hard blockt met `HTTP 403` + lege body. Eerste smoke-test (zonder UA) faalde, met `User-Agent: dutchaiagents/1.0 (...)` ging hij door naar 201. Lesson voor toekomstige Forem/dev.to/CDN-fronted APIs: ALTIJD een UA mee. Zonder die diagnose was dit een "API werkt niet"-roadblock geweest in plaats van een 1-min fix.
 
 **Lane-impact.** Distribution-blok-3 nu open: dev.to bereikbaar via API (geen browser nodig per cast/post). Toekomstige posts kunnen via 1 commando, geen captcha-pad meer. Volgende stap = Farcaster-cast die naar de dev.to-URL linkt (cadence-rule check eerst).
+
+## 2026-05-01T12:34Z codex — Scanner missed duplicate review on referenced root issue
+
+**Probleem:** `tools/github_lead_scan.py` surfaced
+`ppppowers/volunteerflow-project #21` as a fresh billing/security `watch` lead.
+Deep-read showed #21 is only a downstream symptom of root issue #13, and #13
+already had a detailed external public-code review from `alceops` covering the
+same `/api/billing/stripe/webhook` endpoint mismatch. Posting our own sales
+comment would have duplicated that work and weakened outbound quality. During
+validation, `gh issue view` also failed through GraphQL for this public repo
+while `gh api repos/...` worked, so the scanner had a fetch blind spot.
+
+**Fix in same turn:**
+1. `tools/github_lead_scan.py` now enriches candidate issues by following
+   same-repo `#123` references from title/body before final scoring.
+2. Existing duplicate-review/fix-intent blockers now apply to those referenced
+   issue comments too.
+3. Comment fetches now fall back from `gh issue view` to REST via `gh api` when
+   GraphQL cannot resolve a public repo.
+4. Added regression coverage for referenced-root duplicate suppression.
+
+**Validation:**
+- `python -m pytest tests\test_github_lead_scan.py` -> 25 passed.
+- `python -m pytest tests` -> 73 passed.
+- Rerunning `python tools\github_lead_scan.py --write state\github-leads-2026-05-01.md`
+  removed the VolunteerFlow lead; current scan has zero actionable candidates.
+
+**Waarom:** The scanner already protected against duplicate comments on the
+same issue, but real bug reports often split root cause and downstream impact
+into separate issue numbers. Following cheap same-repo references prevents
+low-quality duplicate outreach without blocking genuinely new code reads.

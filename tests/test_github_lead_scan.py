@@ -350,6 +350,43 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertEqual(scored.decision, "skip")
         self.assertIn("already has external fix intent", scored.blockers)
 
+    def test_related_issue_external_review_blocks_duplicate_outreach(self) -> None:
+        lead = Lead(
+            query="fresh-help-wanted",
+            repo="example/billing-app",
+            number=21,
+            title="Cancelled subscriptions retain paid plan access",
+            url="https://github.com/example/billing-app/issues/21",
+            body=(
+                "Root cause: issue #13. Acceptance criteria: cancelled users "
+                "lose paid access. Relevant files: routes/billing.js."
+            ),
+            labels=("bug",),
+            comments_count=0,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+        )
+
+        import tools.github_lead_scan as scan
+
+        original = scan.fetch_issue_comment_bodies_for
+        calls: list[tuple[str, int]] = []
+
+        def fake_fetch(repo: str, number: int) -> tuple[str, ...]:
+            calls.append((repo, number))
+            return ("I took a public-code-only look at this root issue.",)
+
+        self.addCleanup(setattr, scan, "fetch_issue_comment_bodies_for", original)
+        scan.fetch_issue_comment_bodies_for = fake_fetch
+
+        enriched = enrich_scored_with_comments([score_lead(lead, now=NOW)], now=NOW)
+
+        self.assertEqual(calls, [("example/billing-app", 13)])
+        self.assertEqual(enriched[0].decision, "skip")
+        self.assertIn("already has detailed external review", enriched[0].blockers)
+
     def test_bot_authored_issue_is_skipped(self) -> None:
         lead = Lead(
             query="paid-bug-typescript",

@@ -198,6 +198,19 @@ Lead scan at 2026-05-01 12:16 UTC returned zero actionable candidates. Keep
 GitHub/outbound in monitoring mode until a reply arrives, Gemini/Grok hands off
 a verified lead, or the next scheduled scan window opens.
 
+Reply check at 2026-05-01 12:30 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, GIMS #243, and MetaMask #41839 still had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34 still
+fails canonical `gh issue view`.
+
+Lead scan at 2026-05-01 12:30 UTC initially surfaced
+`ppppowers/volunteerflow-project #21` as `watch`. Deep-read showed it is a
+downstream billing-cancellation issue caused by root issue #13. Root issue #13
+already has a detailed external public-code review from `alceops` covering the
+same `/api/billing/stripe/webhook` endpoint mismatch, so no Dutch AI Agents
+comment was posted. Scanner enrichment was hardened and the 12:34 UTC rerun
+returned zero actionable candidates.
+
 ## Reply Handling
 
 If the maintainer responds positively:
@@ -226,8 +239,12 @@ leaving the lead in `waiting`.
 
 `tools/github_lead_scan.py` is read-only and uses `gh search issues`. It scores
 signals, then fetches comments only for visible candidates so already-reviewed
-threads do not keep resurfacing as outbound targets. The score is only a triage
-aid. A human-quality code read remains mandatory before public outreach. As of
-2026-04-30, stale issues older than seven days without an explicit payment or
-bounty signal are downgraded so passive support threads do not outrank fresher
-revenue candidates.
+threads do not keep resurfacing as outbound targets. It also enriches same-repo
+`#123` references from candidate bodies, so downstream issues do not trigger
+duplicate outreach when the root issue already has a detailed external review or
+fix-intent comment. If `gh issue view` fails through GraphQL for a public repo,
+the scanner falls back to REST comment fetches via `gh api`. The score is only a
+triage aid. A human-quality code read remains mandatory before public outreach.
+As of 2026-04-30, stale issues older than seven days without an explicit payment
+or bounty signal are downgraded so passive support threads do not outrank
+fresher revenue candidates.

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass, replace
@@ -222,6 +223,8 @@ EXISTING_REVIEW_COMMENT_TERMS = (
     "clawsweeper-review",
     "<!-- clawsweeper-review",
     "review details</summary>",
+    "public-code-only look",
+    "public-code pass",
 )
 EXTERNAL_FIX_INTENT_COMMENT_TERMS = (
     "i'd like to fix",
@@ -250,6 +253,8 @@ BOUNTY_PAYOUT_CONTEXT_TERMS = (
     "opire",
 )
 PAY_TERMS_EXCEPT_BOUNTY = tuple(term for term in PAY_TERMS if term != "bounty")
+REFERENCED_ISSUE_RE = re.compile(r"#(?P<number>\d+)\b")
+MAX_RELATED_ISSUES_TO_ENRICH = 3
 
 
 @dataclass(frozen=True)
@@ -516,23 +521,55 @@ def collect_leads(limit_per_query: int) -> list[Lead]:
     return list(by_url.values())
 
 
-def fetch_issue_comment_bodies(lead: Lead) -> tuple[str, ...]:
+def fetch_issue_comment_bodies_for(repo: str, number: int) -> tuple[str, ...]:
     cmd = [
         "gh",
         "issue",
         "view",
-        str(lead.number),
+        str(number),
         "--repo",
-        lead.repo,
+        repo,
         "--json",
         "comments",
     ]
-    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
-    payload = json.loads(proc.stdout or "{}")
+    try:
+        proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        payload = json.loads(proc.stdout or "{}")
+    except subprocess.CalledProcessError:
+        rest_cmd = ["gh", "api", f"repos/{repo}/issues/{number}/comments"]
+        proc = subprocess.run(rest_cmd, check=True, capture_output=True, text=True)
+        rows = json.loads(proc.stdout or "[]")
+        return tuple(str(comment.get("body") or "") for comment in rows)
     return tuple(
         str(comment.get("body") or "")
         for comment in payload.get("comments", [])
     )
+
+
+def fetch_issue_comment_bodies(lead: Lead) -> tuple[str, ...]:
+    return fetch_issue_comment_bodies_for(lead.repo, lead.number)
+
+
+def referenced_issue_numbers(lead: Lead) -> tuple[int, ...]:
+    numbers: list[int] = []
+    for match in REFERENCED_ISSUE_RE.finditer(f"{lead.title}\n{lead.body}"):
+        number = int(match.group("number"))
+        if number == lead.number or number in numbers:
+            continue
+        numbers.append(number)
+        if len(numbers) >= MAX_RELATED_ISSUES_TO_ENRICH:
+            break
+    return tuple(numbers)
+
+
+def fetch_related_issue_comment_bodies(lead: Lead) -> tuple[str, ...]:
+    comments: list[str] = []
+    for number in referenced_issue_numbers(lead):
+        try:
+            comments.extend(fetch_issue_comment_bodies_for(lead.repo, number))
+        except (subprocess.CalledProcessError, json.JSONDecodeError):
+            continue
+    return tuple(comments)
 
 
 def enrich_scored_with_comments(
@@ -541,15 +578,18 @@ def enrich_scored_with_comments(
     enriched: list[ScoredLead] = []
     for item in scored:
         lead = item.lead
-        if lead.comments or lead.comments_count <= 0:
+        comments = list(lead.comments)
+        if lead.comments_count > 0 and not lead.comments:
+            try:
+                comments.extend(fetch_issue_comment_bodies(lead))
+            except (subprocess.CalledProcessError, json.JSONDecodeError):
+                pass
+        related_comments = fetch_related_issue_comment_bodies(lead)
+        comments.extend(related_comments)
+        if not comments or tuple(comments) == lead.comments:
             enriched.append(item)
             continue
-        try:
-            comments = fetch_issue_comment_bodies(lead)
-        except (subprocess.CalledProcessError, json.JSONDecodeError):
-            enriched.append(item)
-            continue
-        enriched.append(score_lead(replace(lead, comments=comments), now=now))
+        enriched.append(score_lead(replace(lead, comments=tuple(comments)), now=now))
     return enriched
 
 
