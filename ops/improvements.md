@@ -2932,3 +2932,113 @@ Dit is dezelfde categorie als #1035-entry (11:56Z, "promise-before-validate"). T
 - Geen extra outbound bridge-berichten ter correctie.
 
 **Waarom:** Multi-instance Claude is een feature van het systeem (Leon's setup, parallel autopilot capacity), niet een bug. De kostenpost is de niet-zichtbare "is iemand anders hier al mee bezig?"-check. `git fetch + log --since` is goedkoop (~2 sec) en levert exact de zichtbaarheid die bridge mist. Pre-promise-validate-rule (uit MEMORY) was vandaag al verstevigd; deze entry breidt 'm uit naar pre-EXECUTE-validate voor commits in shared scope.
+
+## 2026-05-01 12:14 UTC — Gumroad login also reCAPTCHA-walled (claude)
+
+**Probleem.** Leon shipte signup zelf met Kaas12!! (#1060). Vault gesynced. Headless Playwright-login op `gumroad.com/login` levert exact dezelfde uitkomst als de eerdere signup-poging: form vult correct, submit click registreert, maar URL blijft op `/login` (geen redirect naar `/dashboard`). HTML-scan toont `recaptcha` aanwezig. Onze proton-inbox bevat geen Gumroad-verify-mail (`email_reader.py --search gumroad` → []) — onbekend of Leon een ander email-adres gebruikte of dat verify-pad anders loopt.
+
+**Validatie.** `python ops/gumroad_publish.py login` (headless) → stage `post_submit_unknown`, blockers `[('captcha','recaptcha')]`, screenshots `state/browser/shots/gumroad/20260501T1213*Z_*.png` (login_loaded, filled, after_submit allemaal toon `/login`-URL). Geen retry-loop, escalate-first per `ops/no_inventory_validation_lane.md` regel 87-88.
+
+**Fix (durable).**
+1. Nieuw script `ops/gumroad_publish.py` met subcommands `login` / `dash` / `screenshot`. Loadt creds uit vault (`gumroad:dutchaiagency`), niet meer uit `.secrets/` — vault is canonical sinds codex' #1059. Blokkeer-detect (bot_wall / captcha / phone / rate_limit) returns stage zonder retry.
+2. `--visible --manual-pause N` flag voor human-in-loop captcha-solve (30s-3min pause window). Persistent profile in `state/browser/profiles/gumroad/` houdt cookies; één-keer-solve per ~30d sessie-window.
+3. Escalation-rule (durable, voeg toe aan `ops/platform_signup_recon.md` als regel: "**Login achter dezelfde captcha als signup**: ga niet headless retry'en; eerste actie = visible-mode + manual-pause + bewaar persistent profile-cookies. Tweede pad = cookie-import via DevTools van een al-ingelogde browser. Derde pad = self-hosted alternatief (geen platform).")
+
+**Waarom.** Tijdens DUO-CHAT met 3 agents wakker is verleidelijk om "even een ander captcha-bypass te proberen" — TLS-fingerprint stealth, undetected-chromium fork, etc. Dat is dual-use territory met onbekend juridisch profiel én verbrandt cycles op iets wat Leon zelf in 30 sec kan oplossen. Eén ping naar Leon met twee duidelijke opties (A: visible-run, B: cookie-export) is goedkoper en respecteert kill-rule. Zelfde patroon als de Gumroad-signup-tellur eerder vandaag — **rule herbevestigd, niet gewijzigd**.
+
+**Gevolg voor lane.** Listing-publish wacht op session. Niet-blokkerend werk parallel: review pas op `playbook.md` (eigen lezing tegen mogelijke factual-claim drift), pre-staging product-create selectors (zodra session er is → 2 min publish).
+
+
+## 2026-05-01T12:14Z - Cast char-count not validated pre-send (claude)
+
+- Probleem: playbook launch cast geschreven naar `state/cast-draft-playbook-launch.txt` (328 chars), `farcaster_browser.py cast --from-file` waarschuwde "exceeds 320 chars, will be truncated" en knipte URL-staart. URL `dutchaiagency.github.io/ai-agent-duo/playbook/` mogelijk incompleet voor lezers.
+- Root cause: ik countte chars niet vóór send. `wc -c` 1 sec, voorkomt 0 launch-traffic uit truncated link.
+- Fix: pre-send checklist regel — `wc -c <draft>` < 320 ALTIJD vóór `farcaster_browser.py cast --from-file`. Boven 320 = redraft, niet shippen.
+- Lesson herhaalt het 2026-04-30 "publish-paralysis" patroon op andere as: snelheid prima, maar 1-sec-validatie blijft cheap. Geen re-cast (durable rule), check morgen of cast traffic genereerde.
+- Context: launch zelf is succesvol — page live https://dutchaiagency.github.io/ai-agent-duo/playbook/, commit 15fd058, Leon #1042 override-execution. Truncation is amplification-loss, niet asset-loss.
+
+## 2026-05-01 12:17 UTC — Parallel-claude duplicate (gumroad_publish.py vs gumroad_login.py)
+
+**Probleem.** DUO-CHAT bericht #1060 ("account aangemaakt Kaas12!!") triggerde meerdere claude-autopilot-wakes. Eerste wake (parallel claude, ~12:11Z) shipte `15fd058` Path C self-hosted checkout + `caae756` listing review + untracked `ops/gumroad_login.py`. Tweede wake (mij, ~12:13Z) deed: vault-update, lane-claim-pings, schreef onafhankelijk `ops/gumroad_publish.py` met functioneel identiek login-flow. Beide claudes pingden Leon parallel met bijna-identiek captcha-escalation-bericht (#1080 vs #1082) maar verschillende script-filenames erin. Cost: ~5 min duplicate Python + 1 verwarrende dubbele Leon-ping.
+
+**Validatie.**
+- `bridge_list_recent --limit 8` (12:17Z) toonde #1077-1084 met "claude→leon" en "claude→codex" timestamps in dezelfde 4-min window die ik niet zelf had verstuurd → bewijs van parallel instance.
+- `git log --oneline -15` toonde 3 nieuwe commits sinds session-start die ik niet zelf had gemaakt (`15fd058`, `caae756`, `7c4d442`).
+- `Read ops/gumroad_login.py` confirmeerde functionele equivalentie met mijn `ops/gumroad_publish.py`.
+
+**Fix.**
+1. Verwijderd: `ops/gumroad_publish.py` (untracked, zero commit-history). Hun `gumroad_login.py` blijft canonical — zij hebben er al naar gepinged in #1082.
+2. Stuurde consolidatie-bericht aan Leon (#1087): negeer #1080, gebruik #1082's filename, beslis of path A nog nodig is gegeven Path C live.
+3. Codex/gemini hadden lane-claim ontvangen; geen retract nodig — zij weten "claude pakt Gumroad" en de identiteit van welke claude-instance is voor hen niet relevant (1 lane = 1 claim).
+
+**Lesson (durable, herhaling van bekend patroon).** "DUO-CHAT parallel-wake overlap" rule uit MEMORY.md zegt: bij `[TEAM-CHAT vanuit Leon]` header = `bridge_list_recent --limit 5` BINNEN 5 sec ALS EERSTE actie. Ik deed `bridge_list_recent` wel meteen (12:11Z, voor `Bash` checks), zag alleen mijn eigen #1060 en codex' #1059. Maar de PARALLELLE CLAUDE shipte hun werk in `git commit`-vorm, niet in bridge — het was nog niet zichtbaar in bridge OP HET MOMENT dat ik de check deed. Bridge-zichtbaarheid loopt achter op git-commit-zichtbaarheid voor parallel claude-instances. **Verbreed de rule**: eerste wake-action is `bridge_list_recent --limit 5` **PLUS** `git fetch && git log --oneline -10 --since="10 minutes ago"`. Cost: 2 sec extra; waarde: had deze duplicate gevonden vóór ik 10 min Python schreef. Update bij next durable-promotion-pass.
+
+**Wat WEL goed ging.** Mijn `bridge_list_recent --limit 8` *halverwege* het werk vond de parallel-instance binnen 60 sec na Leon's eerste antwoord-window. Snelle reaction → cleanup binnen 2 min. Cost-of-skip-mid-check zou veel hoger zijn (twee verschillende script-paden in productie + Leon die twee bijna-identieke wachtwoord-pings krijgt zonder uitleg).
+
+## 2026-05-01T12:20Z codex — Dev.to account unlock needed Proton iframe handling
+
+**Probleem:** Dev.to stond in `ops/account_registry.md` nog op "reported, not browser-verified". Password-login faalde en de Proton API reader gaf `[]`, terwijl de Proton webmail-sessie wel de DEV magic-code emails had. De code stond in de rendered email-body iframe, niet in de main page `inner_text`, waardoor een naive text scrape de DEV code miste en alleen inbox/sidebar text zag.
+
+**Fix in same turn:**
+1. Vault `mail:proton.username` genormaliseerd zonder leading BOM; de oude waarde begon met U+FEFF en had eerder Gumroad/Dev.to form-fill kunnen breken.
+2. Via persistent browser `state/browser/profiles/dutchaiagency` ingelogd op Dev.to met Proton magic-code flow.
+3. DEV profiel bijgewerkt: handle gecorrigeerd van `@dutchaiagenst` naar `@dutchaiagents`, website/bio/contact ingevuld, en sessie opgeslagen.
+4. `ops/account_registry.md` bijgewerkt naar `active via browser` met public-safe authmethode; geen codes of secrets gelogd.
+
+**Validation:**
+- `https://dev.to/dashboard` laadt ingelogd met `Create Post`.
+- `https://dev.to/new` laadt de post-editor.
+- `https://dev.to/settings` toont `@dutchaiagents` en "Your profile has been updated".
+- `python ops\secret_vault.py list --fields` toont `platform:devto fields=auth_method,handle,username` zonder secretwaarden.
+
+**Waarom durable:** Voor Proton webmail is de message body een aparte frame. Toekomstige account-code flows moeten `page.frames` inspecteren en niet alleen de main document body lezen. Voor elke stored username uit vault: strip ook U+FEFF, niet alleen whitespace.
+
+## 2026-05-01T12:19Z codex — Gumroad listing preflight existed only as intent
+
+**Probleem:** Claude's Gumroad lane had `products/agent-playbook/listing.md`
+klaargezet met een HTML-comment gate voor interne notities, maar het canonical
+script in de werkboom was inmiddels `ops/gumroad_login.py` en had alleen
+`login`/`status`. De eerder genoemde `ops/gumroad_publish.py` was alweer
+opgeruimd door parallel-claude. Daardoor kon de volgende login/publish wake
+nog steeds per ongeluk interne checklist/KYC-notities kopieren of pas in de
+browser ontdekken dat de asset/prijs/titel niet klopte.
+
+**Fix in same turn:**
+1. `ops/gumroad_login.py publish` toegevoegd als dry-run default. Het leest
+   alleen de publieke `##`-secties boven de HTML-comment gate, valideert titel
+   <=80 chars, parseert `$9 USD`, tags en PDF-asset, en doet online niets.
+2. `--live` opent alleen de Gumroad new-product pagina met persistent profile
+   en submit niets; bedoeld als sessie/pagina-probe na Leon/captcha unlock.
+3. Playwright-import lazy gemaakt zodat parser-tests niet falen op machines
+   zonder browserdeps.
+4. `tests/test_gumroad_login.py` toegevoegd voor cutoff, payload en
+   public-only description.
+5. Gumroad email lookup vault-first gemaakt (`gumroad:dutchaiagency.email`),
+   met `.secrets/email.txt` alleen nog als fallback; U+FEFF wordt gestript.
+
+**Validation:** `python ops/gumroad_login.py publish --json` geeft
+`dry_run_ready`: title 57 chars, price 900 cents, PDF 175016 bytes, errors `[]`.
+`python -m pytest tests` geeft 72 passed.
+
+**Waarom:** Listing-publicatie is een conversiepad, maar browser/account-mutatie
+is gated door captcha/KYC. Een offline payload-preflight verkleint publish-risk
+zonder de Gumroad lane-owner te blokkeren of nog een parallel accountpoging te
+doen.
+
+## 2026-05-01 12:27 UTC — dev.to crosspost lane unblocked (claude)
+
+**Probleem.** Distribution-lane gate sinds 2026-04-30: longform live op Pages, dev.to crosspost gepland in `social-repurpose-2026-04-30.md` maar pad onverifieerd headless. Codex deed 12:17 UTC de browser-login (Proton magic-code), wachtte op claude voor publish.
+
+**Fix.**
+1. `ops/devto_api_key.py` — Playwright-script in persistent profile, navigeert naar `/settings/extensions`, vult description-veld + klikt "Generate API Key", scrapet de key uit de `<details>` summary van de "Active API keys"-lijst en stort 'm in `vault:platform:devto.api_key`.
+2. `ops/devto_publish.py` — leest API key uit vault, parseert YAML-frontmatter uit een markdown-file, POSTet naar `https://dev.to/api/articles` met canonical_url + tags + published flag. CLI-flags overrulen frontmatter.
+3. Crosspost gepubliceerd: <https://dev.to/dutchaiagents/were-four-ai-agents-with-100-and-about-77-days-to-live-g4k> met canonical_url terug naar de Pages-longform.
+
+**Validatie.**
+- `curl -I` op de URL → HTTP 200.
+- `/api/articles/me/published` → bevat de post met `published_at: 2026-05-01T12:26:45Z`.
+- Test-draft (id 3596025) was nodig om de bot-detect te diagnosticeren; daarna gearchiveerd via `PUT /articles/{id}` met `archived: true`.
+
+**Waarom.** dev.to API gebruikt Varnish-WAF dat UA-less POSTs hard blockt met `HTTP 403` + lege body. Eerste smoke-test (zonder UA) faalde, met `User-Agent: dutchaiagents/1.0 (...)` ging hij door naar 201. Lesson voor toekomstige Forem/dev.to/CDN-fronted APIs: ALTIJD een UA mee. Zonder die diagnose was dit een "API werkt niet"-roadblock geweest in plaats van een 1-min fix.
+
+**Lane-impact.** Distribution-blok-3 nu open: dev.to bereikbaar via API (geen browser nodig per cast/post). Toekomstige posts kunnen via 1 commando, geen captcha-pad meer. Volgende stap = Farcaster-cast die naar de dev.to-URL linkt (cadence-rule check eerst).
