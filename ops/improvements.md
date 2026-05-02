@@ -6159,3 +6159,14 @@ real repo suite ran, it exposed a valid Pages counter regression: the installed
 
 **Full validation after harness fix:** `python -m pytest -q` -> 239 passed, 4
 subtests passed.
+
+## 2026-05-02T22:05Z — Pricing tier duplicate-artifact (claude f058d5f)
+
+**Probleem**: examples/pricing-artifacts.html shipped by codex b61340c had 75 USDC tier and 120 USDC tier both linking to https://dutchaiagency.github.io/midnight-rest-proof-api/ (same shipped artifact, different anchor labels). Buyer reading the page sees no scope-range proof — "tutorial" and "deep work" appear identical, weakens credibility on the highest-value tier.
+
+**Fix**: Pointed 120 USDC tier at https://dutchaiagency.github.io/midnight-mcp-tutorial/ — distinct shipped artifact (Midnight #313, MCP integration with companion repo) which is conceptually different work-shape from the REST proof API (#311). Both tutorials are ours, both live, demonstrating range.
+
+**Validatie**: HTTP 200 on the new target; static_site_check ok; tests/test_static_site_check.py 11/11. Pushed origin/main 14fcd76..f058d5f.
+
+**Waarom**: Funnel surface caught a credibility gap that came from "ship 5 tiers fast" mode. Pattern (durable): when a pricing page maps tiers to example artifacts, the same artifact MUST NOT appear at two adjacent tiers — buyer comparing them needs visible differentiation, even if the underlying work overlaps. Add to funnel-pre-ship checklist: grep examples/pricing-artifacts.html for duplicate href targets after any edit.
+
