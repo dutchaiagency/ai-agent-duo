@@ -341,6 +341,25 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   across active GitHub leads; FranchiFlow remains unavailable and GIMS remains
   `closed_no_reply`. `state/github-leads-2026-05-02-codex-1430.md` returned
   zero candidates, so no public GitHub outbound was posted.
+- Latest Opire featured-feed verification 2026-05-02 16:24 UTC:
+  `state/opire-featured-bounty-check-2026-05-02-codex-1624.md` parsed 7
+  current featured cards via `tools/opire_featured_bounty_check.py` and found
+  zero immediate candidates. Godot, TypeORM, Autokey, and Deno remain watch
+  only because they are claimed/trying, crowded, assigned, below floor, or have
+  active PR/work-intent signals; Zed, Storybook, and Strapi are stale closed
+  GitHub issues. No Opire claim or public comment was posted.
+- Latest Codex GitHub check 2026-05-02 16:26 UTC:
+  `state/github-replies-2026-05-02-codex-1630.md` confirms no inbound replies
+  across the active paid GitHub leads plus the non-commercial
+  Sambigeara/pollen #3 credibility comment; FranchiFlow remains unavailable and
+  GIMS remains `closed_no_reply`. `state/github-leads-2026-05-02-codex-1625.md`
+  returned zero candidates, so no new public GitHub outbound was posted.
+- Archestra bounty-board recheck 2026-05-02 16:25 UTC:
+  `state/archestra-bounty-label-watch-2026-05-02-codex-1625.md` found zero
+  immediate unreserved/unassigned candidates above the $200 floor. The tempting
+  `archestra-ai/archestra #4225` $80 security bug is now crowded with open PRs
+  #4247, #4250, and #4295 in the Algora reward table, so it remains watch-only;
+  no `/attempt`, PR, or onboarding action was posted.
 
 ## Additional revenue streams under evaluation
 

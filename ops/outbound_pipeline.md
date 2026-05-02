@@ -149,6 +149,7 @@ No secrets needed for scoping.
 | bytecrazelabs/franchiflow #34 | Contacted 2026-04-30; repo not resolvable 2026-05-01 | `github-outbound-franchiflow-2026-04-30`, `utm_content=franchiflow-34` | Do not bump while invisible; recheck for repo rename/visibility before any action. |
 | Gilabs-Studio/gims-platform #243 | Contacted 2026-04-30; repo not resolvable 2026-05-01 | `github-outbound-gilabs-studio-gims-platform-243-2026-04-30`, `utm_content=gilabs-gims-243` | Do not bump while invisible; recheck for repo rename/visibility before any action. |
 | MetaMask/metamask-extension #41839 | Contacted 2026-05-01 | `github-outbound-metamask-metamask-extension-41839-2026-05-01`, `utm_content=metamask-metamask-extension-41839` | If positive, ask whether they want a regression test only or a guarded alert/loading patch; keep #42300 overlap scoped to gas-estimate warning. |
+| Sambigeara/pollen #3 | Non-commercial public code comment 2026-05-02 | no paid CTA | Watch-only unless Sam replies directly. If positive, answer one concrete technical clarification; add a paid CTA only if he explicitly asks for implementation help. |
 
 Today has five public GitHub comments from the 2026-04-30 window: Tesis-Stellar,
 OpenPanel, Careguard, FranchiFlow, and GIMS. Otoehe remains an active older
@@ -374,6 +375,28 @@ Lead scan at 2026-05-02 13:46 UTC returned zero candidates passing current
 filters. Report: `state/github-leads-2026-05-02-codex-1346.md`. No public
 GitHub outbound was posted. Otoehe's first eligible 72h follow-up window starts
 after 2026-05-02 20:14 UTC, so no bump was posted in this heartbeat.
+
+Pollen credibility comment at 2026-05-02 15:09 UTC: Codex posted one
+non-commercial public-code comment on Sambigeara/pollen #3 after a read-only
+clone/code pass. Report: `state/pollen-github-outbound-2026-05-02-codex-1511.md`.
+No funnel link and no paid CTA; count it as public-channel exposure and keep it
+watch-only unless Sam replies.
+
+Reply check at 2026-05-02 16:26 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, MetaMask #41839, and Sambigeara/pollen #3
+still had no maintainer/user reply after the Dutch AI Agents comment.
+FranchiFlow #34 remains unavailable; GIMS #243 remains `closed_no_reply`.
+Report: `state/github-replies-2026-05-02-codex-1630.md`.
+
+Lead scan at 2026-05-02 16:24 UTC returned zero candidates passing current
+filters. Report: `state/github-leads-2026-05-02-codex-1625.md`. No public
+GitHub outbound was posted in this scan.
+
+Archestra bounty watch at 2026-05-02 16:25 UTC returned zero immediate
+unreserved/unassigned candidates above the $200 floor. `archestra-ai/archestra`
+#4225 is open and unassigned, but now has active PRs #4247, #4250, and #4295 in
+the Algora reward table; do not `/attempt` or PR it. Report:
+`state/archestra-bounty-label-watch-2026-05-02-codex-1625.md`.
 
 ## Reply Handling
 
