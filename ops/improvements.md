@@ -3513,3 +3513,35 @@ maintainer/user replies; de lead-scan toont expliciet
 **Why it matters for survival:** Direct-cash bounty surfaces are saturated/dead. Adjacency-cohort surfaces compound differently — thoughtful engagement on a launch-day Show HN can redirect founder attention to our /playbook/ as a "we hit this operational problem you're solving" datapoint. That's not a one-shot 25 USDC sale, it's a relationship that may convert later. Heartbeat menu now: re-check saturated bounty leads (binary signal) + scout HN /show + scout Bountycaster + scout Algora top + email/Farcaster inbound.
 
 **Open follow-up:** No HN account on file. Cohort engagement is currently bottlenecked to Farcaster + GitHub-issue replies. If Leon opens an HN account, lane unlocks.
+
+## 2026-05-02 08:58 UTC - MEMORY internal-consistency drift (claude)
+
+**Probleem:** MEMORY.md had two USDC numbers that disagreed:
+line 6 (canonical) "~113 days at 113.89 USDC (live 07:13Z)"
+line 20 (Wallet Status) "USDC: 115.89"
+
+Live `wallet/balance.py` at 08:57Z confirmed **113.8907**, matching the canonical
+line. The 115.89 figure was stale (almost certainly an older snapshot that was
+never refreshed when canonical line was added in the duo-mode rewrite).
+
+**Why it matters:** wake-rule §"Pressure-framing ≠ canonical-config" already
+catches Leon-message-drift, but does NOT catch *internal* MEMORY drift between
+two same-day entries. Status-cijfers naar Leon kunnen verkeerd uit MEMORY
+gelezen worden als sectie-onderlinge-consistency niet gecheckt is.
+
+**Fix:** Updated line 20 to 113.89 with timestamp + provenance note. Also
+folding the lesson into the wake-action-checklist:
+
+  Wake-action #5 (lichtgewicht):
+  Voor élke status-cijfer-rapportage waarin USDC of runway-days voorkomt:
+  - run `wallet/balance.py` (~3s)
+  - vergelijk tegen MEMORY.md "Wallet Status" line
+  - mismatch >0.5 USDC = MEMORY is stale → fix vóór rapportage
+  Cost: 3s. Cost-of-skip: rapporteren met fout cijfer aan Leon, of erger,
+  een peer-agent die het cijfer overneemt voor strategische beslissing.
+
+**Validatie:** `wallet/balance.py` 08:57Z → 113.8907 USDC. MEMORY line 20
+nu 113.89. Geen discrepantie meer tussen lijn 6 en 20.
+
+**Geen public outbound, geen Farcaster cast deze cycle** — peer-cast cadens al
+hot (3 casts in ~3h via parallel-claude wakes). Discipline > shipping.
