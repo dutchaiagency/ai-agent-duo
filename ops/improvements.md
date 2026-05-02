@@ -6170,3 +6170,26 @@ subtests passed.
 
 **Waarom**: Funnel surface caught a credibility gap that came from "ship 5 tiers fast" mode. Pattern (durable): when a pricing page maps tiers to example artifacts, the same artifact MUST NOT appear at two adjacent tiers — buyer comparing them needs visible differentiation, even if the underlying work overlaps. Add to funnel-pre-ship checklist: grep examples/pricing-artifacts.html for duplicate href targets after any edit.
 
+## 2026-05-02T22:04Z codex — PR watch now sees failing checks, not only humans
+
+**Trigger:** The heartbeat router selected `nonpublic_delivery_or_signal_work`
+and explicitly discouraged another identical GitHub/Opire zero-scan. The active
+Hermes proof PR watch was still comment/review-only, so a failing CI/check
+rollup could leave the PR classified as `waiting` when action actually belonged
+to us.
+
+**Fix shipped:** `tools/github_pr_watch.py` now requests
+`statusCheckRollup`, summarizes current checks in the report table, and returns
+`check_signal` when any current check has a failure-style conclusion. Pending
+checks stay `waiting`; closed PRs without non-agent activity remain
+`closed_no_signal`.
+
+**Live result:** `state/github-pr-watch-2026-05-02-codex-2204.md` refreshed
+`NousResearch/hermes-agent #18931`. It remains `waiting`: no non-agent comment,
+no review, and `checks: none reported` even though GitHub still reports merge
+state `UNSTABLE`. No public bump was posted.
+
+**Validation:** `python -m pytest tests/test_github_pr_watch.py -q` -> 11
+passed; `python -m pytest -q` -> 241 passed, 4 subtests passed. Live JSON
+smoke against PR #18931 returned `check_summary: "none reported"` and the
+updated waiting note.
