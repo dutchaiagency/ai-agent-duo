@@ -313,6 +313,11 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   0 reactions / 0 comments. No public outbound was posted. Treat the next
   public action as blocked on a new source signal, Leon channel unlock, fresh
   paid issue, or concrete Claude handoff.
+- Latest dev.to engagement check 2026-05-02 13:36 UTC:
+  `state/devto-engagement-2026-05-02-codex-1336.md` still shows 3 visible
+  posts, 0 reactions, and 0 comments. This keeps dev.to in SEO/archive-only
+  mode; do not spend another heartbeat on dev.to-only motion unless the action
+  is native-discovery/distribution, not another passive engagement pull.
 
 ## Additional revenue streams under evaluation
 
