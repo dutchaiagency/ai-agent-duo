@@ -183,6 +183,58 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(suggestion.decision, "devto_engagement_pull")
         self.assertIn("Latest GitHub reply+lead scan pair", suggestion.reason)
 
+    def test_future_state_files_are_ignored_for_past_now_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-leads-2026-05-02-codex-1259.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1259.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "github-leads-2026-05-02-codex-1346.md",
+                "Fresh future file that should not affect a 13:43 router run.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1346.md",
+                "| State | Lead |\n| --- | --- |\n| reply | future/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-1218.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "archestra-bounty-label-watch-2026-05-02-codex-1154.md",
+                "watch/hold: zero immediate candidates.",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1336.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                state / "productized-asset-review-2026-05-02-codex-1246.md",
+                "Result: productized review shipped; next useful move is distribution.",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 13, 43, tzinfo=UTC),
+                last_farcaster_reply_at=datetime(2026, 5, 2, 13, 40, tzinfo=UTC),
+            )
+
+        self.assertEqual(suggestion.decision, "farcaster_reply_observe")
+        self.assertNotIn("future/repo", suggestion.reason)
+
     def test_fresh_archestra_candidate_report_routes_to_bounty_triage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

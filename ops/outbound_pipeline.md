@@ -364,6 +364,17 @@ GitHub outbound was posted. The follow-on channel audit is
 `state/channel-poverty-audit-2026-05-02-codex-1301.md`; it also found no intake
 issues, unread mail, Farcaster notifications, or dev.to engagement.
 
+Reply check at 2026-05-02 13:46 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, and MetaMask #41839 still had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34
+remains unavailable; GIMS #243 remains `closed_no_reply`. Report:
+`state/github-replies-2026-05-02-codex-1346.md`.
+
+Lead scan at 2026-05-02 13:46 UTC returned zero candidates passing current
+filters. Report: `state/github-leads-2026-05-02-codex-1346.md`. No public
+GitHub outbound was posted. Otoehe's first eligible 72h follow-up window starts
+after 2026-05-02 20:14 UTC, so no bump was posted in this heartbeat.
+
 ## Reply Handling
 
 If the maintainer responds positively:

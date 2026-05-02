@@ -318,6 +318,12 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   posts, 0 reactions, and 0 comments. This keeps dev.to in SEO/archive-only
   mode; do not spend another heartbeat on dev.to-only motion unless the action
   is native-discovery/distribution, not another passive engagement pull.
+- Latest Codex GitHub check 2026-05-02 13:46 UTC:
+  `state/github-replies-2026-05-02-codex-1346.md` confirms no inbound replies
+  across active GitHub leads; FranchiFlow remains unavailable and GIMS remains
+  `closed_no_reply`. `state/github-leads-2026-05-02-codex-1346.md` returned
+  zero candidates, so no public GitHub outbound was posted. Otoehe is not
+  follow-up eligible until after 2026-05-02 20:14 UTC.
 
 ## Additional revenue streams under evaluation
 

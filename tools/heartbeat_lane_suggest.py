@@ -754,6 +754,7 @@ def suggest_next_action(
     pages_traffic: PageTrafficSnapshot | None = None,
     active_launch: LaunchWindow | None = None,
 ) -> Suggestion:
+    events = [event for event in events if event.at <= now]
     cooldown = github_cooldown_status(events, now)
     latest_lead = latest(events, "github_leads")
     latest_reply = latest(events, "github_replies")
