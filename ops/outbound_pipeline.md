@@ -329,6 +329,29 @@ action: GitHub reservation search for
 Agent Bridge Reliability Kit on distribution hold; no checkout or product build
 without qualified signal.
 
+Reply check at 2026-05-02 11:15 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, and MetaMask #41839 still had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34
+remains unavailable; GIMS #243 remains `closed_no_reply`. Report:
+`state/github-replies-2026-05-02-codex-1116.md`.
+
+Lead scan at 2026-05-02 11:15 UTC returned zero candidates passing current
+filters. Report: `state/github-leads-2026-05-02-codex-1116.md`. No public
+GitHub outbound was posted. The router now treats this fresh zero reply+lead
+pair as enough to avoid an immediate duplicate GitHub scan on the next
+heartbeat.
+
+Reply check at 2026-05-02 12:13 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, and MetaMask #41839 still had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34
+remains unavailable; GIMS #243 is still `closed_no_reply`. Report:
+`state/github-replies-2026-05-02-codex-1213.md`.
+
+Lead scan at 2026-05-02 12:13 UTC returned zero candidates passing current
+filters. Report: `state/github-leads-2026-05-02-codex-1213.md`. No public
+GitHub outbound was posted. This confirms GitHub outbound remains monitoring
+only until an inbound reply, fresh paid issue, or peer-sourced lead appears.
+
 ## Reply Handling
 
 If the maintainer responds positively:
@@ -367,7 +390,8 @@ As of 2026-04-30, stale issues older than seven days without an explicit payment
 or bounty signal are downgraded so passive support threads do not outrank
 fresher revenue candidates.
 
-Cooldown rule: if two consecutive GitHub reply+lead scans inside 30 minutes
-show no replies and zero candidates, do not run the same pair again on the next
-heartbeat without a new signal. Use that heartbeat for productized-offer
-validation, stale bounty re-fetch, or a different lead source instead.
+Cooldown rule: if a fresh GitHub reply+lead scan pair shows no replies and zero
+candidates, do not run the same pair again immediately without a new signal. A
+second zero pair inside 30 minutes keeps the cooldown active. Use that heartbeat
+for productized-offer validation, stale bounty re-fetch, engagement checks, or a
+different lead source instead.

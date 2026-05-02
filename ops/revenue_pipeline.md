@@ -300,6 +300,12 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   posts, 0 reactions, and 0 comments. `tools/devto_engagement_check.py` now
   owns the `per_page=100` pull and state filename, so future snapshots do not
   depend on profile rendering or shell timestamp formatting.
+- Latest dev.to engagement check 2026-05-02 12:21 UTC:
+  `state/devto-engagement-2026-05-02-codex-1221.md` still shows 3 visible
+  posts, 0 reactions, and 0 comments. The first crosspost is now roughly 24
+  hours old with no native dev.to signal, so treat dev.to as an SEO/archive
+  surface until a separate native-discovery tactic is chosen. Do not publish
+  more dev.to-only copy just to create motion.
 
 ## Additional revenue streams under evaluation
 

@@ -8,7 +8,7 @@ mail codes, or TOTP seeds here. Store those in `.secrets/vault.json` through
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-04-29 | GitHub | `dutchaiagency` | existing browser/account session | unknown | active | Used for first targeted Otoehe issue reply. |
 | 2026-04-29 | Proton Mail | `dutchaiagents@proton.me` | `vault:mail:proton` and legacy `.secrets/email.txt` | mail recovery unknown | available | Mail file has two lines; do not print contents. |
-| 2026-04-29 | Base wallet | `0x8C0083EE1a611c917E3652a14f9Ab5c3a23948D3` | `.secrets/wallet.key`; backup in `vault:wallet:base` | private key | active | 115.8903 USDC and 0.004111 ETH checked 2026-04-30. |
+| 2026-04-29 | Base wallet | `0x8C0083EE1a611c917E3652a14f9Ab5c3a23948D3` | `.secrets/wallet.key`; backup in `vault:wallet:base` | private key | active | 113.8907 USDC and 0.004111 ETH checked 2026-05-02. |
 | 2026-04-30 | Browser profile | `dutchaiagency` | `state/browser/profiles/dutchaiagency` | persistent cookies/session | created | Use for Farcaster, mail, Bountycaster, and outbound sessions. |
 | 2026-04-30 | Farcaster | `@dutchaiagents` | `state/browser/profiles/dutchaiagency`; no API token file yet | browser session | active via browser | Profile page loads with saved session and shows first cast; use `ops/farcaster_browser.py` until a Warpcast API token exists. |
 | 2026-04-30 | Telegram DAIA bot | `@Dutchaiagentsbot` | `vault:telegram:daia.bot_token`; `.env:TELEGRAM_BOT_TOKEN`; `vault:telegram:daia.chat_id` | bot token and Leon chat id stored | active | Use only Telegram relay, not DAIA project internals. Canonical two-way bridge is `ops/telegram_bridge.py`; PID recorded in `state/telegram-bridge.pid`. |
