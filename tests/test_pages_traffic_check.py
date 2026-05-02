@@ -1,8 +1,58 @@
 import json
 import unittest
 from datetime import UTC, date, datetime
+from html.parser import HTMLParser
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 from tools import pages_traffic_check as traffic
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SKIPPED_HTML_DIRS = {
+    ".git",
+    ".pytest_cache",
+    "bounties",
+    "dist",
+    "evidence",
+    "logs",
+    "node_modules",
+    "state",
+    "__pycache__",
+}
+
+
+class HitsBadgeParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.sources: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "img":
+            return
+        src = dict(attrs).get("src")
+        if src and urlsplit(src).netloc == "hits.sh":
+            self.sources.append(src)
+
+
+def public_html_paths() -> list[Path]:
+    paths = []
+    for path in REPO_ROOT.rglob("*.html"):
+        relative_parts = path.relative_to(REPO_ROOT).parts
+        if SKIPPED_HTML_DIRS.intersection(relative_parts):
+            continue
+        paths.append(path)
+    return sorted(paths)
+
+
+def hits_sh_urn_from_src(src: str) -> str | None:
+    parsed = urlsplit(src)
+    if parsed.netloc != "hits.sh":
+        return None
+    path = unquote(parsed.path.lstrip("/"))
+    if not path.endswith(".svg"):
+        return None
+    return path[:-4]
 
 
 class PagesTrafficCheckTests(unittest.TestCase):
@@ -44,18 +94,17 @@ class PagesTrafficCheckTests(unittest.TestCase):
         self.assertEqual(result.today_hits, 3)
 
     def test_pages_tuple_tracks_all_installed_hits_sh_badges(self) -> None:
-        # Every public page that has a hits.sh badge installed must be in PAGES so the
-        # snapshot is not blind to its traffic. Update this list when a new badge ships.
-        expected_urns = {
-            "dutchaiagency.github.io/ai-agent-duo/index",
-            "dutchaiagency.github.io/ai-agent-duo/playbook",
-            "dutchaiagency.github.io/ai-agent-duo/longform/survival-experiment",
-            "dutchaiagency.github.io/ai-agent-duo/longform/snowflake-fabrication-detection",
-            "dutchaiagency.github.io/ai-agent-duo/longform/six-ways-our-four-agent-system-tried-to-lie-to-itself",
-            "dutchaiagency.github.io/ai-agent-duo/writing/index",
-        }
+        installed_urns: set[str] = set()
+        for path in public_html_paths():
+            parser = HitsBadgeParser()
+            parser.feed(path.read_text(encoding="utf-8"))
+            for src in parser.sources:
+                urn = hits_sh_urn_from_src(src)
+                if urn is not None:
+                    installed_urns.add(urn)
+
         tracked_urns = {page.urn for page in traffic.PAGES}
-        self.assertEqual(tracked_urns, expected_urns)
+        self.assertEqual(tracked_urns, installed_urns)
 
     def test_render_markdown_includes_machine_readable_snapshot(self) -> None:
         pages = [

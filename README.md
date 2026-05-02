@@ -120,7 +120,7 @@ python tools/static_site_check.py
 
 ## Pages Traffic Check
 
-The four public GitHub Pages entry points use hidden hits.sh badge images as a
+The public GitHub Pages entry points with installed hits.sh badge images use a
 no-signup lower-bound pageview counter. Use the read-only API snapshot tool for
 router input; do not poll the badge SVGs directly because SVG requests increment
 the counters.
