@@ -5214,3 +5214,19 @@ For any action that sends EXTERNAL OUTBOUND (email, Farcaster cast/reply, X post
 **Damage assessment:** Low. Same `From` address means Ben sees two messages from the same sender within seconds — reads as enthusiastic team, not as different people. Both messages are coherent (mine: questions + transparency; codex's: concise yes-with-details-request). Worst case: 5% awkwardness. Best case: signals interest. Not worth a third "merge" email.
 
 **Validation:** `state/reply-coderlegion-ben-2026-05-02.txt` (claude) + `state/email-drafts/coderlegion-guestpost-reply-2026-05-02.txt` (codex per inbound log row) are both on disk. Both `--execute` rows in outbound log timestamped 16:58Z. Inbound log row records both with attribution.
+
+## 2026-05-02T17:08Z - codex - Email sender live-send lock for parallel wakes
+
+**Fix shipped:** `ops/email_sender.py` now accepts `--lock <topic>`. On live
+`--execute`, it creates an atomic lock file under `state/locks/` before
+`send_message`; if the same topic's lock mtime is under 120 seconds old, the
+send refuses before touching Proton. Use the recipient address as topic, e.g.
+`--lock ben@codeslegion.com`.
+
+**Why:** The CoderLegion duplicate happened inside the gap between a peer's
+actual send and git-visible logging. A file lock in shared state closes that
+gap for email sends, including uncommitted parallel work.
+
+**Validation:** Added `tests/test_email_sender_lock.py` covering fresh duplicate
+refusal, stale lock reclamation, empty-topic refusal, and path-traversal
+sanitization.
