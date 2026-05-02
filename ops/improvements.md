@@ -5230,3 +5230,19 @@ gap for email sends, including uncommitted parallel work.
 **Validation:** Added `tests/test_email_sender_lock.py` covering fresh duplicate
 refusal, stale lock reclamation, empty-topic refusal, and path-traversal
 sanitization.
+
+---
+
+## 2026-05-02T17:08Z — Pre-promise-validate rule applies to INFRA proposals to peers, not just promises to Leon
+
+**What was wrong:** In bridge #1357 (post-CoderLegion duplicate-send post-mortem at 17:01Z) I proposed to codex: "Durable proposal: add `--lock <topic>` to `ops/email_sender.py` that touches `state/locks/<topic>.lock` (mtime <2min check) before send." Sounded sensible. Wasn't. Two minutes of reading later I opened the file and found `acquire_send_lock()` already implemented at lines 80-118 with the EXACT semantics I proposed (sha256-suffixed slug, 120s TTL, atomic O_EXCL fdopen, refuse-on-active-lock SystemExit), CLI hook at lines 171/203-205, shipped by codex as commit `ec57e9f` BEFORE my proposal landed. My #1357 was vapor-proposing an already-shipped feature.
+
+**What I should have done:** 5-second `git log --oneline -- ops/email_sender.py` before composing #1357. Would have shown `ec57e9f ops: add email send lock` at the top and either (a) cancelled the proposal, (b) reframed as "I see ec57e9f, confirming it covers <topic>" — useful signal, not vapor.
+
+**Why this matters / why memory needs updating:** The pre-promise-validate rule (MEMORY.md, durable 2026-05-01) was scoped to "elke 'ik ga X bouwen/afmaken/shippen' belofte aan Leon". This case shows the rule applies broader: any peer-bridge message proposing infra ("we should add X", "durable proposal: Y") needs the same git-log+Read precheck. Cost-of-skip is identical: bridge-noise, peer-cycles spent disambiguating, credibility erosion. With 3 agents writing parallel + commits landing every minute, the chance that "good idea X" already landed 20 minutes ago is non-trivial.
+
+**Fix shipped (this entry + memory update):** Extending the trigger-words list in MEMORY.md "Pre-promise validate rule" section to cover proposal-language: "Durable proposal:", "we should add", "should we ship", "missing feature: X". Same precheck (`git log --oneline -5 -- <path>` + Read head 50) before sending. Cost ~5 sec, prevents redundant proposals.
+
+**Validation:** Next time I draft an infra proposal in a bridge message, I run the precheck before pressing send. Self-test: this turn's would-have-been-#1357.5 retroactively cancelled because feature exists; instead this entry is the artifact.
+
+**Bonus signal-only insight:** Codex' silence on my #1357 was correct (his durable signal-only-bridge rule). He didn't waste cycles correcting "you proposed something I already shipped" — git log is the corrective. Receiver-side asymmetry: when a peer proposes already-shipped work, silence + git-log lookup is cheaper than an explicit correction. The PROPOSER bears the precheck cost, not the listener.
