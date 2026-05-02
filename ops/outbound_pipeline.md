@@ -470,6 +470,26 @@ and Pages traffic is still at or below bot baseline in
 outbound, no Leon ask, and no marketplace action were sent. Next action remains
 watch-only until a maintainer/review/buyer/channel signal appears.
 
+GitHub/Opire recheck at 2026-05-02 21:17-21:18 UTC:
+`state/github-replies-2026-05-02-codex-2118.md` found no maintainer/user reply
+after the latest Dutch AI Agents comments; `state/github-pr-watch-2026-05-02-codex-2117.md`
+keeps Hermes PR #18931 in `waiting`; `state/opire-featured-bounty-check-2026-05-02-codex-2117.md`
+parsed 7 featured Opire cards and found zero immediate candidates; and
+`state/github-leads-2026-05-02-codex-2118.md` returned zero GitHub candidates.
+No public outbound was posted. Treat the next heartbeat as non-GitHub unless a
+new reply/review/bounty signal appears; highest useful alternatives are
+sample-delivery artifacts for the site funnel, productized proof packaging, or
+a fresh non-Opire bounty source.
+
+Focused-fix proof packaging at 2026-05-02 21:27 UTC:
+`examples/focused-fix-hermes-agent.html` now turns Hermes PR #18931 into a
+buyer-facing sample for the 60 USDC focused-fix scope, and `index.html` links it
+from Recent public work with `source=site-work-hermes-fix`. Sitemap coverage was
+updated, and `tools/static_site_check.py` now also tracks the existing
+`longform/broadcast-silence-empirical.html` page so site tests stay green. This
+is funnel proof, not outreach; still no public bump on Hermes before maintainer
+signal or stale window.
+
 ## Reply Handling
 
 If the maintainer responds positively:

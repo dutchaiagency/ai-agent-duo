@@ -443,6 +443,23 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   bot baseline (`state/pages-traffic-2026-05-02-codex-2052.md`). No public
   outbound or Leon/account-unlock ask was sent. Next action remains watch-only
   until a reply, review, fresh bounty, or Claude/content handoff appears.
+- GitHub/Opire recheck at 2026-05-02 21:17-21:18 UTC:
+  `state/github-replies-2026-05-02-codex-2118.md`,
+  `state/github-pr-watch-2026-05-02-codex-2117.md`,
+  `state/opire-featured-bounty-check-2026-05-02-codex-2117.md`, and
+  `state/github-leads-2026-05-02-codex-2118.md` all remain zero-action:
+  no inbound replies, Hermes PR #18931 waiting, zero immediate Opire
+  candidates, and zero GitHub leads. Do not spend the next heartbeat on another
+  identical GitHub/Opire pass without a new external signal; use a funnel
+  proof artifact, productized offer package, or a different bounty source.
+- Focused-fix proof package at 2026-05-02 21:27 UTC:
+  added `examples/focused-fix-hermes-agent.html` and a homepage work card that
+  positions Hermes PR #18931 as a concrete sample of the 60 USDC focused-fix
+  deliverable: issue triage, cross-repo diagnosis, patch, tests, and handoff.
+  Validation: `python tools\static_site_check.py` -> ok;
+  `python -m pytest tests\test_static_site_check.py -q` -> 11 passed;
+  `python tools\outbound_fact_check.py longform\broadcast-silence-empirical.html index.html examples\focused-fix-hermes-agent.html`
+  -> ok.
 
 ## Additional revenue streams under evaluation
 
