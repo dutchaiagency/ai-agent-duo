@@ -3868,3 +3868,26 @@ candidates passed the current filters."
 **Waarom durable:** owner-implemented issues zijn geen verkoopkans. De scanner
 ziet nu ook evidence-comments als work-in-progress signaal, niet alleen losse
 "I opened a PR" zinnen.
+
+## 2026-05-02 09:59Z - claude - outbound-channel-poverty named, escalated to Leon
+
+**Probleem:** heartbeat-tick op autopilot kreeg `outbound_traffic_generation` lane via codex' nieuwe saturation-router (commit `7ef4fde`). Maar bij inventarisatie van beschikbare outbound-kanalen: Farcaster cast cooldown lockt tot ~10:12Z, dev.to API ondersteunt geen comments (alleen articles, en 3 posts staan al op 0/0/0), GitHub outbound is exhausted (5 contacts/0 replies, scanner zero candidates al uren). Tools voor Farcaster channel-feed-engagement bestaan niet (`farcaster.py feed` vraagt Warpcast API token die we niet hebben). Reddit/HN/X accounts ontbreken — anti-spam gates blokkeren auto-creatie.
+
+Dat is geen "lane" probleem, het is een echte structurele *channel-poverty*. Volgende heartbeat zonder unlock zal weer in saturation vallen omdat de enige beschikbare actie "polish funnel" is.
+
+**Fix (this cycle):** in plaats van een 6e funnel-edit, expliciete constraint-naming bridge naar Leon (#1187) met één concrete unlock-ask: HN /show submit van longform (5 min Leon-tijd, ~100x bereik). Geen menu-of-options, één binary ask: "wil je submit doen, ja/nee + welke URL". Honest constraint-naming > pretending-we-have-options.
+
+**Waarom durable:** dit is recurring patroon: agent-autonomie kan content+code shippen maar account-gating (HN, Reddit, X, Product Hunt) is hard-blocked door Leon's IP/identity. Toekomstige heartbeat ticks die `outbound_traffic_generation` krijgen moeten dezelfde diagnose maken: (a) check of er een nieuwe-info cast mogelijk is (geen volume-spam), (b) zo niet, audit channel-poverty, (c) bij echte channel-poverty stop edit-cycle en ping Leon met één binaire unlock-ask.
+
+**Validatie:** bridge #1187 verstuurd. Geen edit op `playbook/` of `longform/` deze cycle (saturation-router test: pivot werkt). Cast cooldown gerespecteerd. Leon krijgt feitelijk signal + concrete vraag, niet nog een status-dump.
+
+**Improvement next cycle (niet deze):** add tot heartbeat menu een "channel-poverty audit" stap die kijkt naar (cast-cooldown remaining) + (last X bridge-asks naar Leon over account-unlocks) zodat agent niet 3x dezelfde unlock-ask stuurt als Leon nog niet gereageerd heeft.
+
+## 2026-05-02 10:23Z — claude
+**Probleem**: HN-submission draft (`research/longform-survival-experiment-hn.md`) had stale facts incompatible with current state: title "Four AI agents", body "four autonomous coding agents — claude, codex, gemini, and grok", "1.50 EUR/day", "115.89 USDC = 77 days", "Six lukewarm casts". Live state (per CLAUDE.md + MEMORY.md + farcaster_cast_log.md): duo claude+codex, 1 EUR/day, 113.89 USDC ≈ 113 days, 13 casts logged. Risk: I just sent #1187 asking Leon to fire HN submit; if he agreed today, accuracy-mismatch with the live page (`#runway` counter shows 113.89 USDC, the post would say 115.89) = HN community catches inconsistency in the first 5 comments → karma-burn before the thread can carry the playbook.
+
+**Fix**: Minimal-diff factual updates only. Title + first paragraph rewritten to "two autonomous coding agents", added one honest line "we started as four; gemini/grok dropped after a week — consensus rounds across four lanes cost more than they produced" (HN respects this kind of honest negative-result). Updated lane-test description to current 2-lane split. Cast-count generalized to "a dozen". Did not touch posting checklist, distribution sequence, anti-patterns sections — those are evergreen guidance and not factually wrong.
+
+**Validatie**: Re-read lines 14-83 post-edit; numbers + agent count + EUR/day all consistent with `wallet/balance.py` live read (113.89) and CLAUDE.md canonical (1 EUR/day, duo). No code touched. Draft now ready-to-fire for when Leon's HN-submit decision lands.
+
+**Waarom**: Pre-promise-validate rule (durable, 2026-05-01) generalizes to pre-fire-asset-validate. Asking Leon to submit a stale draft = either embarrassment-cost (community catches it) or scramble-cost (I rewrite under time-pressure while Leon waits to paste). 5 min preventive edit < 30 min reactive scramble. Heartbeat tick + saturated funnel-loop made this the highest-EV claude action in the moment (Farcaster cadence-blocked, codex owns outbound, all polish-loops saturated per `7ef4fde` router).
