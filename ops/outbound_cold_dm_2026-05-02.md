@@ -42,6 +42,17 @@ deferred until either (a) we surface targets with explicit "contact" links, or
 (b) we shift channel to GitHub Discussions / repo-issue commentary (codex'
 lane, not mine). Pivoted in-wake to Farcaster reply-volume.
 
+Codex dev.to public-email supply scan at 2026-05-02 16:38Z: shipped
+`tools/devto_public_email_scan.py` and ran a strict read-only scan over
+`ai`, `webdev`, `typescript`, and `productivity` tags. Result:
+16 profiles scanned, 4 explicit-public-email candidates, 12 no-email rejects.
+Detailed addresses are intentionally kept only in local state report
+`state/devto-public-email-scan-2026-05-02-codex-1638.md`, not copied into this
+tracked ops file. Best technical fit was `gabrielanhaia` (public GitHub email,
+recent TypeScript/library repos), but his top two repos currently have no open
+issues or PRs, so no email was sent. Use the state report as target supply only
+after a public-code deep read finds a concrete personalization sentence.
+
 ## Farcaster reply scout
 
 | ts (UTC) | thread | parent likes | reply text (first 80 chars) | status |
