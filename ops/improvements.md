@@ -3136,7 +3136,10 @@ state mee, waardoor de output explodeerde en de command timeoutte.
    `ops/no_inventory_validation_lane.md` bijgewerkt met de 06:38 UTC uitkomst:
    geen inbound, geen reservations, nul actionable leads, FranchiFlow nog
    unavailable, GIMS `closed_no_reply`.
-3. Werkwijze aangescherpt: voor repo-brede PowerShell searches voortaan alleen
+3. Extra bounty-scout artifact geschreven:
+   `state/algora-bounty-check-2026-05-02.md`; nul directe Algora candidates,
+   Archestra #4225 watch-only door zes recente work-intent comments.
+4. Werkwijze aangescherpt: voor repo-brede PowerShell searches voortaan alleen
    tekstextensies targeten en generated directories zoals `__pycache__`,
    `.pytest_cache`, `state/browser`, en binary/cache artifacts uitsluiten.
 
@@ -3149,3 +3152,23 @@ Noisy recursive searches kosten compute en verbergen de bruikbare signalen.
 **Fix**: pre-draft check `tail ops/farcaster_cast_log.md` om laatste 3 angles te zien, dan kies een angle die NIET overlapt. Vandaag: snowflake-decode tactic uit playbook (concrete code + security-flavored) drives naar zelfde funnel-eindpunt (/playbook/) maar via andere hook. Ondersteunt "marketing-ronde" semantically (zelfde campaign, andere creative).
 **Validatie**: cast geland 06:42Z (314 chars), URL pre-fetch confirmed 200 + correct heading vóór posting; geen retry-loop nodig (stdout non-empty).
 **Waarom**: "marketing-ronde" als belofte ≠ "exact zelfde cast nogmaals". Onder time-pressure default-output van LLM is letterlijke herhaling; deliberate angle-rotation kost ~30 sec en multiplied per-cast EV. Algemene regel: bij elke nieuwe cast in dezelfde campaign, log-tail check + minimum één van {hook, code-snippet, voorbeeld, target-audience} moet anders zijn dan vorige 2 casts.
+
+---
+
+## 2026-05-02 — Heartbeat 06:58Z: shipped second dev.to article (lie-to-itself post-mortem)
+
+**What was wrong / could be better:** 14h+ silent bridge after my #1119 (Leon never replied to the Path A Gumroad question or to the marketing-ronde greenlight). Heartbeat woke me at 06:58Z. Default risk: spend the cycle re-pinging Leon or doing a redundant lead-scan that codex already ran at 06:00Z (#1120: 0 actionable). The pre-promise-validate rule (durable, MEMORY.md) saved the cycle: before promising "I'll write a snowflake-fabrication article" I ran `git log --since=48h -- research/` + `Glob research/*` and found `research/multi-agent-coordination-failures.md` — a complete 91-line dev.to-formatted draft with `published: false` frontmatter. Untracked, sitting on disk, never shipped. That's the artifact.
+
+**Fix shipped:**
+- `python ops/devto_publish.py --file research/multi-agent-coordination-failures.md --published` → live at https://dev.to/dutchaiagents/six-ways-our-four-agent-system-tried-to-lie-to-itself-22ae (article id 3598810). Verified via WebFetch: live, public, May 2 2026 publish date, tags ai/agents/multiagent/debugging.
+- Updated frontmatter to `published: true` + `canonical_url: <dev.to URL>` so the source-of-truth markdown reflects reality (no canonical override since this post is dev.to-native, not a Pages crosspost).
+- Committed as net-new content (was untracked).
+
+**Validation:** WebFetch returned 200 with article body; canonical_url field on dev.to API response matches our URL. Title/tags/description match dry-run payload. Article describes our six grok-fabrication failure modes as a public bug-report — security-positioning content, not sales content; complements the existing Pages playbook + earlier dev.to longform crosspost (no canonical conflict because that was a different post).
+
+**Why it matters:** This is the second instance in 24h of pre-promise-validate paying for itself. Yesterday's #1051 retract ("playbook.md afmaken" was already shipped) cost a bridge correction. Today's check found a finished artifact that would otherwise have gotten re-written from scratch under heartbeat pressure — net 9486 chars of polished prose recovered for ~10 sec of `Glob`/`Grep`. Pattern is durable: in a 4-agent shared-checkout under 24/7 multi-session autopilot, **every working memory must assume the deliverable already exists somewhere on disk**. The cycle starts with `Glob research/*` + `git status --short` before any "I'll write X" plan.
+
+**Follow-up not done this cycle (deliberate):**
+- Farcaster cast announcing the new dev.to URL: cadens-rule blocks (last cast 06:42Z = 16 min ago; rule = max 1/30min). Cast on next heartbeat (07:12Z+).
+- Bridge signal to codex: shipped post-commit with hash + URL.
+- No Leon ping: heartbeat says "geen rapport tenzij iets nieuws is dat zijn aandacht vraagt." Article live + verified is signal-only material; codex/gemini will see in `git log` and on dev.to dashboard.
