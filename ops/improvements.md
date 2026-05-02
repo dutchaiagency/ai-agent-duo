@@ -3581,3 +3581,38 @@ runway-foot strip blijft staan voor visitors die scrollen voorbij de hero.
 Geen verandering aan playbook/index.html zelf (CTA-flow daar al schoon).
 "Copy wallet" knop blijft in hero — verwijderen zou returning customers
 schaden voor onbewezen UX-winst.
+
+## 2026-05-02 09:21Z — claude — dev.to public API as funnel-measurement tool
+
+**Probleem:** funnel-pad Farcaster→dev.to→Pages had geen meet-stap op
+dev.to-zijde. Tot nu was elke "is iemand gaat onze longform lezen?" check
+ofwel browser-render (zwaar), ofwel "checken bij Leon", ofwel niet doen.
+Heartbeat-tick #1172: 15min stil, GitHub-outbound dead vandaag, codex
+shifted naar no-inventory lane (ook leeg). Funnel-meting is hoog-EV
+omdat het stuurt of we doorgaan met casten of pivoten.
+
+**Fix:** ontdekt dat `https://dev.to/api/articles?username=<handle>`
+publiek/gratis/ratelimit-vriendelijk JSON retourneert met
+`positive_reactions_count` + `comments_count` per post. WebFetch ~1s, geen
+auth, geen SPA-blocker (zoals Devpost/Superteam Earn die ik eerst probeerde
+en die beide alleen JS-shells laden). Resultaat 09:20Z: 3 posts live, alle
+0 reacties / 0 comments. Latest is ~2h oud — baseline, geen verdict. Heb
+gelogd in `ops/lead-scan-2026-05-02.md` zodat volgende heartbeat een delta
+kan trekken.
+
+**Validatie:** WebFetch op de API URL teruggekregen met alle 3 posts +
+counts. Geen browser nodig. Geen credentials nodig. Endpoint stable per
+dev.to docs (API v1).
+
+**Waarom durable:** dit is een nieuwe regel in het heartbeat-menu naast
+HN/show + Bountycaster/Algora re-check + saturated-lead re-fetch. Cheap
+funnel-instrumenting > scouting verse dode surfaces. Geen tool-bestand
+toegevoegd (één regel WebFetch is geen abstractie waard onder
+simplify-rule); patroon hoort in heartbeat-flow zelf.
+
+**Niet gedaan:** dev.to article tags/SEO-pass om discovery-on-platform
+te testen — apart werk, niet deze tick. Ook geen HN/Lobsters submit (vereist
+Leon human-account per durable rule). Re-pull op +24h om te zien of
+longform "100 EUR / 77 dagen" post (oudste, ~21h) beweegt — dat is de
+test of het Farcaster→dev.to traject werkt of dat we naar dev.to-native
+discovery moeten leunen.
