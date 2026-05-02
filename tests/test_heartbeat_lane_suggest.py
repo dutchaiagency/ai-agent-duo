@@ -435,6 +435,78 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertIn("Farcaster cooldown remains active", suggestion.reason)
         self.assertIn("Do not send another Leon account-unlock ask", suggestion.next_steps[0])
 
+    def test_recent_farcaster_reply_routes_to_observe_before_more_channel_work(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            now = datetime(2026, 5, 2, 13, 43, tzinfo=UTC)
+            write(
+                state / "github-leads-2026-05-02-codex-1259.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1259.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-1218.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "archestra-bounty-label-watch-2026-05-02-codex-1154.md",
+                "watch/hold: zero immediate candidates.",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1336.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                state / "productized-asset-review-2026-05-02-codex-1246.md",
+                "Result: productized review shipped; next useful move is distribution.",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+            asks = (
+                lane.BridgeAsk(
+                    now - timedelta(minutes=20),
+                    "claude",
+                    "@leon show hn account unlock ask is pending",
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                now,
+                recent_unlock_asks=asks,
+                last_farcaster_reply_at=now - timedelta(minutes=5),
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "farcaster_reply_observe")
+        self.assertIn("Farcaster outbound reply was logged", suggestion.reason)
+        self.assertIn("Do not post another Farcaster reply", suggestion.next_steps[0])
+
+    def test_last_successful_farcaster_reply_time_reads_reply_log(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "farcaster_reply_log.md"
+            write(
+                path,
+                "\n".join(
+                    (
+                        "2026-05-02T13:10Z | claude | reply -> https://farcaster.xyz/a/0x1 | ok... | failed | reason: stale composer",
+                        "2026-05-02T13:40Z | claude | reply -> https://farcaster.xyz/lthibault/0xd5413ad4 | Real gap... | success | reason: value-add",
+                    )
+                ),
+            )
+
+            result = lane.last_successful_farcaster_reply_time(path)
+
+        self.assertEqual(result, datetime(2026, 5, 2, 13, 40, tzinfo=UTC))
+
     def test_load_recent_bridge_unlock_asks_filters_non_unlock_messages(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -522,6 +594,18 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
 
         self.assertTrue(suggestion.cooldown.active)
         self.assertEqual(suggestion.decision, "devto_engagement_pull")
+
+    def test_github_reply_check_step_uses_write_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            suggestion = lane.suggest_next_action(
+                [],
+                Path(tmp) / "ops",
+                datetime(2026, 5, 2, 13, 46, tzinfo=UTC),
+            )
+
+        self.assertEqual(suggestion.decision, "github_reply_check_then_lead_scan")
+        self.assertIn("--write state/github-replies-YYYY-MM-DD-codex-HHMM.md", suggestion.next_steps[0])
+        self.assertIn("--write state/github-leads-YYYY-MM-DD-codex-HHMM.md", suggestion.next_steps[1])
 
     def test_routes_to_no_inventory_when_signal_check_is_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -83,6 +83,7 @@ FUNNEL_SATURATION_COMMITS = 4
 FUNNEL_SATURATION_WINDOW = timedelta(minutes=60)
 PRODUCTIZED_REVIEW_FRESH_WINDOW = timedelta(minutes=90)
 FARCASTER_COOLDOWN = timedelta(minutes=30)
+FARCASTER_REPLY_OBSERVE_WINDOW = timedelta(minutes=60)
 CHANNEL_UNLOCK_ASK_WINDOW = timedelta(hours=6)
 PAGE_TRAFFIC_BOT_BASELINE_7D = 210
 PAGE_TRAFFIC_MAX_AGE = timedelta(hours=36)
@@ -594,6 +595,19 @@ def last_successful_cast_time(log_path: Path) -> datetime | None:
     return max(times) if times else None
 
 
+def last_successful_farcaster_reply_time(log_path: Path) -> datetime | None:
+    if not log_path.exists():
+        return None
+
+    times: list[datetime] = []
+    for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if " | reply -> " not in line or " | success " not in f"{line} ":
+            continue
+        if parsed := parse_cast_log_time(line):
+            times.append(parsed)
+    return max(times) if times else None
+
+
 def farcaster_cooldown_reason(last_cast_at: datetime | None, now: datetime) -> str | None:
     if last_cast_at is None:
         return None
@@ -604,6 +618,25 @@ def farcaster_cooldown_reason(last_cast_at: datetime | None, now: datetime) -> s
     return (
         f"Farcaster cooldown remains active for ~{wait_minutes}m "
         f"(last cast {stamp(last_cast_at)})."
+    )
+
+
+def recent_farcaster_reply_reason(
+    last_reply_at: datetime | None,
+    now: datetime,
+    *,
+    window: timedelta = FARCASTER_REPLY_OBSERVE_WINDOW,
+) -> str | None:
+    if last_reply_at is None:
+        return None
+    if last_reply_at > now:
+        return None
+    if now - last_reply_at > window:
+        return None
+    return (
+        f"A Farcaster outbound reply was logged at {stamp(last_reply_at)}. "
+        "Treat this as the current distribution action and verify/render-watch "
+        "before scouting or posting another reply."
     )
 
 
@@ -717,6 +750,7 @@ def suggest_next_action(
     recent_commits: tuple[CommitTouch, ...] = (),
     recent_unlock_asks: tuple[BridgeAsk, ...] = (),
     last_cast_at: datetime | None = None,
+    last_farcaster_reply_at: datetime | None = None,
     pages_traffic: PageTrafficSnapshot | None = None,
     active_launch: LaunchWindow | None = None,
 ) -> Suggestion:
@@ -864,6 +898,19 @@ def suggest_next_action(
                 "traffic signal."
             )
             poverty_reason = channel_poverty_reason(now, recent_unlock_asks, last_cast_at)
+            reply_reason = recent_farcaster_reply_reason(last_farcaster_reply_at, now)
+            if reply_reason:
+                return Suggestion(
+                    decision="farcaster_reply_observe",
+                    reason=f"{reason} {reply_reason}",
+                    next_steps=(
+                        "Do not post another Farcaster reply while the fresh outbound reply is in the observe window.",
+                        "After roughly 30 minutes, re-fetch the parent permalink or check notifications to confirm whether the reply rendered.",
+                        "If it rendered and no one responded, log the result and return to non-Farcaster lead work until a new target appears.",
+                    ),
+                    cooldown=cooldown,
+                    latest_events=latest_events,
+                )
             if poverty_reason:
                 return Suggestion(
                     decision="channel_poverty_audit",
@@ -894,6 +941,19 @@ def suggest_next_action(
         )
         if outbound_reason:
             poverty_reason = channel_poverty_reason(now, recent_unlock_asks, last_cast_at)
+            reply_reason = recent_farcaster_reply_reason(last_farcaster_reply_at, now)
+            if reply_reason:
+                return Suggestion(
+                    decision="farcaster_reply_observe",
+                    reason=f"{cooldown.reason} {outbound_reason} {reply_reason}",
+                    next_steps=(
+                        "Do not post another Farcaster reply while the fresh outbound reply is in the observe window.",
+                        "After roughly 30 minutes, re-fetch the parent permalink or check notifications to confirm whether the reply rendered.",
+                        "If it rendered and no one responded, log the result and return to non-Farcaster lead work until a new target appears.",
+                    ),
+                    cooldown=cooldown,
+                    latest_events=latest_events,
+                )
             if poverty_reason:
                 return Suggestion(
                     decision="channel_poverty_audit",
@@ -939,8 +999,8 @@ def suggest_next_action(
             decision="github_reply_check_then_lead_scan",
             reason="GitHub is not in cooldown and reply state is missing or older than 30 minutes.",
             next_steps=(
-                "Run tools/github_reply_check.py before any public outbound.",
-                "Run tools/github_lead_scan.py only after reply state is known.",
+                "Run `python tools/github_reply_check.py --write state/github-replies-YYYY-MM-DD-codex-HHMM.md` before any public outbound.",
+                "Run `python tools/github_lead_scan.py --write state/github-leads-YYYY-MM-DD-codex-HHMM.md` only after reply state is known.",
                 "Do a manual code read before posting or claiming anything.",
             ),
             cooldown=cooldown,
@@ -951,7 +1011,7 @@ def suggest_next_action(
         decision="github_lead_scan",
         reason="GitHub is not in cooldown and reply state is fresh.",
         next_steps=(
-            "Run the read-only lead scan.",
+            "Run `python tools/github_lead_scan.py --write state/github-leads-YYYY-MM-DD-codex-HHMM.md`.",
             "Skip public outbound unless a candidate survives manual code review.",
             "If the scan is zero, update the pipeline so the next heartbeat can switch lanes.",
         ),
@@ -1017,6 +1077,9 @@ def main(argv: list[str] | None = None) -> int:
     bridge_db = args.bridge_db or resolve_bridge_db(args.repo_dir)
     recent_unlock_asks = load_recent_bridge_unlock_asks(bridge_db, now)
     last_cast_at = last_successful_cast_time(args.ops_dir / "farcaster_cast_log.md")
+    last_farcaster_reply_at = last_successful_farcaster_reply_time(
+        args.ops_dir / "farcaster_reply_log.md"
+    )
     pages_traffic = load_latest_pages_traffic(args.state_dir)
     active_launch = load_active_launch_window(args.state_dir, now)
     if pages_traffic is not None:
@@ -1034,6 +1097,7 @@ def main(argv: list[str] | None = None) -> int:
         recent_commits,
         recent_unlock_asks,
         last_cast_at,
+        last_farcaster_reply_at,
         pages_traffic,
         active_launch,
     )
