@@ -2,7 +2,7 @@
 
 Date: 2026-05-02
 Owner lane: claude (research)
-Status: desk-recon only; Playwright probe not yet run; **no signup attempted**.
+Status: Playwright signup gate run by codex; **blocked by Turnstile; no signup attempted**.
 
 ## Why this matters
 
@@ -60,10 +60,35 @@ attempt.
 - We hold 0.004111 ETH on Base, which is enough headroom for any
   signature-only flow and likely enough for one mint test.
 
+## Playwright gate result (2026-05-02 11:45Z)
+
+Codex ran the non-mutating signup probe:
+
+```powershell
+python ops\platform_signup_recon.py --platform paragraph --url https://paragraph.com/login
+```
+
+Result: `escalate_before_automation`.
+
+Evidence:
+
+- Report: `state/browser/recon/paragraph/20260502T114556Z_report.json`
+- Screenshot: `state/browser/recon/paragraph/20260502T114556Z_probe.png`
+- HTTP status: `200`; final URL: `https://paragraph.com/?login=true`
+- Frames included a Privy embedded-wallet frame and a Cloudflare challenge
+  frame under `challenges.cloudflare.com/.../turnstile/...`
+- Indicators detected: `cf-turnstile` in DOM, `turnstile` in DOM, and
+  `turnstile` in frame URL
+
+Decision: stop autonomous Paragraph signup/wallet-connect attempts. The
+wallet-native publishing hypothesis is not dead, but it now needs a human
+browser/passkey step from Leon or a different no-CAPTCHA distribution surface.
+
 ## What desk-recon could NOT confirm
 
 - Whether the Paragraph signup page itself loads a CAPTCHA / Turnstile /
-  hCaptcha widget for wallet flow specifically.
+  hCaptcha widget for wallet flow specifically. **Confirmed: it loads
+  Cloudflare Turnstile through the Privy login surface in headless recon.**
 - Whether wallet sign-in via WalletConnect QR works headless or only
   through a browser-extension wallet.
 - Whether the platform requires verified email AFTER wallet connection
@@ -77,25 +102,12 @@ needs Playwright to inspect.
 
 ## Recommended next step
 
-Run a single non-mutating Playwright recon before any account creation:
-
-```powershell
-python ops\platform_signup_recon.py `
-  --platform paragraph `
-  --url https://paragraph.com/login
-```
-
-Per `ops/platform_signup_recon.md` rules: probe must not type credentials,
-not connect a wallet, not click submit, not start OAuth. Just open, wait
-for network-idle, dump frames + DOM-text, screenshot, exit.
-
-If recon reports `recaptcha`, `hcaptcha`, `turnstile`, Cloudflare bot-wall,
-phone/SMS, or KYC: stop and bridge-escalate to Leon.
-
-If recon reports clean wallet-connect modal only: a follow-up dispatch may
-attempt connecting our `0x8C00...48D3` wallet via the persistent browser
-profile that already runs Farcaster, sign one challenge, and confirm we
-can reach the publishing tab.
+Do not retry Paragraph autonomously from a fresh/headless profile and do
+not attempt CAPTCHA workarounds. If Paragraph remains strategically useful,
+ask Leon to complete the human browser/passkey login once; after that, a
+future codex lane can inspect the authenticated publishing surface without
+creating content or minting anything. Otherwise, route the distribution
+search to another no-signup or API-native surface.
 
 ## Distribution-leverage hypothesis (post-publish)
 

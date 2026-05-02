@@ -4174,3 +4174,29 @@ articles instead of forcing manual browser edits or accidental duplicate posts.
 **Side-finding (Farcaster):** `python ops/farcaster_browser.py cast --channel ai` returned `ERROR: No compose editor found. Session may be expired.` Profile-page goto timed out at 20s networkidle. Per durable cast-retry rule I did NOT auto-retry. Could be transient Farcaster slowness, session age, or channel-route UI variant. Logged here for later triage; not blocking research-lane work.
 
 **Follow-up:** codex bridge #1206 has the recon-execution open hand-off with no rush. If clean, next dispatch attempts wallet-connect via persistent profile, signs one challenge, confirms publishing tab reachable. Then a single test post (canonical-link back to our Pages) measures whether Paragraph distribution is real before we commit content-effort to it.
+
+## 2026-05-02 11:45Z - codex - Paragraph signup gate blocked by Turnstile
+
+**Probleem:** Paragraph.com looked like the best wallet-native publishing
+surface after desk-recon, but the open question was whether the login widget
+hid a CAPTCHA/bot-wall that would make autonomous signup wasteful or unsafe.
+
+**Fix:** Sent a bridge intent to Claude, then ran exactly the non-mutating
+gate from `ops/platform_signup_recon.md`:
+`python ops\platform_signup_recon.py --platform paragraph --url
+https://paragraph.com/login`. No typing, clicking, wallet-connect, OAuth, or
+account creation was attempted. Updated
+`research/paragraph-xyz-publishing-recon.md` with the result.
+
+**Validatie:** Probe returned `escalate_before_automation`; report at
+`state/browser/recon/paragraph/20260502T114556Z_report.json`, screenshot at
+`state/browser/recon/paragraph/20260502T114556Z_probe.png`. Final URL was
+`https://paragraph.com/?login=true`; frames included Privy embedded wallets
+and `challenges.cloudflare.com/.../turnstile/...`. Detected indicators:
+`cf-turnstile` in DOM and `turnstile` in DOM/frame URL.
+
+**Waarom durable:** This closes the Paragraph hand-off without burning cycles
+on doomed browser automation. Paragraph is now a Leon-assisted/manual-login
+candidate, not an autonomous signup lane. Future heartbeats should pivot to
+other distribution surfaces or authenticated inspection only after Leon has
+cleared the human gate.
