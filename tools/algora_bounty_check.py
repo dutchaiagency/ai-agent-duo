@@ -19,14 +19,27 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 from urllib.error import URLError
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 
 GITHUB_ISSUE_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/issues/(\d+)(?:[?#].*)?$")
 AMOUNT_RE = re.compile(r"\$[\d][\d,]*(?:\.\d+)?")
 WORK_INTENT_RE = re.compile(
-    r"(/attempt\b|/claim\b|pull/\d+|pr\s*#\d+|pr submitted|submitted pr)",
+    r"("
+    r"/attempt\b|/claim\b|pull/\d+|pr\s*#\d+|"
+    r"pr submitted|submitted pr|"
+    r"opened (?:a )?(?:pr|pull request)|(?:pr|pull request) opened|"
+    r"i(?:'d| would) like to (?:fix|work on)|"
+    r"i(?:'ll| will) submit a pr|"
+    r"submit a pr with the fix|"
+    r"i can fix this|"
+    r"i(?:'m| am) working on this|"
+    r"working on this|"
+    r"interested in working|"
+    r"interested in this bounty|"
+    r"please wait"
+    r")",
     re.IGNORECASE,
 )
 
@@ -42,6 +55,8 @@ class AlgoraBounty:
 
     @property
     def label(self) -> str:
+        if not self.repo or not self.number:
+            return "unlinked bounty"
         return f"{self.repo} #{self.number}"
 
 
@@ -71,12 +86,21 @@ def compact_text(value: str) -> str:
     return " ".join(value.split())
 
 
+def has_work_intent_comment(value: str) -> bool:
+    return bool(WORK_INTENT_RE.search(value))
+
+
 def parse_github_issue_url(url: str) -> tuple[str, int] | None:
     match = GITHUB_ISSUE_RE.match(url)
     if not match:
         return None
     owner, repo, number = match.groups()
     return f"{owner}/{repo}", int(number)
+
+
+def is_algora_bounty_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return parsed.netloc == "algora.io" and "/bounties/" in parsed.path
 
 
 class AlgoraBountyParser(HTMLParser):
@@ -88,6 +112,7 @@ class AlgoraBountyParser(HTMLParser):
         self.current_href = ""
         self.bounties: list[AlgoraBounty] = []
         self._seen: set[tuple[str, int]] = set()
+        self._seen_unlinked: set[str] = set()
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag != "a":
@@ -123,7 +148,24 @@ class AlgoraBountyParser(HTMLParser):
         if not self.current_href:
             return
         parsed = parse_github_issue_url(self.current_href)
+        if parsed is None and not (
+            self.current_amount and is_algora_bounty_url(self.current_href)
+        ):
+            return
         if parsed is None:
+            if self.current_href in self._seen_unlinked:
+                return
+            self._seen_unlinked.add(self.current_href)
+            self.bounties.append(
+                AlgoraBounty(
+                    source_url=self.source_url,
+                    amount=self.current_amount,
+                    title=text,
+                    github_url=self.current_href,
+                    repo="",
+                    number=0,
+                )
+            )
             return
 
         repo, number = parsed
@@ -184,7 +226,7 @@ def fetch_github_issue(bounty: AlgoraBounty) -> GithubIssue:
     intent_comments = [
         comment
         for comment in payload.get("comments") or []
-        if WORK_INTENT_RE.search(str(comment.get("body") or ""))
+        if has_work_intent_comment(str(comment.get("body") or ""))
     ]
     latest_intent_at = ""
     if intent_comments:
@@ -274,7 +316,22 @@ def check_sources(source_urls: list[str], *, limit: int | None = None) -> list[C
     checked: list[CheckedBounty] = []
     for bounty in bounties:
         if not bounty.repo:
-            issue = GithubIssue(repo="", number=0, state="error", error="source fetch failed")
+            issue = GithubIssue(
+                repo="",
+                number=0,
+                state="unknown",
+                title=bounty.title,
+                url=bounty.github_url,
+            )
+            checked.append(
+                CheckedBounty(
+                    bounty,
+                    issue,
+                    "verify_manually",
+                    "Algora listing has no linked GitHub issue; validate scope manually",
+                )
+            )
+            continue
         else:
             issue = fetch_github_issue(bounty)
         checked.append(classify_bounty(bounty, issue))

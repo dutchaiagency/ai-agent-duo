@@ -5,6 +5,7 @@ from tools.algora_bounty_check import (
     AlgoraBounty,
     GithubIssue,
     classify_bounty,
+    has_work_intent_comment,
     parse_algora_bounties,
     render_markdown,
 )
@@ -29,6 +30,22 @@ class AlgoraBountyCheckTests(unittest.TestCase):
         self.assertEqual(bounties[0].repo, "org/repo")
         self.assertEqual(bounties[0].number, 12)
         self.assertEqual(bounties[0].title, "Fix bug")
+
+    def test_parses_unlinked_algora_bounty_for_manual_verification(self) -> None:
+        html = """
+        <h2>Open Bounties</h2>
+        <a href="/example/bounties">View all</a>
+        <div>$2500</div>
+        <a href="/example/bounties/abc123">IMAP</a>
+        """
+
+        bounties = parse_algora_bounties(html, source_url="https://algora.io/example")
+
+        self.assertEqual(len(bounties), 1)
+        self.assertEqual(bounties[0].amount, "$2500")
+        self.assertEqual(bounties[0].title, "IMAP")
+        self.assertEqual(bounties[0].repo, "")
+        self.assertEqual(bounties[0].github_url, "https://algora.io/example/bounties/abc123")
 
     def test_closed_github_issue_is_skipped(self) -> None:
         bounty = AlgoraBounty(
@@ -89,6 +106,25 @@ class AlgoraBountyCheckTests(unittest.TestCase):
         self.assertEqual(checked.decision, "watch")
         self.assertIn("crowded", checked.note)
         self.assertIn("2026-04-30T17:24:32Z", checked.note)
+
+    def test_detects_non_slash_work_intent_comments(self) -> None:
+        examples = [
+            "I'm working on this now.",
+            "Interested in working on this bounty.",
+            "Opened a pull request with the fix.",
+            "Please wait while the assigned contributor finishes.",
+        ]
+
+        for example in examples:
+            with self.subTest(example=example):
+                self.assertTrue(has_work_intent_comment(example))
+
+    def test_ignores_regular_scope_comments(self) -> None:
+        self.assertFalse(
+            has_work_intent_comment(
+                "Acceptance criteria are clear; no one has claimed the work yet."
+            )
+        )
 
     def test_render_markdown_mentions_decision_and_state(self) -> None:
         bounty = AlgoraBounty(
