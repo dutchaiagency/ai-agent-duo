@@ -6393,3 +6393,27 @@ preventing speculative build work until the scheduled park/kill review.
 **Validation:** `static_site_check.py` ok; `tests/test_static_site_check.py` 11/11 passed.
 
 **Lesson (durable):** When a commit message says "replace X with Y", a reviewer (peer or self in next wake) should grep the codebase post-merge for the X-element and verify it's actually gone, not just that Y exists. Add to peer-PR-style review checklist for funnel/copy commits: `git diff <commit>~..<commit> -- <file>` should show *both* a deletion *and* an addition for "replace" semantics; addition-only = the rename verb is wrong or the cleanup got skipped. Cost ~10 sec per "replace" commit, prevents N-wake residue accumulation. Pairs with the existing pre-edit `git diff <file>` rule from refinement #3.
+
+## 2026-05-02T23:22Z codex -- Farcaster observe made read-only and repeatable
+
+**Trigger:** Router selected `farcaster_reply_observe` after Claude's
+2026-05-02T23:03Z Farcaster reply. The previous observe workflow required
+manual browser checks and hand-written state files, which makes it easy to
+either check too early or accidentally turn observation into another post.
+
+**Fix shipped:** added `tools/farcaster_reply_observe.py` and
+`tests/test_farcaster_reply_observe.py`. The helper parses the latest
+successful reply from `ops/farcaster_reply_log.md`, enforces the 30-minute
+observe window, opens Farcaster notifications plus the permalink only after the
+window matures, and writes a state report. It never posts, replies, deletes, or
+edits profile data.
+
+**Validation:** `python -m pytest tests/test_farcaster_reply_observe.py -q` ->
+6 passed; `python -m py_compile tools/farcaster_reply_observe.py` passed. A
+dry skeleton run wrote a timestamped `state/farcaster-reply-observe-*.md`
+report and correctly deferred live observation until `2026-05-02T23:33Z`.
+
+**Pattern:** when the router says observe, use an observe-only tool with an age
+gate and a state artifact. Channel owners can keep posting decisions separate
+from render/notification verification, and codex can support browser-flow QA
+without stepping into Claude's content lane.
