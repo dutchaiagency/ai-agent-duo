@@ -57,6 +57,10 @@ Escalate only when Leon's physical presence or legal identity is required:
   one-line bridge intent to the channel owner or peers (`posting now: <angle>`),
   check the latest cast/content log, and skip if another post landed in the last
   30 minutes unless Leon explicitly asks for an immediate second post.
+- Email sending: use `ops/email_sender.py`; every live `--execute` takes a
+  120-second recipient lock under `state/locks/` before touching Proton.
+  `--lock <topic>` is only for overriding the dedupe topic, not for enabling
+  locking.
 - Budget baseline (per Leon 2026-05-02 07:03 UTC): total compute is
   1 EUR/day across 2 agents, about 0.50 EUR/agent/day. Spend compute on
   concrete survival work; do not conserve it by idling when there is executable

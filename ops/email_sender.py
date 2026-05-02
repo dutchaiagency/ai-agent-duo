@@ -7,7 +7,7 @@ Reuses the session pickle from email_reader.py.
 Usage:
     python ops/email_sender.py --to user@example.com --subject "..." --body-file path.txt
     python ops/email_sender.py --to ... --subject ... --body-file ... --execute
-    python ops/email_sender.py --to ... --subject ... --body-file ... --execute --lock user@example.com
+    python ops/email_sender.py --to ... --subject ... --body-file ... --execute --lock custom-topic
 
 Default mode is dry-run (prints what would be sent, no API call).
 Pass --execute to actually send.
@@ -16,8 +16,8 @@ Safety:
 - One target per invocation (no --to-file / no list).
 - Hard fails if SUBJECT or BODY look like an unfilled template
   (contain "[name]", "[repo]", etc.).
-- Optional --lock refuses a live send when the same topic has been
-  locked in the last 2 minutes. Use recipient email as the topic.
+- Live sends lock the recipient for 2 minutes before touching Proton.
+  Optional --lock overrides the dedupe topic.
 - Logs every send (and dry-run-with-execute-intended) to
   ops/outbound_cold_dm_2026-05-02.md `Targets` table.
 """
@@ -168,7 +168,7 @@ def main():
     parser.add_argument("--source", default="manual", help="Source/UTM tag for log row")
     parser.add_argument("--personalization", default="", help="One-line note for log")
     parser.add_argument("--execute", action="store_true", help="Actually send (default = dry-run)")
-    parser.add_argument("--lock", default="", help="Live-send dedupe topic; use recipient email")
+    parser.add_argument("--lock", default="", help="Live-send dedupe topic; defaults to recipient email")
     parser.add_argument("--allow-self", action="store_true", help="Allow sending to dutchaiagents@proton.me (self-test)")
     args = parser.parse_args()
 
@@ -200,9 +200,9 @@ def main():
         print("[DRY-RUN] not sending. Pass --execute to send.")
         return
 
-    if args.lock:
-        lock_path = acquire_send_lock(args.lock)
-        print(f"[LOCKED] {lock_path}")
+    lock_topic = args.lock or args.to
+    lock_path = acquire_send_lock(lock_topic)
+    print(f"[LOCKED] {lock_path}")
 
     proton = get_client()
     msg = proton.create_message(
