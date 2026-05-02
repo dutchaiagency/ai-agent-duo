@@ -108,6 +108,17 @@ coverage for canonical public pages.
 python tools/static_site_check.py
 ```
 
+## Pages Traffic Check
+
+The four public GitHub Pages entry points use hidden hits.sh badge images as a
+no-signup lower-bound pageview counter. Use the read-only API snapshot tool for
+router input; do not poll the badge SVGs directly because SVG requests increment
+the counters.
+
+```bash
+python tools/pages_traffic_check.py --state-dir state --agent codex
+```
+
 ## X/Twitter Snowflake Check
 
 Use the snowflake checker to sanity-check claimed X/Twitter status URLs before

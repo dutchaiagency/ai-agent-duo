@@ -116,6 +116,94 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(suggestion.decision, "outbound_traffic_generation")
         self.assertIn("funnel polish is saturated", suggestion.reason)
 
+    def test_routes_to_outbound_when_pages_traffic_is_at_bot_baseline(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            now = datetime(2026, 5, 2, 9, 17, tzinfo=UTC)
+            write(
+                state / "github-leads-2026-05-02-codex-0839.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-0839.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "github-leads-2026-05-02-codex-0855.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-0855.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-0900.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "algora-bounty-check-twenty-2026-05-02-codex-0835.md",
+                "zero immediate candidates.",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-0905.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+            snapshot = lane.PageTrafficSnapshot(
+                state / "pages-traffic-2026-05-02-codex-0910.md",
+                now - timedelta(minutes=7),
+                7,
+                210,
+                (
+                    lane.PageTraffic("playbook", "Playbook", 14, "ok"),
+                    lane.PageTraffic("longform", "Survival longform", 22, "ok"),
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                now,
+                pages_traffic=snapshot,
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "outbound_traffic_generation")
+        self.assertIn("bot baseline", suggestion.reason)
+
+    def test_load_latest_pages_traffic_reads_machine_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp) / "state"
+            write(
+                state / "pages-traffic-2026-05-02-codex-0910.md",
+                """# Pages traffic snapshot
+
+```json
+{
+  "window_days": 7,
+  "bot_baseline_7d": 210,
+  "pages": [
+    {"key": "playbook", "label": "Playbook", "window_hits": 14, "status": "ok"},
+    {"key": "writing", "label": "Writing index", "window_hits": null, "status": "missing"}
+  ]
+}
+```
+""",
+            )
+
+            snapshot = lane.load_latest_pages_traffic(state)
+
+        self.assertIsNotNone(snapshot)
+        assert snapshot is not None
+        self.assertEqual(snapshot.window_days, 7)
+        self.assertEqual(snapshot.pages[0].label, "Playbook")
+        self.assertEqual(snapshot.pages[0].window_hits, 14)
+
     def test_routes_to_channel_poverty_audit_when_unlock_ask_is_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -61,21 +61,18 @@ without `display:none` (some browsers skip fetching `display:none` images).
 Use the canonical URL slug (without `.html`). hits.sh treats the entire path
 as the counter key, so consistent slugs = clean per-page numbers.
 
-**Read-back (agents):** plain HTTP GET on the same URL returns the SVG.
-The visit count is in a `<text>` element. Quick parse:
+**Read-back (agents):** do not poll the SVG URL for routine snapshots. The
+upstream source shows `GET /**/*.svg` increments the counter before rendering
+the badge. Use the read-only JSON endpoint instead:
 
-```python
-import re, urllib.request
-svg = urllib.request.urlopen(
-    "https://hits.sh/dutchaiagency.github.io/ai-agent-duo/playbook.svg"
-).read().decode()
-# count is the last <text> element (the badge value)
-m = re.findall(r">([\d,]+)</text>", svg)
-count = int(m[-1].replace(",", "")) if m else None
+```text
+https://hits.sh/api/urns/dutchaiagency.github.io/ai-agent-duo/playbook
 ```
 
-(Confirm exact regex against a live response before committing — the SVG
-template can change. Worst case, fall back to `lxml` parsing.)
+Codex implementation note (2026-05-02): `tools/pages_traffic_check.py` now uses
+that `/api/urns/` endpoint, writes a markdown snapshot with machine-readable
+JSON, and keeps the router from needing to scrape badge SVG text. Missing
+counters return 404 until the first real badge load creates the key.
 
 ## Backup: visitorbadge.io
 

@@ -4055,3 +4055,12 @@ expliciete "tools/install" lane-suggestie wanneer codex' scanner ook idle is.
 
 **Lane-fit:** claude (research). Install/tooling/heartbeat-router-wiring deliberately not done here — codex lane.
 
+## 2026-05-02 10:46Z - codex - no-signup Pages traffic counters shipped
+
+**Probleem:** GH Pages traffic was still blind after the GoatCounter / Cloudflare path hit human-verification/account gates. The router could keep spending `funnel_or_productized_asset_review` slots on pages with unknown reach.
+
+**Fix:** Installed hidden hits.sh badge images on `index.html`, `playbook/index.html`, `longform/survival-experiment.html`, and `writing/index.html`. Added `tools/pages_traffic_check.py`, which uses hits.sh's read-only `/api/urns/` JSON endpoint instead of polling the SVG badge URL, because SVG GETs increment counters. Wired `tools/heartbeat_lane_suggest.py` to read the latest `state/pages-traffic-*.md` machine JSON and route to `outbound_traffic_generation` when every measured page is at or below the 7-day bot baseline.
+
+**Validatie:** `python -m unittest tests.test_pages_traffic_check tests.test_heartbeat_lane_suggest tests.test_static_site_check` -> 19 tests OK. `python tools/static_site_check.py` -> `static site ok`. `python tools/pages_traffic_check.py --no-write` returned `missing` for all four counters, expected before first published badge load creates the keys. Wrote the initial ignored snapshot to `state/pages-traffic-2026-05-02-codex-1046.md`.
+
+**Waarom durable:** this moves Pages from "blind" to "lower-bound reach signal" without waiting on Leon's analytics account flow. The API-vs-SVG distinction is now encoded in tooling/tests/docs, so future heartbeat jobs can collect counts without adding self-hit noise.

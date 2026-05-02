@@ -83,6 +83,9 @@ FUNNEL_SATURATION_COMMITS = 4
 FUNNEL_SATURATION_WINDOW = timedelta(minutes=60)
 FARCASTER_COOLDOWN = timedelta(minutes=30)
 CHANNEL_UNLOCK_ASK_WINDOW = timedelta(hours=6)
+PAGE_TRAFFIC_BOT_BASELINE_7D = 210
+PAGE_TRAFFIC_MAX_AGE = timedelta(hours=36)
+PAGE_TRAFFIC_JSON_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -111,6 +114,23 @@ class BridgeAsk:
 class CooldownStatus:
     active: bool
     reason: str
+
+
+@dataclass(frozen=True)
+class PageTraffic:
+    key: str
+    label: str
+    window_hits: int | None
+    status: str
+
+
+@dataclass(frozen=True)
+class PageTrafficSnapshot:
+    path: Path
+    at: datetime
+    window_days: int
+    bot_baseline_7d: int
+    pages: tuple[PageTraffic, ...]
 
 
 @dataclass(frozen=True)
@@ -149,6 +169,55 @@ def event_kind(path: Path) -> str | None:
     if name.startswith("devto-engagement-"):
         return "devto_engagement"
     return None
+
+
+def load_latest_pages_traffic(state_dir: Path) -> PageTrafficSnapshot | None:
+    if not state_dir.exists():
+        return None
+
+    candidates: list[PageTrafficSnapshot] = []
+    for path in state_dir.glob("pages-traffic-*.md"):
+        at = parse_timestamp(path)
+        if at is None:
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        matches = PAGE_TRAFFIC_JSON_RE.findall(text)
+        if not matches:
+            continue
+        try:
+            payload = json.loads(matches[-1])
+        except json.JSONDecodeError:
+            continue
+        pages_payload = payload.get("pages", [])
+        if not isinstance(pages_payload, list):
+            continue
+        pages: list[PageTraffic] = []
+        for item in pages_payload:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("key")
+            label = item.get("label")
+            status = item.get("status")
+            window_hits = item.get("window_hits")
+            if not isinstance(key, str) or not isinstance(label, str) or not isinstance(status, str):
+                continue
+            if not isinstance(window_hits, int):
+                window_hits = None
+            pages.append(PageTraffic(key, label, window_hits, status))
+        candidates.append(
+            PageTrafficSnapshot(
+                path=path,
+                at=at,
+                window_days=payload.get("window_days")
+                if isinstance(payload.get("window_days"), int)
+                else 7,
+                bot_baseline_7d=payload.get("bot_baseline_7d")
+                if isinstance(payload.get("bot_baseline_7d"), int)
+                else PAGE_TRAFFIC_BOT_BASELINE_7D,
+                pages=tuple(pages),
+            )
+        )
+    return max(candidates, key=lambda snapshot: snapshot.at) if candidates else None
 
 
 def has_any(text: str, terms: tuple[str, ...]) -> bool:
@@ -374,6 +443,41 @@ def funnel_saturation_reason(
     )
 
 
+def low_pages_traffic_reason(
+    snapshot: PageTrafficSnapshot | None,
+    now: datetime,
+    *,
+    max_age: timedelta = PAGE_TRAFFIC_MAX_AGE,
+) -> str | None:
+    if snapshot is None:
+        return None
+    if snapshot.at > now or now - snapshot.at > max_age:
+        return None
+
+    measured_pages = [
+        page
+        for page in snapshot.pages
+        if page.status == "ok" and page.window_hits is not None
+    ]
+    if not measured_pages:
+        return None
+
+    baseline = snapshot.bot_baseline_7d
+    if any((page.window_hits or 0) > baseline for page in measured_pages):
+        return None
+
+    max_hits = max(page.window_hits or 0 for page in measured_pages)
+    page_bits = ", ".join(
+        f"{page.label}={page.window_hits or 0}" for page in measured_pages
+    )
+    return (
+        f"Latest Pages traffic snapshot ({stamp(snapshot.at)}, "
+        f"{snapshot.window_days}d window) has every measured page at or below "
+        f"the bot baseline ({max_hits} <= {baseline}; {page_bits}). "
+        "More funnel polish should wait for traffic generation."
+    )
+
+
 def parse_cast_log_time(line: str) -> datetime | None:
     timestamp = line.split("|", 1)[0].strip()
     try:
@@ -518,6 +622,7 @@ def suggest_next_action(
     recent_commits: tuple[CommitTouch, ...] = (),
     recent_unlock_asks: tuple[BridgeAsk, ...] = (),
     last_cast_at: datetime | None = None,
+    pages_traffic: PageTrafficSnapshot | None = None,
 ) -> Suggestion:
     cooldown = github_cooldown_status(events, now)
     latest_lead = latest(events, "github_leads")
@@ -604,12 +709,16 @@ def suggest_next_action(
                 latest_events=latest_events,
             )
         saturation_reason = funnel_saturation_reason(recent_commits, now)
-        if saturation_reason:
+        traffic_reason = low_pages_traffic_reason(pages_traffic, now)
+        outbound_reason = " ".join(
+            reason for reason in (saturation_reason, traffic_reason) if reason
+        )
+        if outbound_reason:
             poverty_reason = channel_poverty_reason(now, recent_unlock_asks, last_cast_at)
             if poverty_reason:
                 return Suggestion(
                     decision="channel_poverty_audit",
-                    reason=f"{cooldown.reason} {saturation_reason} {poverty_reason}",
+                    reason=f"{cooldown.reason} {outbound_reason} {poverty_reason}",
                     next_steps=(
                         "Do not send another Leon account-unlock ask while a recent one is pending.",
                         "Check whether Farcaster has genuinely new information and is outside cooldown before casting.",
@@ -620,10 +729,11 @@ def suggest_next_action(
                 )
             return Suggestion(
                 decision="outbound_traffic_generation",
-                reason=f"{cooldown.reason} {saturation_reason}",
+                reason=f"{cooldown.reason} {outbound_reason}",
                 next_steps=(
-                    "Run a channel-poverty audit before another playbook or longform polish commit.",
+                    "Run a channel-poverty audit before another playbook, longform, or site-polish commit.",
                     "Use a distinct Farcaster, GitHub, dev.to, or HN angle with a source-tagged playbook/longform link only if the channel is open.",
+                    "Refresh `python tools/pages_traffic_check.py --state-dir state --agent codex` after the outbound action so the next router tick has reach data.",
                     "If the best path needs Leon's human account, send one binary unlock ask and do not repeat it inside the cooldown window.",
                     "Log the channel, URL, and early engagement signal in ops/ or state/ for the next heartbeat.",
                 ),
@@ -708,6 +818,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional agent-bridge SQLite DB path for recent Leon unlock asks.",
     )
     parser.add_argument(
+        "--traffic-baseline-7d",
+        type=int,
+        default=PAGE_TRAFFIC_BOT_BASELINE_7D,
+        help="Override the low-traffic bot baseline for the latest Pages snapshot.",
+    )
+    parser.add_argument(
         "--now",
         help="Override current UTC time for tests, for example 2026-05-02T09:17Z.",
     )
@@ -722,6 +838,15 @@ def main(argv: list[str] | None = None) -> int:
     bridge_db = args.bridge_db or resolve_bridge_db(args.repo_dir)
     recent_unlock_asks = load_recent_bridge_unlock_asks(bridge_db, now)
     last_cast_at = last_successful_cast_time(args.ops_dir / "farcaster_cast_log.md")
+    pages_traffic = load_latest_pages_traffic(args.state_dir)
+    if pages_traffic is not None:
+        pages_traffic = PageTrafficSnapshot(
+            pages_traffic.path,
+            pages_traffic.at,
+            pages_traffic.window_days,
+            args.traffic_baseline_7d,
+            pages_traffic.pages,
+        )
     suggestion = suggest_next_action(
         events,
         args.ops_dir,
@@ -729,6 +854,7 @@ def main(argv: list[str] | None = None) -> int:
         recent_commits,
         recent_unlock_asks,
         last_cast_at,
+        pages_traffic,
     )
     print(format_suggestion(suggestion, now), end="")
     return 0
