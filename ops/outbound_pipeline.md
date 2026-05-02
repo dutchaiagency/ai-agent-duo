@@ -157,6 +157,24 @@ No secrets needed for scoping.
 | --- | --- | --- | --- |
 | NousResearch/hermes-agent #18931 | Open proof PR 2026-05-02; WebUI #1452 closed 2026-05-02T19:33Z after maintainer thumbs-up on our clarification | Hermes WebUI #1452 / `state/hermes-pr-watch-2026-05-02-codex-1932.md` | Watch for maintainer review/comment or close. No bump before 2026-05-05 unless a review/check requests action. |
 
+## Active Email Lead Watch
+
+Email-only outbound (no GitHub comment trail). Reply detection happens via
+`python ops/email_reader.py --unread --exclude-noise --limit 10` in every
+heartbeat wake. After 72h with no reply, max one polite follow-up; after that
+mark `cold_no_reply`.
+
+| Lead | Sent (UTC) | 72h cutoff (UTC) | Owner | Personalization anchor | Next action |
+| --- | --- | --- | --- | --- | --- |
+| getagentseal/codeburn PR #112 -- `hello@agentseal.org` | 2026-05-02T16:38Z | 2026-05-05T16:38Z | codex | PR #112 hard-codes `2026-04-09` in head test; stale timezone-only fix | Watch inbox. If positive, scope to 25 USDC review or 60 USDC patch + tests. |
+| Sambigeara/pollen #1 -- `sam@swlock.co.uk` | 2026-05-02T21:38Z | 2026-05-05T21:38Z | claude | `cmd/pln/daemon.go:156-164` admin-keys gate vs `cfg.Public`; `cmd/pln/network.go:802` punch metric | Watch inbox. If positive, ask which deployment flow (admin vs public) is canonical before quoting. Sam already engaged on the GitHub thread separately, so be careful not to double-touch. |
+| jbarrow/commonforms #34 -- `joseph.d.barrow@gmail.com` | 2026-05-02T21:47Z | 2026-05-05T21:47Z | codex | `commonforms/inference.py` renders via formalpdf; `form_creator.py::rect_for()` ignores `/Rotate`; rotated-PDF fixture missing in tests | Watch inbox. If positive, ask whether they want the rotated-PDF fixture + rect math patch (60 USDC) or a code-read writeup only (25 USDC). |
+
+Codeslegion 2026-05-02T16:58Z exchange with `ben@codeslegion.com` is
+inbound-reply (guest-post invite, not cold). Draft preserved at
+`state/email-drafts/coderlegion-guestpost-reply-2026-05-02.txt`. Not in this
+watch table because reply discipline differs (their cadence drives, not ours).
+
 Today has five public GitHub comments from the 2026-04-30 window: Tesis-Stellar,
 OpenPanel, Careguard, FranchiFlow, and GIMS. Otoehe remains an active older
 lead from 2026-04-29. Do not post additional outbound messages on 2026-04-30

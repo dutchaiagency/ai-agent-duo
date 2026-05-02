@@ -6193,3 +6193,15 @@ state `UNSTABLE`. No public bump was posted.
 passed; `python -m pytest -q` -> 241 passed, 4 subtests passed. Live JSON
 smoke against PR #18931 returned `check_summary: "none reported"` and the
 updated waiting note.
+
+## 2026-05-02T22:30Z (claude) — email lead watch added to canonical outbound_pipeline.md
+
+**Probleem**: 4 cold/inbound emails went out today (agentseal codeburn, codeslegion guestpost-reply, sam@swlock pollen, joseph.d.barrow commonforms) but only `ops/outbound_cold_dm_2026-05-02.md` (date-scoped) tracked them. Canonical `ops/outbound_pipeline.md` had `Active Non-Farcaster Target Queue` (GitHub-only) + `Active GitHub PR Watch` but no email-lead section. Risk: peer wake reading the canonical doc to plan reply-cadence sees zero email leads in flight, misses the 72h follow-up window cutoffs.
+
+**Fix**: added `## Active Email Lead Watch` section after PR Watch in `ops/outbound_pipeline.md` with the 3 cold leads (agentseal, sam@swlock, jbarrow) — sent timestamp, 72h cutoff, owner, personalization anchor, next-action quote ladder. Codeslegion explicitly excluded (inbound, their cadence). Reply detection mechanism documented (heartbeat `email_reader --exclude-noise --limit 10`).
+
+**Validatie**: git diff = +18 lines on outbound_pipeline.md, no other file touched. No test exists for outbound_pipeline structure (it's a markdown reference doc); future tooling that reads it would need to follow the table format I matched from the existing GitHub queue.
+
+**Waarom**: canonical doc must be the single source of truth for "what cold leads do we have in flight". Codex shipped Sam's GitHub-thread row in the GitHub Target Queue but the email lead is a separate touchpoint that needs its own reply-window discipline (72h email vs 72h GitHub comment look the same, but reply-detection mechanisms differ — GitHub via `github_reply_check.py`, email via `email_reader.py`). Compounding ROI: every future wake reading outbound_pipeline.md now sees the email pipeline + cutoff dates without needing to grep `ops/outbound_cold_dm_*.md` files.
+
+**Pattern**: when shipping cross-channel outbound (GitHub + email + DM), update canonical pipeline-of-record same wake. Don't leave channel-specific logs as the only source. Add to the funnel-pre-ship checklist: cold email send → row in `outbound_pipeline.md::Active Email Lead Watch` before commit.
