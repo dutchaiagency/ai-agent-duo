@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+"""
+Email sender for dutchaiagents@proton.me using protonmail-api-client.
+
+Reuses the session pickle from email_reader.py.
+
+Usage:
+    python ops/email_sender.py --to user@example.com --subject "..." --body-file path.txt
+    python ops/email_sender.py --to ... --subject ... --body-file ... --execute
+
+Default mode is dry-run (prints what would be sent, no API call).
+Pass --execute to actually send.
+
+Safety:
+- One target per invocation (no --to-file / no list).
+- Hard fails if SUBJECT or BODY look like an unfilled template
+  (contain "[name]", "[repo]", etc.).
+- Logs every send (and dry-run-with-execute-intended) to
+  ops/outbound_cold_dm_2026-05-02.md `Targets` table.
+"""
+import argparse
+import datetime as dt
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SECRETS_DIR = ROOT / ".secrets"
+SESSION_FILE = SECRETS_DIR / "proton_session.pickle"
+LOG_FILE = ROOT / "ops" / "outbound_cold_dm_2026-05-02.md"
+
+PLACEHOLDER_PATTERNS = [
+    r"\[name\]",
+    r"\[repo\]",
+    r"\[issue/PR\]",
+    r"\[issue\|PR\]",
+    r"\[ONE concrete observation",
+    r"\[issue\]",
+    r"\[your name\]",
+]
+
+
+def get_credentials():
+    email_file = SECRETS_DIR / "email.txt"
+    lines = email_file.read_text().strip().splitlines()
+    return lines[0].strip(), lines[1].strip()
+
+
+def get_client():
+    from protonmail import ProtonMail
+    username, password = get_credentials()
+    proton = ProtonMail()
+    if SESSION_FILE.exists():
+        try:
+            proton.load_session(str(SESSION_FILE))
+            return proton
+        except Exception:
+            pass
+    proton.login(username, password)
+    proton.save_session(str(SESSION_FILE))
+    return proton
+
+
+def check_placeholders(text: str, label: str) -> list[str]:
+    hits = []
+    for pat in PLACEHOLDER_PATTERNS:
+        if re.search(pat, text, re.IGNORECASE):
+            hits.append(f"{label}: {pat}")
+    return hits
+
+
+def append_log_row(to_addr: str, subject: str, source: str, personalization: str, status: str):
+    ts = dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%MZ")
+    row = (
+        f"| {ts} | email | {to_addr} | {source} | "
+        f"{personalization[:80].replace('|', '/')} | "
+        f"{'yes' if status == 'sent' else 'no'} | {status} |\n"
+    )
+    text = LOG_FILE.read_text(encoding="utf-8")
+    marker = "(rows appended as actions complete)\n"
+    target_marker = "## Targets (GitHub-sourced read-only discovery)"
+    # Insert after the first occurrence of marker that follows the Targets header.
+    targets_idx = text.find(target_marker)
+    if targets_idx == -1:
+        raise SystemExit("Targets section missing in log file")
+    after_targets = text.find(marker, targets_idx)
+    if after_targets == -1:
+        raise SystemExit("Targets row marker missing")
+    insert_at = after_targets + len(marker)
+    new_text = text[:insert_at] + row + text[insert_at:]
+    LOG_FILE.write_text(new_text, encoding="utf-8")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Send cold outbound email via ProtonMail")
+    parser.add_argument("--to", required=True, help="Recipient email address (one)")
+    parser.add_argument("--subject", required=True)
+    parser.add_argument("--body-file", required=True, help="Path to plain-text body")
+    parser.add_argument("--source", default="manual", help="Source/UTM tag for log row")
+    parser.add_argument("--personalization", default="", help="One-line note for log")
+    parser.add_argument("--execute", action="store_true", help="Actually send (default = dry-run)")
+    parser.add_argument("--allow-self", action="store_true", help="Allow sending to dutchaiagents@proton.me (self-test)")
+    args = parser.parse_args()
+
+    body_path = Path(args.body_file)
+    if not body_path.is_file():
+        raise SystemExit(f"body file not found: {body_path}")
+    body = body_path.read_text(encoding="utf-8")
+
+    # Placeholder gate
+    hits = check_placeholders(args.subject, "subject") + check_placeholders(body, "body")
+    if hits:
+        print("REFUSE: unfilled template placeholders detected:", file=sys.stderr)
+        for h in hits:
+            print(f"  - {h}", file=sys.stderr)
+        sys.exit(2)
+
+    # Self-send guard
+    if args.to.strip().lower() == "dutchaiagents@proton.me" and not args.allow_self:
+        raise SystemExit("Refusing to send to self without --allow-self")
+
+    print(f"TO: {args.to}")
+    print(f"SUBJECT: {args.subject}")
+    print(f"BODY ({len(body)} chars):")
+    print("---")
+    print(body)
+    print("---")
+
+    if not args.execute:
+        print("[DRY-RUN] not sending. Pass --execute to send.")
+        return
+
+    proton = get_client()
+    msg = proton.create_message(
+        recipients=[args.to],
+        subject=args.subject,
+        body=body,
+    )
+    proton.send_message(msg, is_html=False)
+    print(f"[SENT] message_id={msg.id}")
+
+    append_log_row(
+        to_addr=args.to,
+        subject=args.subject,
+        source=args.source,
+        personalization=args.personalization or args.subject,
+        status="sent",
+    )
+    print(f"[LOGGED] {LOG_FILE}")
+
+
+if __name__ == "__main__":
+    main()
