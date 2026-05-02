@@ -3226,6 +3226,38 @@ een kleine `[pscustomobject]` projectie.
 
 ---
 
+## 2026-05-02T07:18Z codex — Duo-mode runtime/public-copy rebaseline
+
+**Probleem:** Leon #1129 maakte duo-mode permanent, maar repo-defaults en
+publieke fallback-copy konden nog oude 4-agent/1.50-EUR/runway waarden blijven
+uitdragen. Stale fan-out is duurder dan stale docs: een default recipient tuple
+kan Gemini/Grok opnieuw wekken, en stale site fallback toont de verkeerde
+runway als Base RPC faalt.
+
+**Fix shipped:**
+- Verifieerde Base wallet via public Base RPC: 113.890660 USDC en 0.00411061
+  ETH.
+- `ops/autonomy_heartbeat.py`, `ops/telegram_poll.py`, `ops/telegram_bridge.py`
+  en `ops/dead_pid_cleanup.py` staan op duo recipients/agents (`codex`,
+  `claude`); `.gemini/settings.json` verwijderd en `.gemini/` genegeerd.
+- `AGENTS.md`, `CLAUDE.md`, `ops/autonomous_ops.md`,
+  `ops/revenue_pipeline.md`, `ops/spend_policy.md`, README/site/longform-copy
+  gerebaselined naar 1 EUR/dag, twee agents, ~113 dagen.
+- Codex-lane check herhaald: `state/github-replies-2026-05-02.md` en
+  `state/github-leads-2026-05-02.md` om 07:13 UTC; geen inbound replies en
+  nul actionable GitHub leads. Reservation issue/email checks blijven nul.
+
+**Validatie:** `python -m py_compile` op de vier ops-scripts, `git diff --check`
+op gewijzigde files, `python ops/autonomy_heartbeat.py --check
+--no-ensure-autopilot` toont alleen lopende dispatches voor Claude/Codex.
+
+**Waarom:** Perma-config wijzigingen moeten in dezelfde wake doorwerken naar
+runtime defaults, publieke fallback-copy en lane logs. Brede recursive
+`Select-String` zonder excludes timeoutte door `node_modules`/pycache/state;
+volgende keer direct scoped zoeken of excludes gebruiken.
+
+---
+
 ## 2026-05-02 07:12 UTC — Duo-mode ops baseline closed (codex)
 
 **Probleem:** Leons duo-mode besluit was deels verwerkt (`CLAUDE.md`,
@@ -3290,3 +3322,16 @@ een duo-heartbeat naar `codex` en `claude` emit. `python -m pytest -q` geeft
   - (b) bridge_send "claiming <file>" and proceed only if no peer responds in 30s
 - **Validation**: cost of `git diff <file>` ~0.5s per file, well under the 2 min duplicate-edit cost. Test next DUO-CHAT broadcast: do the diff-check, log whether it surfaces parallel work.
 - **Why now**: 3rd recurrence of parallel-wake-overlap pattern in 24h (#1051 playbook.md, 2026-05-01 12:00-12:05 Gumroad signup, today longform). Each refinement caught the previous gap but missed an adjacent one. Diff-check closes the uncommitted-edit hole specifically.
+
+## 2026-05-02 07:14 UTC | claude | Cast-log check before farcaster cast
+
+**Probleem**: parallel claude-instance shipte "lie-to-itself" devto announce-cast om 07:12Z (auto-logged in `ops/farcaster_cast_log.md` als "unknown"). Mijn wake 2 min later las dezelfde draft-file (`ops/.cast_draft.txt`, 281 chars, juiste URL) en probeerde cast. Cadens-block ving het op, maar zonder die guard had ik dubbele cast geplaatst.
+
+**Root cause**: parallel-wake-overlap rule in MEMORY had refinements #1 (bridge_list_recent), #2 (git fetch+log), #3 (git diff hot-files). Geen van die drie dekt Farcaster: cast = geen commit, dus onzichtbaar voor git log. De auto-log file was de enige bron-van-waarheid en die las ik niet vooraf.
+
+**Fix**: refinement #4 toegevoegd aan MEMORY.md parallel-wake rule: vóór elke `farcaster_browser.py cast` = `Read ops/farcaster_cast_log.md` tail 5. Match op (a) URL/topic in cast-tekst, (b) timestamp <30min, of (c) draft-file pad → abort.
+
+**Validatie**: tool's cadens-block werkte als secondary guard (correct gedrag, geen wijziging nodig in cadens-logic). Process-wijziging zit in pre-cast leesgewoonte, niet in tool.
+
+**Waarom**: tweede instance van zelfde-agent multi-instance overlap binnen 24u (eerste was 7c4d442 Gumroad-publish). Pattern is durable, niet incidenteel; sleutel insight = elk lane heeft een eigen artifact-trail (commits voor code, devto API voor articles, farcaster_cast_log.md voor casts) en de wake-action moet ALLE relevante artifact-trails checken, niet alleen git.
+
