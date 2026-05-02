@@ -26,6 +26,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+try:
+    from .outbound_text_guard import validate_outbound_text
+except ImportError:  # pragma: no cover - direct script execution
+    from outbound_text_guard import validate_outbound_text
+
 ROOT = Path(__file__).resolve().parents[1]
 API_URL = "https://dev.to/api/articles"
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
@@ -106,6 +111,23 @@ def build_payload(args: argparse.Namespace) -> dict:
     return {"article": article}
 
 
+def validate_payload_text(payload: dict) -> None:
+    article = payload["article"]
+    fields = (
+        ("dev.to title", article.get("title", "")),
+        ("dev.to body", article.get("body_markdown", "")),
+        ("dev.to description", article.get("description", "")),
+    )
+    for label, value in fields:
+        error = validate_outbound_text(
+            value,
+            label=label,
+            allow_empty=(label == "dev.to description"),
+        )
+        if error:
+            raise SystemExit(f"REFUSE: {error}")
+
+
 def submit(payload: dict, api_key: str, *, article_id: int | None = None) -> dict:
     url = API_URL if article_id is None else f"{API_URL}/{article_id}"
     method = "POST" if article_id is None else "PUT"
@@ -147,6 +169,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_factcheck:
         run_fact_check(Path(args.file))
     payload = build_payload(args)
+    validate_payload_text(payload)
     if args.dry_run:
         out = {**payload}
         body = out["article"]["body_markdown"]

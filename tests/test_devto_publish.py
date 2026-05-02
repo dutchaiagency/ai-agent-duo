@@ -57,6 +57,17 @@ class DevtoPublishTests(unittest.TestCase):
         self.assertEqual(payload["_request"]["method"], "PUT")
         self.assertEqual(payload["_request"]["url"], "https://dev.to/api/articles/123")
 
+    def test_rejects_tool_call_closing_tag_artifacts_before_dry_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            draft = Path(tmp) / "draft.md"
+            write_draft(draft, "body " + "</" + "content>" + "\n")
+
+            with self.assertRaises(SystemExit) as raised:
+                devto_publish.main(["--file", str(draft), "--dry-run", "--no-factcheck"])
+
+        self.assertIn("REFUSE: Suspicious escape marker", str(raised.exception))
+        self.assertIn("dev.to body", str(raised.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -30,6 +30,11 @@ import sys
 import time
 from pathlib import Path
 
+try:
+    from .outbound_text_guard import validate_outbound_text
+except ImportError:  # pragma: no cover - direct script execution
+    from outbound_text_guard import validate_outbound_text
+
 ROOT = Path(__file__).resolve().parent.parent
 SECRETS_DIR = ROOT / ".secrets"
 SESSION_FILE = SECRETS_DIR / "proton_session.pickle"
@@ -75,6 +80,15 @@ def check_placeholders(text: str, label: str) -> list[str]:
         if re.search(pat, text, re.IGNORECASE):
             hits.append(f"{label}: {pat}")
     return hits
+
+
+def check_outbound_text(subject: str, body: str) -> list[str]:
+    errors = []
+    for label, text in (("email subject", subject), ("email body", body)):
+        error = validate_outbound_text(text, label=label)
+        if error:
+            errors.append(error)
+    return errors
 
 
 def send_lock_path(topic: str) -> Path:
@@ -183,6 +197,13 @@ def main():
         print("REFUSE: unfilled template placeholders detected:", file=sys.stderr)
         for h in hits:
             print(f"  - {h}", file=sys.stderr)
+        sys.exit(2)
+
+    guard_errors = check_outbound_text(args.subject, body)
+    if guard_errors:
+        print("REFUSE: outbound text guard failed:", file=sys.stderr)
+        for error in guard_errors:
+            print(f"  - {error}", file=sys.stderr)
         sys.exit(2)
 
     # Self-send guard

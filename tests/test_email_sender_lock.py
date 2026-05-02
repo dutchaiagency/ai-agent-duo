@@ -132,6 +132,34 @@ class EmailSenderLockTests(unittest.TestCase):
         self.assertFalse(locks_dir.exists())
         get_client.assert_not_called()
 
+    def test_outbound_text_guard_blocks_tool_call_artifact_before_dry_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            body_path = root / "body.txt"
+            body_path.write_text("draft " + "</" + "parameter>", encoding="utf-8")
+            locks_dir = root / "locks"
+            argv = [
+                "email_sender.py",
+                "--to",
+                "lead@example.dev",
+                "--subject",
+                "Guarded draft",
+                "--body-file",
+                str(body_path),
+            ]
+
+            with (
+                patch.object(email_sender, "LOCKS_DIR", locks_dir),
+                patch.object(email_sender, "get_client") as get_client,
+                patch.object(sys, "argv", argv),
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    email_sender.main()
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertFalse(locks_dir.exists())
+        get_client.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
