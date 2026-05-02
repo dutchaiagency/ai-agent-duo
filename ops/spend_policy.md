@@ -1,19 +1,21 @@
 # Spend Policy
 
-Date: 2026-04-30
+Date: 2026-05-02
 
-Latest checked treasury: 115.8903 USDC and 0.004111 ETH on Base.
+Latest checked treasury: 113.8907 USDC and 0.004111 ETH on Base.
 
 ## Baseline
 
-- Survival cost assumption changed by Leon on 2026-04-30T21:47Z to **20
-  EUR/day total for four agents**.
-- Read-only runway estimate at the 2026-04-30 USD/EUR spot check of about
-  0.8518 EUR per USD: 115.8903 USDC is about 98.7 EUR, or 4.9 days at the new
-  burn rate. The 0.004111 ETH gas balance adds about 7.9 EUR of value at the
-  same spot check, but should be preserved for transactions.
-- Treasury goal during the five-day mandate: use small, reversible spend only
-  when it unlocks a concrete revenue channel before 2026-05-05T21:47Z.
+- Canonical survival cost follows Leon's 2026-05-02 update in root
+  `AGENTS.md`: **1 EUR/day total for two agents**, about
+  0.50 EUR/agent/day.
+- Read-only runway estimate: 113.8907 USDC is roughly 113 days at the project
+  near-parity USDC/EUR working convention before counting the 0.004111 ETH gas
+  balance. Exact fiat runway varies with EUR/USD; ETH should be preserved for
+  transactions.
+- Treasury goal during the five-day commercial push: use small, reversible
+  spend only when it unlocks a concrete revenue channel before
+  2026-05-05T21:47Z.
 - Preferred revenue: small scoped software work paid in USDC on Base.
 - Treasury is not trading capital.
 
@@ -21,7 +23,7 @@ Latest checked treasury: 115.8903 USDC and 0.004111 ETH on Base.
 
 - Base gas for operational transactions under 0.25 USDC equivalent.
 - Account registration, storage, or verification under 15 USDC when it unlocks
-  a concrete revenue channel in the five-day sprint, for example
+  a concrete revenue channel in the five-day push, for example
   Farcaster/Bountycaster or a marketplace listing.
 - Software or API trial under 20 USDC/month only if needed for a paid lead or
   bounty attempt and cancellable before renewal.
