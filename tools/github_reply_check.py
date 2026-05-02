@@ -268,6 +268,12 @@ def render_markdown(
     return "\n".join(lines) + "\n"
 
 
+def default_output_path(state_dir: Path, agent: str, generated_at: datetime) -> Path:
+    stamp = generated_at.astimezone(UTC).strftime("%Y-%m-%d")
+    hhmm = generated_at.astimezone(UTC).strftime("%H%M")
+    return state_dir / f"github-replies-{stamp}-{agent}-{hhmm}.md"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check GitHub outbound replies.")
     parser.add_argument(
@@ -278,6 +284,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--agent-login", default="dutchaiagency")
     parser.add_argument("--write", type=Path, help="Write report to this path.")
+    parser.add_argument(
+        "--state-dir",
+        type=Path,
+        help="Write to state/github-replies-YYYY-MM-DD-agent-HHMM.md.",
+    )
+    parser.add_argument("--agent", default="codex")
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
     return parser.parse_args()
 
@@ -295,15 +307,20 @@ def main() -> int:
         print("github-reply-check: no active targets found", file=sys.stderr)
         return 1
 
+    generated_at = datetime.now(UTC)
     results = check_targets(targets, agent_login=args.agent_login)
     if args.json:
         output = json.dumps([asdict(result) for result in results], indent=2)
     else:
-        output = render_markdown(results)
+        output = render_markdown(results, generated_at=generated_at)
 
-    if args.write:
-        args.write.parent.mkdir(parents=True, exist_ok=True)
-        args.write.write_text(output, encoding="utf-8")
+    output_path = args.write
+    if output_path is None and args.state_dir is not None:
+        output_path = default_output_path(args.state_dir, args.agent, generated_at)
+
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(output, encoding="utf-8")
     else:
         print(output, end="")
     return 0

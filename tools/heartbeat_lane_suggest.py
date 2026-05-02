@@ -47,6 +47,9 @@ BOUNTY_ZERO_TERMS = (
     "zero executable candidates",
     "zero higher-than-low candidates",
     "all reviewed priority candidates are saturated",
+    "deferred-pipeline",
+    "no compete-bump comment",
+    "no maintainer review",
     "publish/claim hold",
     "watch/hold",
 )
@@ -210,6 +213,7 @@ def event_kind(path: Path) -> str | None:
         or name.startswith("archestra-bounty-label-watch-")
         or name.startswith("github-bounty-priority-scan-")
         or name.startswith("github-bounty-priority-triage-")
+        or name.startswith("midnight-bounty-followup-")
         or name.startswith("opire-featured-bounty-check-")
         or name.startswith("paid-bounty-scout-")
     ):
@@ -1172,8 +1176,8 @@ def suggest_next_action(
             decision="github_reply_check_then_lead_scan",
             reason="GitHub is not in cooldown and reply state is missing or older than 30 minutes.",
             next_steps=(
-                "Run `python tools/github_reply_check.py --write state/github-replies-YYYY-MM-DD-codex-HHMM.md` before any public outbound.",
-                "Run `python tools/github_lead_scan.py --write state/github-leads-YYYY-MM-DD-codex-HHMM.md` only after reply state is known.",
+                "Run `python tools/github_reply_check.py --state-dir state --agent codex` before any public outbound.",
+                "Run `python tools/github_lead_scan.py --state-dir state --agent codex` only after reply state is known.",
                 "Do a manual code read before posting or claiming anything.",
             ),
             cooldown=cooldown,
@@ -1184,7 +1188,7 @@ def suggest_next_action(
         decision="github_lead_scan",
         reason="GitHub is not in cooldown and reply state is fresh.",
         next_steps=(
-            "Run `python tools/github_lead_scan.py --write state/github-leads-YYYY-MM-DD-codex-HHMM.md`.",
+            "Run `python tools/github_lead_scan.py --state-dir state --agent codex`.",
             "Skip public outbound unless a candidate survives manual code review.",
             "If the scan is zero, update the pipeline so the next heartbeat can switch lanes.",
         ),

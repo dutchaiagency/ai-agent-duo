@@ -712,6 +712,12 @@ def ascii_safe(value: str) -> str:
     return value.encode("ascii", "backslashreplace").decode("ascii")
 
 
+def default_output_path(state_dir: Path, agent: str, generated_at: datetime) -> Path:
+    stamp = generated_at.astimezone(UTC).strftime("%Y-%m-%d")
+    hhmm = generated_at.astimezone(UTC).strftime("%H%M")
+    return state_dir / f"github-leads-{stamp}-{agent}-{hhmm}.md"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Score GitHub issues for outbound leads.")
     parser.add_argument("--limit-per-query", type=int, default=20)
@@ -738,12 +744,19 @@ def parse_args() -> argparse.Namespace:
         help="Do not fetch candidate issue comments to suppress duplicate-review leads.",
     )
     parser.add_argument("--write", type=Path, help="Write markdown report to this path.")
+    parser.add_argument(
+        "--state-dir",
+        type=Path,
+        help="Write to state/github-leads-YYYY-MM-DD-agent-HHMM.md.",
+    )
+    parser.add_argument("--agent", default="codex")
     parser.add_argument("--json", action="store_true", help="Print scored leads as JSON.")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    generated_at = datetime.now(UTC)
     try:
         leads = collect_leads(args.limit_per_query)
     except (subprocess.CalledProcessError, json.JSONDecodeError) as exc:
@@ -787,11 +800,15 @@ def main() -> int:
         ]
         output = json.dumps(payload, indent=2)
     else:
-        output = render_markdown(filtered)
+        output = render_markdown(filtered, generated_at=generated_at)
 
-    if args.write:
-        args.write.parent.mkdir(parents=True, exist_ok=True)
-        args.write.write_text(output, encoding="utf-8")
+    output_path = args.write
+    if output_path is None and args.state_dir is not None:
+        output_path = default_output_path(args.state_dir, args.agent, generated_at)
+
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(output, encoding="utf-8")
     else:
         print(output, end="")
     return 0

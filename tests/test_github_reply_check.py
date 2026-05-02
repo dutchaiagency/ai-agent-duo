@@ -7,6 +7,7 @@ from tools.github_reply_check import (
     IssueUnavailable,
     Target,
     classify_thread,
+    default_output_path,
     fetch_issue,
     normalize_rest_issue,
     parse_targets,
@@ -136,6 +137,19 @@ class GitHubReplyCheckTests(unittest.TestCase):
         self.assertIn("[owner/repo #1]", markdown)
         self.assertIn("Use A \\| B.", markdown)
 
+    def test_default_output_path_uses_generated_utc_minute(self) -> None:
+        state_dir = self.tmp_path("marker", "").parent / "state"
+        path = default_output_path(
+            state_dir,
+            "codex",
+            datetime(2026, 5, 2, 15, 16, 59, tzinfo=UTC),
+        )
+
+        self.assertEqual(
+            path,
+            state_dir / "github-replies-2026-05-02-codex-1516.md",
+        )
+
     def test_rest_issue_payload_is_normalized_for_classifier(self) -> None:
         payload = normalize_rest_issue(
             {
@@ -213,6 +227,16 @@ class GitHubReplyCheckTests(unittest.TestCase):
         with patch("tools.github_reply_check.subprocess.run", fake_run):
             with self.assertRaises(IssueUnavailable):
                 fetch_issue(Target(repo="owner/missing", number=7))
+
+    def tmp_path(self, name: str, content: str):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        temp = TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        path = Path(temp.name) / name
+        path.write_text(content, encoding="utf-8")
+        return path
 
 
 if __name__ == "__main__":

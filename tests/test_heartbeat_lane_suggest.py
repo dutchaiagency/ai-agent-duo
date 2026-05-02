@@ -334,6 +334,86 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         assert event is not None
         self.assertTrue(event.zero_signal)
 
+    def test_midnight_followup_is_classified_as_zero_bounty_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = (
+                Path(tmp)
+                / "state"
+                / "midnight-bounty-followup-2026-05-02-claude-1505.md"
+            )
+            write(
+                path,
+                (
+                    "## Decision: no compete-bump comment\n\n"
+                    "No maintainer review in 3 days. Treat as deferred-pipeline.\n"
+                ),
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertEqual(event.kind, "bounty")
+        self.assertTrue(event.zero_signal)
+
+    def test_midnight_followup_delays_stale_bounty_refetch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            now = datetime(2026, 5, 2, 18, 30, tzinfo=UTC)
+            write(
+                state / "github-leads-2026-05-02-codex-1810.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1810.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "github-leads-2026-05-02-codex-1818.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1818.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-1805.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "github-bounty-priority-triage-2026-05-02-codex-1404.md",
+                "Result: no executable bounty candidate; publish/claim hold.",
+            )
+            write(
+                state / "midnight-bounty-followup-2026-05-02-claude-1505.md",
+                (
+                    "## Decision: no compete-bump comment\n\n"
+                    "No maintainer review in 3 days. Treat as deferred-pipeline.\n"
+                ),
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1800.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+
+            events = lane.load_events(state)
+            latest_bounty = [event for event in events if event.kind == "bounty"][-1]
+            suggestion = lane.suggest_next_action(events, ops, now)
+
+        self.assertEqual(
+            latest_bounty.path.name,
+            "midnight-bounty-followup-2026-05-02-claude-1505.md",
+        )
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertNotEqual(suggestion.decision, "stale_bounty_refetch")
+        self.assertEqual(suggestion.decision, "funnel_or_productized_asset_review")
+
     def test_priority_triage_zero_blocks_repeat_priority_gate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1027,7 +1107,7 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertTrue(suggestion.cooldown.active)
         self.assertEqual(suggestion.decision, "devto_engagement_pull")
 
-    def test_github_reply_check_step_uses_write_flag(self) -> None:
+    def test_github_reply_check_step_uses_timestamped_state_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             suggestion = lane.suggest_next_action(
                 [],
@@ -1036,8 +1116,8 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
             )
 
         self.assertEqual(suggestion.decision, "github_reply_check_then_lead_scan")
-        self.assertIn("--write state/github-replies-YYYY-MM-DD-codex-HHMM.md", suggestion.next_steps[0])
-        self.assertIn("--write state/github-leads-YYYY-MM-DD-codex-HHMM.md", suggestion.next_steps[1])
+        self.assertIn("--state-dir state --agent codex", suggestion.next_steps[0])
+        self.assertIn("--state-dir state --agent codex", suggestion.next_steps[1])
 
     def test_routes_to_no_inventory_when_signal_check_is_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

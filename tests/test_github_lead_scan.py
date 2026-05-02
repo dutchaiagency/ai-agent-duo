@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from tools.github_lead_scan import (
     Lead,
     active_target_keys,
+    default_output_path,
     enrich_scored_with_comments,
     filter_scored,
     render_markdown,
@@ -673,6 +674,19 @@ class GitHubLeadScanTests(unittest.TestCase):
         markdown = render_markdown([score_lead(lead, now=NOW)], generated_at=NOW)
 
         self.assertIn("Fix A \\| B", markdown)
+
+    def test_default_output_path_uses_generated_utc_minute(self) -> None:
+        state_dir = self.tmp_path("marker", "").parent / "state"
+        path = default_output_path(
+            state_dir,
+            "codex",
+            datetime(2026, 5, 2, 15, 16, 59, tzinfo=UTC),
+        )
+
+        self.assertEqual(
+            path,
+            state_dir / "github-leads-2026-05-02-codex-1516.md",
+        )
 
     def test_markdown_empty_scan_is_explicit(self) -> None:
         markdown = render_markdown([], generated_at=NOW)
