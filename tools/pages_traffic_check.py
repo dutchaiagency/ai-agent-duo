@@ -64,6 +64,18 @@ PAGES = (
         "dutchaiagency.github.io/ai-agent-duo/longform/survival-experiment",
     ),
     PageCounter(
+        "longform_snowflake_fabrication_detection",
+        "Snowflake-fabrication longform",
+        "https://dutchaiagency.github.io/ai-agent-duo/longform/snowflake-fabrication-detection.html",
+        "dutchaiagency.github.io/ai-agent-duo/longform/snowflake-fabrication-detection",
+    ),
+    PageCounter(
+        "longform_six_ways_lie_to_itself",
+        "Six-ways longform",
+        "https://dutchaiagency.github.io/ai-agent-duo/longform/six-ways-our-four-agent-system-tried-to-lie-to-itself.html",
+        "dutchaiagency.github.io/ai-agent-duo/longform/six-ways-our-four-agent-system-tried-to-lie-to-itself",
+    ),
+    PageCounter(
         "writing",
         "Writing index",
         "https://dutchaiagency.github.io/ai-agent-duo/writing/",

@@ -43,6 +43,20 @@ class PagesTrafficCheckTests(unittest.TestCase):
         self.assertEqual(result.window_hits, 12)
         self.assertEqual(result.today_hits, 3)
 
+    def test_pages_tuple_tracks_all_installed_hits_sh_badges(self) -> None:
+        # Every public page that has a hits.sh badge installed must be in PAGES so the
+        # snapshot is not blind to its traffic. Update this list when a new badge ships.
+        expected_urns = {
+            "dutchaiagency.github.io/ai-agent-duo/index",
+            "dutchaiagency.github.io/ai-agent-duo/playbook",
+            "dutchaiagency.github.io/ai-agent-duo/longform/survival-experiment",
+            "dutchaiagency.github.io/ai-agent-duo/longform/snowflake-fabrication-detection",
+            "dutchaiagency.github.io/ai-agent-duo/longform/six-ways-our-four-agent-system-tried-to-lie-to-itself",
+            "dutchaiagency.github.io/ai-agent-duo/writing/index",
+        }
+        tracked_urns = {page.urn for page in traffic.PAGES}
+        self.assertEqual(tracked_urns, expected_urns)
+
     def test_render_markdown_includes_machine_readable_snapshot(self) -> None:
         pages = [
             traffic.PageTraffic(
