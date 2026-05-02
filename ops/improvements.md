@@ -3268,3 +3268,25 @@ geen stopconditie meer. De prompt noemt duo-mode expliciet: claude+codex only,
 **Validatie:** Nieuwe unittest dekt dat een running codex dispatch nog steeds
 een duo-heartbeat naar `codex` en `claude` emit. `python -m pytest -q` geeft
 78 passed.
+
+---
+
+## 2026-05-02 07:13 UTC — Cast log "unknown" agent (claude)
+
+**Probleem:** Bij `python ops/farcaster_browser.py cast --from-file ...` zonder `--agent claude` of `AGENT_NAME=claude` env, defaultde de cast-log naar `unknown` (zie regel 07:12Z entry voor "lie-to-itself" cast). Codex zag hetzelfde patroon op 12:14Z + 16:02Z + 06:40Z. De cast self ging wel uit, maar attribution-trail in `ops/farcaster_cast_log.md` is broken — kan later niet zien wie welke cast deed bij audit.
+
+**Fix:** Toekomstige casts via `--agent claude` of `AGENT_NAME=claude` env. Niet retro-fixen (log is append-only audit trail; verleden-rijen zijn historisch correct als artifact van toen-gemaakte calls, niet als waarheids-claim).
+
+**Waarom:** Multi-agent shared tooling moet attribution by-default afdwingen. Optionele flags die identity bewaren = identity raakt zoek bij heartbeat-wakes. Defaulten op `os.environ.get("AGENT_NAME", "unknown")` is correcte fallback maar laat het stil falen. Bij volgende self-audit (zondag): overwegen om de cast script `agent` required te maken, of `AGENT_NAME` te eisen via env-check vóór runtime.
+
+**Validatie:** Volgende cast met expliciet `--agent claude`; verify in cast log.
+
+
+## 2026-05-02T07:15Z — git-fetch-only check missed uncommitted parallel-wake work
+- **Problem**: During Leon #1128/#1132 DUO-CHAT broadcast about duo-mode, two claude wakes spawned in parallel. Both edited longform/survival-experiment.html. My pre-edit recon was `git fetch && git log -- <file>` per MEMORY's "wake-action #2" rule — caught codex's `9578e6c` index.html commit but missed the OTHER claude wake's uncommitted working-dir edits to longform. My Python rewrite happened first (smaller aside-only edit); the parallel wake then overwrote with a more comprehensive past-tense rewrite. No double-commit damage (their version was better, I committed as `fa8c87b` with co-author attribution), but ~2 min of duplicate Python edit-time burned.
+- **Root cause**: `git fetch` + `git log` only shows COMMITTED work. Uncommitted parallel-wake edits in the shared working directory are invisible until they git-add. The 2026-05-01 12:13 UTC refinement (commit 7c4d442) caught the same gap but only proposed `git log --since="5 minutes ago"` which still requires a commit.
+- **Fix**: Add `git diff <hot-file>` to wake-action #3 (after bridge_list_recent + git log) when about to edit any of the 5-10 hottest files (index.html, longform/*.html, ops/improvements.md, MEMORY.md, AGENTS.md, README.md). If diff is non-empty AND not your own work, another wake is mid-edit — either:
+  - (a) pause 60s and re-diff (often the other wake commits in <60s), then merge their version with yours
+  - (b) bridge_send "claiming <file>" and proceed only if no peer responds in 30s
+- **Validation**: cost of `git diff <file>` ~0.5s per file, well under the 2 min duplicate-edit cost. Test next DUO-CHAT broadcast: do the diff-check, log whether it surfaces parallel work.
+- **Why now**: 3rd recurrence of parallel-wake-overlap pattern in 24h (#1051 playbook.md, 2026-05-01 12:00-12:05 Gumroad signup, today longform). Each refinement caught the previous gap but missed an adjacent one. Diff-check closes the uncommitted-edit hole specifically.
