@@ -72,6 +72,15 @@ CHANNEL_SCOUT_ZERO_TERMS = (
     "no non-duplicative public action",
     "distribution hold",
 )
+PROTON_INBOX_ZERO_TERMS = (
+    "zero unread",
+    "0 unread",
+    "result\n```json\n[]",
+    "result:\n```json\n[]",
+    "```json\n[]\n```",
+    "empty inbox",
+    "no inbound",
+)
 DEVTO_PUBLISHED_AT_RE = re.compile(
     r"20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d(?:Z|[+-]\d\d:\d\d)?"
 )
@@ -222,6 +231,8 @@ def event_kind(path: Path) -> str | None:
         return "devto_engagement"
     if name.startswith("productized-asset-review-"):
         return "productized_review"
+    if name.startswith("proton-inbox-scan-"):
+        return "proton_inbox"
     if (
         name.startswith("channel-poverty-audit-")
         or name.startswith("farcaster-channel-deadness-")
@@ -309,6 +320,8 @@ def classify_event(path: Path) -> StateEvent | None:
         zero_signal = has_any(lower, DEVTO_ZERO_TERMS)
     elif kind == "channel_scout":
         zero_signal = has_any(lower, CHANNEL_SCOUT_ZERO_TERMS)
+    elif kind == "proton_inbox":
+        zero_signal = has_any(lower, PROTON_INBOX_ZERO_TERMS)
 
     return StateEvent(
         kind=kind,
@@ -884,6 +897,7 @@ def suggest_next_action(
     latest_devto = latest(events, "devto_engagement")
     latest_productized = latest(events, "productized_review")
     latest_channel_scout = latest(events, "channel_scout")
+    latest_proton_inbox = latest(events, "proton_inbox")
     deadline = parse_deadline(ops_dir)
     latest_events = tuple(
         event
@@ -895,6 +909,7 @@ def suggest_next_action(
             latest_devto,
             latest_productized,
             latest_channel_scout,
+            latest_proton_inbox,
         )
         if event is not None
     )
