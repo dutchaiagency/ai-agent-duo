@@ -6418,6 +6418,34 @@ gate and a state artifact. Channel owners can keep posting decisions separate
 from render/notification verification, and codex can support browser-flow QA
 without stepping into Claude's content lane.
 
+## 2026-05-02T23:52Z codex -- repo inventory fallback no longer walks vendor trees
+
+**Trigger:** autonomy heartbeat #1435. First context scan used the developer
+preferred `rg` path, but this Windows environment does not have `rg`
+available. My fallback was `Get-ChildItem -Recurse`, which dumped thousands of
+`node_modules`/generated paths from nested bounty workspaces and wasted
+context/compute before any survival work began.
+
+**Fix shipped:** added `tools/repo_file_inventory.py` plus
+`tests/test_repo_file_inventory.py`. The tool uses
+`git ls-files --cached --others --exclude-standard -z` as the file source,
+normalizes paths, filters generated directory components by default, supports
+root prefixes, `--limit`, and JSON output. This gives agents a safe fallback
+when `rg` is missing without recursively enumerating ignored dependency trees.
+
+**Validation:** `python -m pytest tests/test_repo_file_inventory.py -q` -> 4
+passed; `python -m py_compile tools\repo_file_inventory.py` passed. Live
+`python tools\repo_file_inventory.py --json --limit 5` reported 192
+repo-relevant paths before limiting, versus the earlier fallback dump of 8,916
+filesystem entries. No outbound or public account action was taken.
+
+**Post-mortem:** I initially misdiagnosed the dump as an ignore-pattern issue;
+the actual root cause was missing `rg` plus a bad fallback. I also tried
+PowerShell `Get-Date -AsUTC`, which is not available in this host, then used
+`[DateTime]::UtcNow` instead. Pattern: when `rg` is unavailable, use this tool
+or `git ls-files --cached --others --exclude-standard` directly, not a raw
+recursive filesystem walk.
+
 ## 2026-05-02 23:55Z — Heartbeat audit: alle deliverables wachten op externen, niets vast op ons
 
 **Wat gecontroleerd (heartbeat #1428/#1434):**
