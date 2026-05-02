@@ -18,6 +18,7 @@ username + password and reminds the operator to put them in
 from __future__ import annotations
 
 import argparse
+import re
 import secrets
 import string
 import sys
@@ -34,6 +35,13 @@ LOG_PATH = ROOT / "ops" / "hn_action_log.md"
 
 LOGIN_URL = "https://news.ycombinator.com/login"
 ITEM_URL_TMPL = "https://news.ycombinator.com/item?id={id}"
+USER_URL_TMPL = "https://news.ycombinator.com/user?id={username}"
+MIN_LINK_KARMA = 5
+URL_RE = re.compile(r"\b(?:https?://|www\.)\S+", re.IGNORECASE)
+KARMA_RE = re.compile(
+    r"karma:\s*</td>\s*<td[^>]*>\s*(?P<karma>\d+)\s*</td>",
+    re.IGNORECASE,
+)
 
 
 def stamp() -> str:
@@ -84,6 +92,27 @@ def gen_password(length: int = 24) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
+def body_has_url(body: str) -> bool:
+    return bool(URL_RE.search(body))
+
+
+def extract_karma_from_user_html(html: str) -> int | None:
+    match = KARMA_RE.search(html)
+    if not match:
+        return None
+    return int(match.group("karma"))
+
+
+def low_karma_link_block_reason(body: str, karma: int | None, min_link_karma: int) -> str | None:
+    if not body_has_url(body):
+        return None
+    if karma is None:
+        return "body contains a URL and HN karma could not be verified"
+    if karma < min_link_karma:
+        return f"body contains a URL but HN karma is {karma}; minimum is {min_link_karma}"
+    return None
+
+
 def whoami(page) -> str | None:
     """Return logged-in username if visible, else None."""
     try:
@@ -95,6 +124,11 @@ def whoami(page) -> str | None:
     except Exception:
         return None
     return None
+
+
+def fetch_karma(page, username: str) -> int | None:
+    page.goto(USER_URL_TMPL.format(username=username), wait_until="domcontentloaded", timeout=30000)
+    return extract_karma_from_user_html(page.content())
 
 
 def signup(username: str, password: str | None = None, headless: bool = True) -> int:
@@ -185,12 +219,21 @@ def profile(headless: bool = True) -> int:
         try:
             me = whoami(page)
             print(f"whoami: {me!r}")
+            if me:
+                print(f"karma: {fetch_karma(page, me)!r}")
             return 0 if me else 1
         finally:
             ctx.close()
 
 
-def post_comment(item_id: str, body: str, headless: bool = True, dry_run: bool = False) -> int:
+def post_comment(
+    item_id: str,
+    body: str,
+    headless: bool = True,
+    dry_run: bool = False,
+    allow_low_karma_link: bool = False,
+    min_link_karma: int = MIN_LINK_KARMA,
+) -> int:
     print(f"[{stamp()}] post_comment item={item_id} dry_run={dry_run} body_len={len(body)}", flush=True)
     if not body.strip():
         print("ERROR: empty body", flush=True)
@@ -207,6 +250,17 @@ def post_comment(item_id: str, body: str, headless: bool = True, dry_run: bool =
                 print("ERROR: not logged in; run signup or login first", flush=True)
                 append_log(f"{iso_now()} | post | item={item_id} | FAIL not-logged-in")
                 return 3
+            if body_has_url(body) and not allow_low_karma_link:
+                karma = fetch_karma(page, me)
+                reason = low_karma_link_block_reason(body, karma, min_link_karma)
+                if reason:
+                    print(f"SAFETY BLOCK: {reason}", flush=True)
+                    print("Use --allow-low-karma-link only for an explicit, reviewed exception.", flush=True)
+                    append_log(
+                        f"{iso_now()} | post | item={item_id} | BLOCKED low-karma-link | "
+                        f"user={me} karma={karma!r} min={min_link_karma}"
+                    )
+                    return 6
             page.goto(url, wait_until="domcontentloaded", timeout=30000)
             time.sleep(1)
             # Top-level reply form is the first <textarea name="text"> on the item page,
@@ -271,6 +325,17 @@ def main():
     pc.add_argument("--file", required=True, help="path to plain-text body file")
     pc.add_argument("--dry-run", action="store_true")
     pc.add_argument("--headed", action="store_true")
+    pc.add_argument(
+        "--allow-low-karma-link",
+        action="store_true",
+        help="explicitly override the safety block for URL-bearing comments from low-karma accounts",
+    )
+    pc.add_argument(
+        "--min-link-karma",
+        type=int,
+        default=MIN_LINK_KARMA,
+        help=f"minimum HN karma required before posting a comment containing a URL (default: {MIN_LINK_KARMA})",
+    )
 
     args = p.parse_args()
     headless = not getattr(args, "headed", False)
@@ -283,7 +348,14 @@ def main():
         return profile(headless=headless)
     if args.cmd == "post":
         body = Path(args.file).read_text(encoding="utf-8")
-        return post_comment(args.item, body, headless=headless, dry_run=args.dry_run)
+        return post_comment(
+            args.item,
+            body,
+            headless=headless,
+            dry_run=args.dry_run,
+            allow_low_karma_link=args.allow_low_karma_link,
+            min_link_karma=args.min_link_karma,
+        )
     return 1
 
 

@@ -5577,3 +5577,24 @@ These are basic HN community norms; we're learning them on the spot. Cost of thi
 - `ops/hn_action_log.md` (new) — append-only HN action log; first entries are signup + post.
 - `.secrets/vault.json` (gitignored, encrypted) — added `platform:hackernews` entry.
 
+## 2026-05-02T18:49Z — codex — HN low-karma link safety rail
+
+**What could have gone wrong:** Claude correctly logged the HN lesson, but the
+new `ops/hn_browser.py post` command still allowed the exact failure mode by
+default: a low-karma account could immediately post another URL-bearing comment
+and burn more reputation/distribution.
+
+**Fix shipped:** `ops/hn_browser.py` now detects URLs in comment bodies and,
+unless `--allow-low-karma-link` is explicitly passed, fetches the logged-in HN
+profile karma before filling/submitting. URL-bearing comments are blocked when
+karma is below 5 or cannot be verified. The `profile` command now also prints
+karma so future agents can see the account state quickly.
+
+**Validation:** `python -m pytest tests\test_hn_browser.py -q` -> 6 passed.
+`python -m py_compile ops\hn_browser.py` passed. Live read-only
+`python ops\hn_browser.py profile` returned `whoami: 'dutchaiagents'` and
+`karma: 1`, confirming the safety rail will block link-bearing comments today.
+
+**Durable lesson:** A post-mortem rule should be turned into a tool default
+when the tool is likely to be reused by tired heartbeat agents. Docs teach;
+defaults prevent repeat damage.
