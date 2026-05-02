@@ -30,6 +30,11 @@ ZERO_LEAD_TERMS = (
     "zero candidates",
     "0 actionable github leads",
 )
+GITHUB_TRIAGE_CLOSED_TERMS = (
+    "all candidates triaged",
+    "triage complete",
+    "zero untriaged candidates",
+)
 NO_INVENTORY_ZERO_TERMS = (
     "0 reservation issues",
     "0 unread emails",
@@ -114,6 +119,7 @@ FUNNEL_PATH_PREFIXES = ("playbook/", "longform/")
 FUNNEL_SATURATION_COMMITS = 4
 FUNNEL_SATURATION_WINDOW = timedelta(minutes=60)
 PRODUCTIZED_REVIEW_FRESH_WINDOW = timedelta(minutes=90)
+GITHUB_NONZERO_TRIAGE_WINDOW = timedelta(minutes=90)
 FARCASTER_COOLDOWN = timedelta(minutes=30)
 FARCASTER_REPLY_OBSERVE_WINDOW = timedelta(minutes=60)
 CHANNEL_SCOUT_FRESH_WINDOW = timedelta(minutes=90)
@@ -211,6 +217,8 @@ def event_kind(path: Path) -> str | None:
         return "github_leads"
     if name.startswith("github-replies-"):
         return "github_replies"
+    if name.startswith("github-candidate-triage-"):
+        return "github_candidate_triage"
     if name.startswith("no-inventory-bridge-kit-signal-check-"):
         return "no_inventory"
     if (
@@ -308,6 +316,8 @@ def classify_event(path: Path) -> StateEvent | None:
     elif kind == "github_replies":
         reply_signal = bool(re.search(r"(?m)^\|\s*reply\s*\|", lower))
         zero_signal = not reply_signal
+    elif kind == "github_candidate_triage":
+        zero_signal = has_any(lower, GITHUB_TRIAGE_CLOSED_TERMS)
     elif kind == "no_inventory":
         zero_signal = has_any(lower, NO_INVENTORY_ZERO_TERMS)
     elif kind == "bounty":
@@ -387,6 +397,22 @@ def load_active_launch_window(
 def latest(events: list[StateEvent], kind: str) -> StateEvent | None:
     filtered = [event for event in events if event.kind == kind]
     return filtered[-1] if filtered else None
+
+
+def triage_closes_lead_scan(
+    triage: StateEvent | None,
+    lead: StateEvent | None,
+) -> bool:
+    if triage is None or lead is None:
+        return False
+    if triage.kind != "github_candidate_triage" or lead.kind != "github_leads":
+        return False
+    if triage.at < lead.at or not triage.zero_signal:
+        return False
+
+    text = triage.path.read_text(encoding="utf-8", errors="replace").lower()
+    lead_path = lead.path.as_posix().lower()
+    return lead_path in text or lead.path.name.lower() in text
 
 
 def github_cooldown_status(
@@ -926,6 +952,7 @@ def suggest_next_action(
     latest_productized = latest(events, "productized_review")
     latest_channel_scout = latest(events, "channel_scout")
     latest_proton_inbox = latest(events, "proton_inbox")
+    latest_candidate_triage = latest(events, "github_candidate_triage")
     latest_pages_traffic = pages_traffic_event(pages_traffic)
     deadline = parse_deadline(ops_dir)
     latest_events = tuple(
@@ -933,6 +960,7 @@ def suggest_next_action(
         for event in (
             latest_lead,
             latest_reply,
+            latest_candidate_triage,
             latest_no_inventory,
             latest_bounty,
             latest_devto,
@@ -1224,6 +1252,47 @@ def suggest_next_action(
                 "Run `python tools/github_reply_check.py --state-dir state --agent codex` before any public outbound.",
                 "Run `python tools/github_lead_scan.py --state-dir state --agent codex` only after reply state is known.",
                 "Do a manual code read before posting or claiming anything.",
+            ),
+            cooldown=cooldown,
+            latest_events=latest_events,
+        )
+
+    latest_lead_age = minutes_old(now, latest_lead)
+    if (
+        latest_lead is not None
+        and not latest_lead.zero_signal
+        and latest_lead_age is not None
+        and 0 <= latest_lead_age <= GITHUB_NONZERO_TRIAGE_WINDOW.total_seconds() / 60
+    ):
+        if triage_closes_lead_scan(latest_candidate_triage, latest_lead):
+            return Suggestion(
+                decision="github_candidate_watch",
+                reason=(
+                    "The latest nonzero GitHub lead scan "
+                    f"(`{latest_lead.path.as_posix()}` at {stamp(latest_lead.at)}) "
+                    "has a fresh triage closure "
+                    f"(`{latest_candidate_triage.path.as_posix()}` at {stamp(latest_candidate_triage.at)}). "
+                    "Watch the converted artifact instead of rerunning the same scan."
+                ),
+                next_steps=(
+                    "Watch the logged PR/comment/watch item for maintainer signal before opening another same-repo PR.",
+                    "Do not rerun the GitHub lead scan until a reply arrives or the current nonzero scan is stale.",
+                    "Use the next heartbeat on a different signal source or delivery task if no maintainer signal appears.",
+                ),
+                cooldown=cooldown,
+                latest_events=latest_events,
+            )
+        return Suggestion(
+            decision="github_candidate_manual_triage",
+            reason=(
+                "GitHub reply state is fresh and the latest lead scan is nonzero "
+                f"(`{latest_lead.path.as_posix()}` at {stamp(latest_lead.at)}). "
+                "Do not rerun the same scan while candidate triage is still fresh."
+            ),
+            next_steps=(
+                f"Open `{latest_lead.path.as_posix()}` and pick one candidate for manual code read, or log a no-go if all are saturated.",
+                "If a candidate is pickup-ready, convert it into a small PR, precise comment, or tracked watch item.",
+                "Only rerun `python tools/github_lead_scan.py --state-dir state --agent codex` after this nonzero scan is stale or all candidates are explicitly closed out.",
             ),
             cooldown=cooldown,
             latest_events=latest_events,
