@@ -10,6 +10,7 @@ from tools.github_reply_check import (
     default_output_path,
     fetch_issue,
     normalize_rest_issue,
+    parse_target_spec,
     parse_targets,
     render_markdown,
 )
@@ -46,6 +47,24 @@ class GitHubReplyCheckTests(unittest.TestCase):
                 Target(repo="Example-Org/repo.two", number=42),
             ],
         )
+
+    def test_parse_ad_hoc_target_specs(self) -> None:
+        self.assertEqual(
+            parse_target_spec("owner/repo#3"),
+            Target(repo="owner/repo", number=3),
+        )
+        self.assertEqual(
+            parse_target_spec("https://github.com/owner/repo/issues/42"),
+            Target(repo="owner/repo", number=42),
+        )
+        self.assertEqual(
+            parse_target_spec("https://github.com/owner/repo/pull/43"),
+            Target(repo="owner/repo", number=43),
+        )
+
+    def test_parse_ad_hoc_target_rejects_ambiguous_values(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_target_spec("owner/repo")
 
     def test_waiting_when_no_reply_after_agent_comment(self) -> None:
         status = classify_thread(

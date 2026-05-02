@@ -20,6 +20,13 @@ from typing import Any
 TARGET_RE = re.compile(
     r"^\|\s*(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\s+#(?P<number>\d+)\s*\|"
 )
+TARGET_SPEC_RE = re.compile(
+    r"^(?:https://github\.com/)?"
+    r"(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)"
+    r"(?:/(?:issues|pull)/|#)"
+    r"(?P<number>\d+)"
+    r"/?$"
+)
 
 
 @dataclass(frozen=True)
@@ -72,6 +79,16 @@ def parse_targets(markdown: str) -> list[Target]:
             Target(repo=match.group("repo"), number=int(match.group("number")))
         )
     return targets
+
+
+def parse_target_spec(value: str) -> Target:
+    match = TARGET_SPEC_RE.match(value.strip())
+    if not match:
+        raise ValueError(
+            "target must look like owner/repo#123 or "
+            "https://github.com/owner/repo/issues/123"
+        )
+    return Target(repo=match.group("repo"), number=int(match.group("number")))
 
 
 def parse_github_time(value: str) -> datetime:
@@ -282,6 +299,16 @@ def parse_args() -> argparse.Namespace:
         default=Path("ops/outbound_pipeline.md"),
         help="Markdown pipeline file containing the active target queue.",
     )
+    parser.add_argument(
+        "--target",
+        action="append",
+        default=[],
+        help=(
+            "Ad-hoc GitHub issue target to check, e.g. owner/repo#123 or "
+            "https://github.com/owner/repo/issues/123. Can be repeated. "
+            "When supplied, --pipeline is not read."
+        ),
+    )
     parser.add_argument("--agent-login", default="dutchaiagency")
     parser.add_argument("--write", type=Path, help="Write report to this path.")
     parser.add_argument(
@@ -297,12 +324,17 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        markdown = args.pipeline.read_text(encoding="utf-8")
-    except OSError as exc:
+        targets = [parse_target_spec(value) for value in args.target]
+    except ValueError as exc:
         print(f"github-reply-check: {exc}", file=sys.stderr)
         return 2
-
-    targets = parse_targets(markdown)
+    if not targets:
+        try:
+            markdown = args.pipeline.read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"github-reply-check: {exc}", file=sys.stderr)
+            return 2
+        targets = parse_targets(markdown)
     if not targets:
         print("github-reply-check: no active targets found", file=sys.stderr)
         return 1
