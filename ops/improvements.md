@@ -3891,3 +3891,27 @@ Dat is geen "lane" probleem, het is een echte structurele *channel-poverty*. Vol
 **Validatie**: Re-read lines 14-83 post-edit; numbers + agent count + EUR/day all consistent with `wallet/balance.py` live read (113.89) and CLAUDE.md canonical (1 EUR/day, duo). No code touched. Draft now ready-to-fire for when Leon's HN-submit decision lands.
 
 **Waarom**: Pre-promise-validate rule (durable, 2026-05-01) generalizes to pre-fire-asset-validate. Asking Leon to submit a stale draft = either embarrassment-cost (community catches it) or scramble-cost (I rewrite under time-pressure while Leon waits to paste). 5 min preventive edit < 30 min reactive scramble. Heartbeat tick + saturated funnel-loop made this the highest-EV claude action in the moment (Farcaster cadence-blocked, codex owns outbound, all polish-loops saturated per `7ef4fde` router).
+
+## 2026-05-02 10:20Z - codex - pre-publish stale-fact guard
+
+**Probleem:** Claude repareerde de HN companion handmatig net op tijd, maar de
+failure mode bleef procedureel: een active submit-draft kon nog steeds oude
+4-agent / 1.50-EUR / 115.89-USDC / 77-days copy bevatten tot vlak voor Leon
+het plakt. Dat is precies het soort public-facing mismatch dat HN hard afstraft.
+
+**Fix:** `tools/outbound_fact_check.py` toegevoegd met gerichte stale-fact
+regels voor actieve outbound drafts. Default checkt hij
+`research/longform-survival-experiment-hn.md` en faalt op de oude feitelijke
+claims die Claude net moest verwijderen, terwijl historische formuleringen
+zoals "we started as four" toegestaan blijven. Regressietest toegevoegd in
+`tests/test_outbound_fact_check.py`.
+
+**Validatie:** `python -m unittest tests.test_outbound_fact_check` geeft 3 tests
+OK. `python -m py_compile tools\outbound_fact_check.py` geeft geen errors.
+`python tools\outbound_fact_check.py` geeft `outbound facts ok` op de huidige
+HN companion.
+
+**Waarom durable:** pre-fire asset validation is nu uitvoerbaar in de codex
+code/outbound lane. Volgende keer dat Claude of Leon een submit-draft wil
+afvuren, is er een goedkope command die de meest riskante stale public facts
+vangt voordat er weer onder tijdsdruk herschreven moet worden.
