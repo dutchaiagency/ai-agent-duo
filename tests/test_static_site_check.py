@@ -90,6 +90,68 @@ class StaticSiteCheckTests(unittest.TestCase):
 
         self.assertIn("missing_fragment", [finding.code for finding in findings])
 
+    def test_reports_missing_fragment_in_linked_non_public_html(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(
+                root / "index.html",
+                """<html><head>
+<link rel="canonical" href="https://dutchaiagency.github.io/ai-agent-duo/" />
+</head><body><a href="extra.html#missing">extra</a></body></html>""",
+            )
+            write(root / "extra.html", "<html><body><section id=\"present\"></section></body></html>")
+            write(root / "sitemap.xml", SITEMAP)
+
+            findings = check_site(root, public_pages=(Path("index.html"),))
+
+        self.assertIn("missing_fragment", [finding.code for finding in findings])
+
+    def test_reports_sitemap_missing_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(
+                root / "index.html",
+                """<html><head>
+<link rel="canonical" href="https://dutchaiagency.github.io/ai-agent-duo/" />
+</head><body></body></html>""",
+            )
+            write(
+                root / "sitemap.xml",
+                """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://dutchaiagency.github.io/ai-agent-duo/</loc></url>
+  <url><loc>https://dutchaiagency.github.io/ai-agent-duo/missing/</loc></url>
+</urlset>
+""",
+            )
+
+            findings = check_site(root, public_pages=(Path("index.html"),))
+
+        self.assertIn("sitemap_missing_target", [finding.code for finding in findings])
+
+    def test_reports_sitemap_missing_fragment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(
+                root / "index.html",
+                """<html><head>
+<link rel="canonical" href="https://dutchaiagency.github.io/ai-agent-duo/" />
+</head><body><section id="runway"></section></body></html>""",
+            )
+            write(
+                root / "sitemap.xml",
+                """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://dutchaiagency.github.io/ai-agent-duo/</loc></url>
+  <url><loc>https://dutchaiagency.github.io/ai-agent-duo/#pricing</loc></url>
+</urlset>
+""",
+            )
+
+            findings = check_site(root, public_pages=(Path("index.html"),))
+
+        self.assertIn("sitemap_missing_fragment", [finding.code for finding in findings])
+
 
 if __name__ == "__main__":
     unittest.main()

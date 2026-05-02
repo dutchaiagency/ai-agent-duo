@@ -165,9 +165,58 @@ def check_site(
             findings.append(Finding("missing_public_page", page, "public HTML page is missing"))
             continue
         html[full_path] = parse_html(full_path)
+    public_html_items = tuple(html.items())
 
     locs = sitemap_locs(root / "sitemap.xml")
-    for full_path, parser in html.items():
+
+    def cached_html_parser(path: Path) -> SiteHTMLParser:
+        parser = html.get(path)
+        if parser is None:
+            parser = parse_html(path)
+            html[path] = parser
+        return parser
+
+    for loc in sorted(locs):
+        relative = site_relative_path(loc, base_url)
+        if relative is None:
+            if urlsplit(loc).scheme in ("http", "https"):
+                findings.append(
+                    Finding(
+                        "sitemap_external_url",
+                        Path("sitemap.xml"),
+                        f"{loc} is outside {base_url}",
+                    )
+                )
+            continue
+
+        target = resolve_local_target(root, root / "index.html", loc, base_url)
+        if target is None:
+            continue
+
+        target_rel = safe_relative(target, root)
+        if not target.exists():
+            findings.append(
+                Finding(
+                    "sitemap_missing_target",
+                    Path("sitemap.xml"),
+                    f"{loc} resolves to missing {target_rel}",
+                )
+            )
+            continue
+
+        _path, fragment = relative
+        if fragment and target.suffix.lower() in (".html", ".htm"):
+            target_parser = cached_html_parser(target)
+            if fragment not in target_parser.ids:
+                findings.append(
+                    Finding(
+                        "sitemap_missing_fragment",
+                        Path("sitemap.xml"),
+                        f"{loc} targets missing #{fragment} in {target_rel}",
+                    )
+                )
+
+    for full_path, parser in public_html_items:
         rel_path = safe_relative(full_path, root)
         if not parser.canonical:
             findings.append(Finding("missing_canonical", rel_path, "missing canonical link"))
@@ -200,7 +249,7 @@ def check_site(
 
             _path, fragment = site_relative_path(link.value, base_url) or ("", "")
             if fragment and target.suffix.lower() in (".html", ".htm"):
-                target_parser = html.get(target) or parse_html(target)
+                target_parser = cached_html_parser(target)
                 if fragment not in target_parser.ids:
                     findings.append(
                         Finding(
