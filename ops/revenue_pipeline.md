@@ -1,25 +1,24 @@
 # Revenue Pipeline
 
-Date: 2026-04-30
+Date: 2026-05-02
 
 ## Operating target
 
-Leon changed the survival cost on 2026-04-30 at 21:47 UTC to **20 EUR/day**
-for the four-agent team and gave a five-day earning mandate. This replaces the
-old 1.50 EUR/day baseline for operational prioritization.
+Canonical survival cost remains the root `AGENTS.md` budget correction:
+**1 EUR/day** for the two-agent team. Leon's five-day earning mandate is
+an execution cadence and risk posture, not a budget-baseline change.
 
-Latest read-only wallet baseline: 115.8903 USDC and 0.004111 ETH on Base. At
-the 2026-04-30 USD/EUR spot check of about 0.8518 EUR per USD, USDC alone is
-about 98.7 EUR, or 4.9 days at 20 EUR/day. Including the ETH gas balance at the
-same spot check gives about 106.6 EUR total, or about 5.3 days, but ETH should
-not be treated as spendable revenue because it is needed for operations.
+Latest read-only wallet baseline: 113.8907 USDC and 0.004111 ETH on Base. At
+the current near-parity operating convention, USDC alone is about 113 days at
+1 EUR/day before price/fee variance. ETH should not be treated as spendable
+revenue because it is needed for operations.
 
 Confirmed paid revenue so far: 0 USDC; one 1.0 USDC outgoing transaction is
 logged in `evidence/spending.csv`.
 
-The new near-term KPI is not "content momentum"; it is **one paid order or one
+The near-term KPI is not "content momentum"; it is **one paid order or one
 accepted bounty within five days**, with a target of at least 100 EUR/USDC gross
-to reset the five-day clock.
+to prove the survival loop.
 
 ## Survival portfolio
 
@@ -30,8 +29,8 @@ parallel:
 - Service work: GitHub issues, repo reviews, focused fixes, automation, docs,
   and paid debugging. This is the primary near-term revenue lane because it can
   convert into 25-120 USDC tasks without inventory, KYC, or speculation. Under
-  the 20 EUR/day sprint, prefer 60-120 USDC patch scopes over 25 USDC reviews
-  unless the buyer is clearly not ready for a patch.
+  the five-day commercial push, prefer 60-120 USDC patch scopes over 25 USDC
+  reviews unless the buyer is clearly not ready for a patch.
 - Content/inbound: Farcaster, dev.to, HN, GitHub posts, and longform artifacts
   that show real work, link to the task brief, and create a reason to reply.
   Content is a funnel, not a vanity metric.
@@ -109,13 +108,13 @@ Current lane owners, agreed by Claude/Codex on 2026-04-30:
 | --- | --- | --- | --- |
 | Content/inbound | Claude | Pages longform, dev.to when auth is ready, Farcaster cadence, attribution tags, funnel/site conversion | Assets shipped, replies, task-brief clicks |
 | Productized micro-services/e-commerce listings | Codex | Fixed-scope dev-service listings from existing proof plus the bounded no-inventory validation lane in `ops/no_inventory_validation_lane.md` | Listings drafted/published, qualified replies, paid orders or explicit reservations |
-| Bounty/marketplace scouting | Shared | Codex on GitHub/Algora/Opire; Claude on Farcaster/Bountycaster; Grok on X only after canonical-source peer validation | Fresh candidates screened, actionable leads, submitted claims |
+| Bounty/marketplace scouting | Shared | Codex on GitHub/Algora/Opire; Claude on Farcaster/Bountycaster and content-sourced leads | Fresh candidates screened, actionable leads, submitted claims |
 | Trading/market research | Gated shared research only | Paper trading, analytics, or client-facing tooling. No discretionary wallet trades. | Paper logs and backtest entries only |
 
 ## Public identity and positioning
 
 Default public identity: **Dutch AI Agents**, with **AI Agent Duo** as the
-service/product name already used by the site and repository. Present as four
+service/product name already used by the site and repository. Present as two
 autonomous AI agents operating a public survival experiment, not as a fake
 human founder or anonymous agency.
 
@@ -220,9 +219,43 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   Source: `github-outbound-gilabs-studio-gims-platform-243-2026-04-30`,
   `utm_content=gilabs-gims-243`. Treat GitHub outbound as capped for the rest
   of 2026-04-30 unless a maintainer replies first.
+- Seventh all-time targeted GitHub comment, and first on 2026-05-01, posted on
+  MetaMask/metamask-extension #41839 after rechecking the live issue and PR
+  #42300. The comment separates the gas-estimate warning path from the native
+  insufficient-balance alert path and offers a scoped regression/patch:
+  https://github.com/MetaMask/metamask-extension/issues/41839#issuecomment-4359170577
+  Source: `github-outbound-metamask-metamask-extension-41839-2026-05-01`,
+  `utm_content=metamask-metamask-extension-41839`.
 - Codex production framework added for this lane:
   `ops/outbound_pipeline.md`, `tools/github_lead_scan.py`, and generated scan
   report `state/github-leads-2026-04-30.md`.
+- Latest Codex check 2026-05-01 16:00-16:02 UTC: no inbound replies, no
+  reservation emails/issues, and zero actionable GitHub leads. FranchiFlow #34
+  and GIMS #243 now fail both GraphQL and REST fetches, so they are unavailable
+  until a fresh canonical repo URL appears; no bumps while invisible.
+- Latest Codex check 2026-05-02 06:38 UTC: no inbound replies, no reservation
+  emails/issues, and zero actionable GitHub leads. FranchiFlow #34 remains
+  unavailable; GIMS #243 is readable again but closed without a maintainer/user
+  reply after our comment, so it is `closed_no_reply` and not bumpable.
+- Algora verification at 2026-05-02 06:41 UTC produced
+  `state/algora-bounty-check-2026-05-02.md`: zero immediate candidates across
+  ZIO, Cal, tscircuit, BasedHardware/Omi, Space and Time, CloudGakkai, and
+  Archestra. Visible open items are assigned or crowded; closed Omi items remain
+  stale Algora listings. Keep Algora on daily watch only.
+- Opire featured-feed verification at 2026-05-02 07:01 UTC produced
+  `state/opire-featured-bounty-check-2026-05-02.md`: zero immediate candidates.
+  Current featured cards include stale closed GitHub issues plus open but
+  crowded/assigned/active-PR work in Godot, AutoKey, TypeORM, Deno, Storybook,
+  and Strapi. Verify GitHub state and related PRs before treating any Opire
+  amount as executable.
+- Duo-mode ops rebaseline at 2026-05-02 07:10 UTC: no new GitHub/outbound
+  action posted because the latest reply check still has no inbound replies and
+  the latest GitHub/Algora/Opire scans have zero executable candidates. Codex
+  updated dispatch/budget docs and verified Telegram bridge duo-mode
+  infrastructure work before the next outbound scan window.
+- Latest Codex check 2026-05-02 07:13 UTC: no inbound GitHub replies, no
+  reservation issues, no unread or reservation emails, and zero actionable
+  GitHub leads. No public outbound was posted.
 - Midnight Eclipse bounties submitted and awaiting review:
   - #313 midnight-mcp tutorial: https://github.com/midnightntwrk/contributor-hub/issues/313
   - #311 REST proof API tutorial: https://github.com/midnightntwrk/contributor-hub/issues/311#issuecomment-4346985148
@@ -241,9 +274,8 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   brief and email. Experimental persona/fiction/hypothetical posts are allowed
   only when labeled upfront, do not imply fake clients or fake human operators,
   and still drive a concrete brief, reply, email, or public work sample.
-- Citable social/partner copy: Grok may draft channel-specific posts, partner
-  intros, and verified-lead requests from `ops/grok_citable_content_lane.md`;
-  Claude or Codex still owns the actual channel handoff/posting gate.
+- Citable social/partner copy: Claude and Codex own channel-specific posts,
+  partner intros, and verified-lead requests directly in duo-mode.
 - Productized tooling: turn reusable assets such as the task brief linter,
   bounty tutorials, and automation scripts into paid setup/review packages.
 - No-inventory validation: Codex owns the active signal-only experiment in

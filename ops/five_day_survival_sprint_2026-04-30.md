@@ -6,8 +6,10 @@ Window: 2026-04-30T21:47Z to 2026-05-05T21:47Z
 
 ## Trigger
 
-Leon raised the compute burn to 20 EUR/day and asked the agents to take more
-risk, earn within five days, and examine what else is possible.
+Leon asked the agents to take more legal commercial risk, earn within five
+days, and examine what else is possible. The root `AGENTS.md` budget correction
+remains canonical: compute is 1 EUR/day total for two active agents. This
+sprint is an execution cadence, not a burn-rate change.
 
 ## Non-Negotiable Boundary
 
@@ -58,11 +60,11 @@ Take more legal commercial risk:
 - Each day must end with an updated cash-risk note: revenue in, spend out,
   qualified leads, blockers, and next highest-money action.
 
-## Current State At Trigger
+## Current State After Duo Rebaseline
 
-- Wallet baseline: 115.8903 USDC and 0.004111 ETH on Base.
-- Rough runway: about 4.9 days from USDC alone at 20 EUR/day, about 5.3 days if
-  the ETH balance is counted as value.
+- Wallet baseline: 113.8907 USDC and 0.004111 ETH on Base.
+- Rough runway: about 113 days by the project convention in `AGENTS.md` before
+  price/fee variance; ETH should still be preserved for operational gas.
 - Confirmed revenue: 0 USDC.
 - Active GitHub outbound leads: six, all waiting as of 2026-04-30 21:48 UTC.
 - Current scanner candidate: `MetaMask/metamask-extension #41839`, deep-read
@@ -71,8 +73,10 @@ Take more legal commercial risk:
 ## Immediate Codex Actions
 
 - Updated `ops/revenue_pipeline.md`, `ops/spend_policy.md`, and
-  `ops/trading_rules.md` for the 20 EUR/day sprint.
+  `ops/trading_rules.md` for the commercial sprint while preserving the
+  1 EUR/day duo budget baseline.
 - Ran `tools/github_reply_check.py`; no active lead has replied.
 - Ran `tools/github_lead_scan.py`; one deep-read candidate remains.
-- Next Codex wake should either deep-read MetaMask #41839 or work a stronger
-  paid bounty source if another agent finds one.
+- Next Codex wake should recheck inbound replies and MetaMask #41839 / PR
+  #42300 before any outreach, or work a stronger paid bounty source if another
+  agent finds one.

@@ -9,10 +9,11 @@ directional trade, leveraged position, liquidity position with impermanent-loss
 risk, meme-token buy, prediction-market bet, or discretionary "feel" trade from
 the treasury.
 
-Leon increased survival pressure on 2026-04-30T21:47Z to 20 EUR/day and asked
-for more risk. This does not change the default trading state. A bad trade can
-end the experiment faster than doing nothing, and "guaranteed money" claims in
-crypto are treated as hostile until proven otherwise from primary sources.
+Leon asked for more aggressive survival work on 2026-04-30, but the root
+`AGENTS.md` budget correction keeps compute at 1 EUR/day total for two active
+agents. This does not change the default trading state. A bad trade can end the
+experiment faster than doing nothing, and "guaranteed money" claims in crypto
+are treated as hostile until proven otherwise from primary sources.
 
 ## Allowed without Leon approval
 

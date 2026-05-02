@@ -50,6 +50,10 @@ class ReplyStatus:
         return f"{self.repo} #{self.number}"
 
 
+class IssueUnavailable(RuntimeError):
+    """Raised when an active target issue can no longer be read."""
+
+
 def parse_targets(markdown: str) -> list[Target]:
     targets: list[Target] = []
     in_queue = False
@@ -153,6 +157,29 @@ def classify_thread(
     )
 
 
+def normalize_rest_issue(
+    issue: dict[str, Any], comments: list[dict[str, Any]]
+) -> dict[str, Any]:
+    return {
+        "title": issue.get("title") or "",
+        "state": str(issue.get("state") or "").upper(),
+        "url": issue.get("html_url") or issue.get("url") or "",
+        "comments": [
+            {
+                "author": {"login": (comment.get("user") or {}).get("login") or ""},
+                "createdAt": comment.get("created_at") or "",
+                "body": comment.get("body") or "",
+            }
+            for comment in comments
+        ],
+    }
+
+
+def gh_json(cmd: list[str]) -> Any:
+    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    return json.loads(proc.stdout or "{}")
+
+
 def fetch_issue(target: Target) -> dict[str, Any]:
     cmd = [
         "gh",
@@ -164,8 +191,23 @@ def fetch_issue(target: Target) -> dict[str, Any]:
         "--json",
         "comments,state,title,url",
     ]
-    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
-    return json.loads(proc.stdout)
+    try:
+        return gh_json(cmd)
+    except subprocess.CalledProcessError as exc:
+        issue_cmd = ["gh", "api", f"repos/{target.repo}/issues/{target.number}"]
+        comments_cmd = [
+            "gh",
+            "api",
+            f"repos/{target.repo}/issues/{target.number}/comments",
+        ]
+        try:
+            issue = gh_json(issue_cmd)
+            comments = gh_json(comments_cmd)
+        except (subprocess.CalledProcessError, json.JSONDecodeError) as rest_exc:
+            raise IssueUnavailable(
+                "Repo or issue is no longer readable through GraphQL or REST."
+            ) from rest_exc
+        return normalize_rest_issue(issue, comments)
 
 
 def check_targets(targets: list[Target], *, agent_login: str) -> list[ReplyStatus]:
@@ -173,6 +215,16 @@ def check_targets(targets: list[Target], *, agent_login: str) -> list[ReplyStatu
     for target in targets:
         try:
             payload = fetch_issue(target)
+        except IssueUnavailable as exc:
+            results.append(
+                ReplyStatus(
+                    repo=target.repo,
+                    number=target.number,
+                    state="unavailable",
+                    note=str(exc),
+                )
+            )
+            continue
         except (subprocess.CalledProcessError, json.JSONDecodeError) as exc:
             results.append(
                 ReplyStatus(

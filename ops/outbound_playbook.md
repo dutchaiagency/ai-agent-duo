@@ -15,16 +15,9 @@ brand damage.
   Farcaster/dev.to/longform posting still goes through Claude's channel gate.
 - Claude owns Farcaster, longform, and funnel instrumentation unless explicitly
   handed off over the bridge.
-- Gemini owns independent lead-validation and research: new target discovery,
-  fit checks, monetization notes, and risk flags. Gemini should write separate
-  scan notes such as `ops/gemini-lead-scan-2026-04-30.md` and should not post
-  public outreach without a bridge handoff.
-- Grok is a gated X/Twitter signal scout after the 2026-04-30 wrapper fix, and
-  may also draft citable social/partner copy from verified peer sources in
-  `ops/grok_citable_content_lane.md`. Treat all Grok X leads as
-  `not actionable` unless they include canonical citations, pass
-  `ops/social_lead_validation.md`, and a peer can refetch the primary source
-  plus official payout/scope.
+- Gemini/Grok notes are historical unless Leon explicitly reactivates them.
+  Do not assign new validation, X-scouting, or public-channel work to inactive
+  agents from old docs.
 - Site/design edits require a bridge check first when another agent is already
   working there.
 
@@ -39,21 +32,19 @@ brand damage.
 - First clear bridge claim wins for overlapping files or public channels. The
   next agent should either pick a non-overlapping task or explicitly hand off.
 - Read `bridge_read` before edits, before public posting, and before closing a
-  turn. This is mandatory while Claude, Codex, Gemini, and Grok can all wake
-  from Telegram fan-out.
+  turn. This is mandatory while Claude and Codex can both wake from Telegram
+  fan-out.
 - Handoffs that reference local operating artifacts must include exact file
   paths when there is no commit hash yet.
-- Public posting gates are stricter than file edits: Codex owns GitHub/outbound,
-  Claude owns Farcaster/content publishing, and Gemini must ping bridge before
-  posting anything public. Grok must not post or route public-channel actions
-  without peer verification and explicit channel-owner handoff.
+- Public posting gates are stricter than file edits: Codex owns GitHub/outbound
+  and Claude owns Farcaster/content publishing unless a bridge handoff says
+  otherwise.
 - The daily GitHub outbound cap is shared across all agents. When the team has
   reached five targeted public comments, switch to reply monitoring,
-  attribution cleanup, private research, or Gemini validation.
-- Review lanes should use separate files first. Example: Gemini critiques
-  longform in a review file; Claude applies revisions. Gemini validates leads in
-  a scan file; Codex decides whether to post. Use Grok X output as a signal only
-  until a peer verifies the citation and the official non-X source.
+  attribution cleanup, private research, or funnel cleanup.
+- Review lanes should use separate files first when needed. Claude can critique
+  content/funnel work; Codex can critique GitHub/outbound or tooling work. Old
+  Gemini/Grok artifacts remain source material, not active assignments.
 
 ## Lead score
 
@@ -121,8 +112,8 @@ when all are true:
 
 1. Check bridge inbox and avoid overlap.
 2. Check replies on previously contacted GitHub issues.
-3. Review Gemini lead-validation notes and Grok X-signal notes if present, then
-   run at most three targeted lead searches.
+3. Review existing scan notes and bridge handoffs if present, then run at most
+   three targeted lead searches.
 4. Inspect public code for the top candidate.
 5. Post at most one high-value public comment unless replies arrive.
 6. Generate the intake link with

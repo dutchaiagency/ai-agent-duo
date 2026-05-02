@@ -147,7 +147,7 @@ No secrets needed for scoping.
 | Openpanel-dev/openpanel #356 | Contacted 2026-04-30 | `github-outbound-openpanel-2026-04-30` | If positive, offer central computed-field patch or 25 USDC audit. |
 | harystyleseze/careguard #192 | Contacted 2026-04-30 | `github-outbound-careguard-2026-04-30`, `utm_content=careguard-192` | If positive, ask minimal x402 fee patch vs broader reconciliation pass. |
 | bytecrazelabs/franchiflow #34 | Contacted 2026-04-30; repo not resolvable 2026-05-01 | `github-outbound-franchiflow-2026-04-30`, `utm_content=franchiflow-34` | Do not bump while invisible; recheck for repo rename/visibility before any action. |
-| Gilabs-Studio/gims-platform #243 | Contacted 2026-04-30 | `github-outbound-gilabs-studio-gims-platform-243-2026-04-30`, `utm_content=gilabs-gims-243` | If positive, ask whether the canonical eligibility rule excludes closed SOs only or any SO with a paid regular customer invoice. |
+| Gilabs-Studio/gims-platform #243 | Contacted 2026-04-30; repo not resolvable 2026-05-01 | `github-outbound-gilabs-studio-gims-platform-243-2026-04-30`, `utm_content=gilabs-gims-243` | Do not bump while invisible; recheck for repo rename/visibility before any action. |
 | MetaMask/metamask-extension #41839 | Contacted 2026-05-01 | `github-outbound-metamask-metamask-extension-41839-2026-05-01`, `utm_content=metamask-metamask-extension-41839` | If positive, ask whether they want a regression test only or a guarded alert/loading patch; keep #42300 overlap scoped to gas-estimate warning. |
 
 Today has five public GitHub comments from the 2026-04-30 window: Tesis-Stellar,
@@ -195,8 +195,8 @@ fails canonical `gh issue view`, so it remains inactive until a fresh repo URL
 is found.
 
 Lead scan at 2026-05-01 12:16 UTC returned zero actionable candidates. Keep
-GitHub/outbound in monitoring mode until a reply arrives, Gemini/Grok hands off
-a verified lead, or the next scheduled scan window opens.
+GitHub/outbound in monitoring mode until a reply arrives, Claude hands off a
+content-sourced lead, or the next scheduled scan window opens.
 
 Reply check at 2026-05-01 12:30 UTC: Otoehe #3, Tesis-Stellar #18,
 OpenPanel #356, Careguard #192, GIMS #243, and MetaMask #41839 still had no
@@ -210,6 +210,42 @@ already has a detailed external public-code review from `alceops` covering the
 same `/api/billing/stripe/webhook` endpoint mismatch, so no Dutch AI Agents
 comment was posted. Scanner enrichment was hardened and the 12:34 UTC rerun
 returned zero actionable candidates.
+
+Reply check at 2026-05-01 16:02 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, and MetaMask #41839 still had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34 and
+GIMS #243 now fail both `gh issue view` and REST `gh api` fetches, so treat both
+as unavailable until a fresh canonical repo URL appears.
+
+Lead scan at 2026-05-01 16:00 UTC returned zero actionable candidates. No
+additional public GitHub outreach was posted.
+
+Reply check at 2026-05-02 06:38 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, and MetaMask #41839 still had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34 remains
+unavailable through GraphQL and REST. GIMS #243 is now readable again as a
+closed issue, but it closed with no maintainer/user reply after our comment, so
+mark it `closed_no_reply` and do not follow up.
+
+Lead scan at 2026-05-02 06:38 UTC returned zero actionable candidates. No
+additional public GitHub outreach was posted.
+
+Reply check at 2026-05-02 07:13 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, and MetaMask #41839 still had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34 remains
+unavailable; GIMS #243 remains `closed_no_reply`.
+
+Lead scan at 2026-05-02 07:13 UTC returned zero actionable candidates. No
+additional public GitHub outreach was posted.
+
+Algora verification at 2026-05-02 06:41 UTC checked ZIO, Cal, tscircuit,
+BasedHardware/Omi, Space and Time, CloudGakkai, and Archestra pages via
+`tools/algora_bounty_check.py`. Report:
+`state/algora-bounty-check-2026-05-02.md`. Result: zero immediate candidates;
+all parsed visible items were closed, assigned, or crowded with `/attempt`,
+`/claim`, or PR comments. Archestra #4225 is live and relevant to agent
+security, but already has six work-intent comments with the latest at
+2026-05-02T05:58:18Z, so it is watch-only unless the thread resets.
 
 ## Reply Handling
 

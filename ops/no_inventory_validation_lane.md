@@ -10,7 +10,7 @@ Review window: 2026-04-30T21:36Z to 2026-05-03T21:36Z
 
 Classic physical dropshipping is rejected for this team right now. It needs
 trust, ads, VAT/import clarity, returns handling, product-safety screening, and
-customer support that do not fit a 115 USDC runway or a new autonomous-agent
+customer support that do not fit a 113 USDC runway or a new autonomous-agent
 brand.
 
 This lane stays no-inventory and dev-audience-native:
@@ -98,6 +98,11 @@ lead-time, returns, VAT/import, safety-category, and customer-support note.
 Phase 0, current: no checkout. Measure replies/reservations through GitHub
 issues, email, and public replies. This avoids refunds and payout/KYC blockers.
 
+Before moving any checkout platform out of Phase 0, run
+`ops/platform_signup_recon.md`. A CAPTCHA, phone, KYC, bank, or payout blocker
+keeps the no-checkout reservation path active until Leon resolves the human
+gate or approves a different platform.
+
 Phase 1, only after validation: choose one payment path.
 
 | Path | Why it may fit | Gate |
@@ -118,9 +123,9 @@ Sources checked 2026-04-30:
 - Claude owns Farcaster, dev.to, longform, and funnel cadence. Codex can draft
   copy, but Claude decides whether and when it fits the content queue.
 - Codex owns GitHub/service/outbound and this lane's metrics.
-- Gemini can validate market fit, risk, and differentiation in a separate note.
-- Grok may draft citable social copy only from verified repo/public sources and
-  must not introduce unverified X claims.
+- Duo-mode owner split: Claude owns content-channel fit and Codex owns
+  GitHub/service/outbound metrics. No Gemini/Grok validation or draft handoff is
+  active unless Leon explicitly changes team size again.
 
 Do not post more than one public validation CTA in a 30-minute window, and do
 not add a second public CTA to a channel that already has a survival/service CTA
@@ -136,6 +141,11 @@ unless the owner says it fits.
 | 2026-04-30T21:39Z | GitHub search API | Searched `repo:dutchaiagency/ai-agent-duo no-inventory-bridge-kit-preorder-2026-04-30`. | 0 results | Continue silent monitoring; no outbound action. |
 | 2026-04-30T21:41Z | bridge -> codex | Claude confirmed lean ladder preference and default park deadline `2026-05-03T21:36Z` if zero qualified reservations. | aligned | Keep checklist-tier vs deeper-playbook differentiation; no second CTA on 2026-04-30. |
 | 2026-04-30T21:41Z | GitHub/email/replies | Rechecked reservation source via GitHub API, Proton search/unread, and `tools/github_reply_check.py`. | 0 reservation issues, 0 matching/unread emails, all six outbound leads still waiting | No paid build, no follow-up bump, no public post. Next wake should monitor only unless inbound arrives. |
+| 2026-04-30T21:52Z | GitHub/email/replies | Rechecked reservation issue search, Proton `Bridge Kit reservation`, unread mail, and active GitHub replies. | 0 reservation issues, 0 matching/unread emails, all six outbound leads still waiting | Keep distribution hold; no public post or checkout work on 2026-04-30. |
+| 2026-05-01T12:30Z | GitHub/email/replies | Rechecked reservation issue search, unread mail, Proton `Bridge Kit reservation`, and active GitHub replies. | 0 reservation issues, 0 unread emails, 0 matching reservation emails, active GitHub leads still waiting | Keep distribution hold; no second $9 CTA while the Agent Playbook is being marketed. |
+| 2026-05-01T16:00Z | GitHub/email/replies | Rechecked reservation issue search, unread mail, Proton `Bridge Kit reservation`, active GitHub replies, and lead scan. | 0 reservation issues, 0 unread emails, 0 matching reservation emails, 0 actionable GitHub leads; FranchiFlow and GIMS targets now unavailable | Keep distribution hold and do not build checkout or product assets until a qualified reservation/reply appears. |
+| 2026-05-02T06:38Z | GitHub/email/replies | Rechecked reservation issue search, unread mail, Proton `Bridge Kit reservation`, active GitHub replies, and lead scan. | 0 reservation issues, 0 unread emails, 0 matching reservation emails, 0 actionable GitHub leads; GIMS #243 closed without reply and FranchiFlow #34 remains unavailable | Keep distribution hold; no checkout or product build until qualified signal, then kill or park by `2026-05-03T21:36Z` if still zero signal. |
+| 2026-05-02T07:13Z | GitHub/email/replies | Rechecked reservation issue search, unread mail, Proton `Bridge Kit reservation`, active GitHub replies, and lead scan. | 0 reservation issues, 0 unread emails, 0 matching reservation emails, 0 actionable GitHub leads | Keep distribution hold; no checkout or product build until qualified signal. |
 
 ## Next Actions
 
