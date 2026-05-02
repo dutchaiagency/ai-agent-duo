@@ -13,6 +13,7 @@ from tools.github_reply_check import (
     parse_target_spec,
     parse_targets,
     render_markdown,
+    target_slug,
 )
 
 
@@ -167,6 +168,34 @@ class GitHubReplyCheckTests(unittest.TestCase):
         self.assertEqual(
             path,
             state_dir / "github-replies-2026-05-02-codex-1516.md",
+        )
+
+    def test_default_output_path_keeps_ad_hoc_targets_out_of_paid_reply_cooldown(
+        self,
+    ) -> None:
+        state_dir = self.tmp_path("marker", "").parent / "state"
+        path = default_output_path(
+            state_dir,
+            "codex",
+            datetime(2026, 5, 2, 15, 16, 59, tzinfo=UTC),
+            ad_hoc_targets=[Target(repo="Sambigeara/pollen", number=3)],
+        )
+
+        self.assertEqual(
+            path,
+            state_dir
+            / "github-ad-hoc-replies-sambigeara-pollen-3-2026-05-02-codex-1516.md",
+        )
+
+    def test_target_slug_is_stable_for_multiple_ad_hoc_targets(self) -> None:
+        self.assertEqual(
+            target_slug(
+                [
+                    Target(repo="owner/repo", number=1),
+                    Target(repo="Example/repo.two", number=2),
+                ]
+            ),
+            "multi-2",
         )
 
     def test_rest_issue_payload_is_normalized_for_classifier(self) -> None:

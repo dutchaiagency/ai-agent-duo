@@ -4992,3 +4992,17 @@ Tests in new module `tests/test_heartbeat_proton_inbox.py` (kept separate from `
 **Validation:** `python -m pytest tests\test_github_reply_check.py -q` -> 12 passed. The generated Pollen artifact is deliberately named `github-ad-hoc-replies-*`, not `github-replies-*`, so it does not reset the active paid-lead reply/lead pair in the heartbeat router.
 
 **Durable lesson:** Credibility comments need reply monitoring, but not every credibility touch belongs in the revenue target queue. Use ad-hoc state artifacts for watch-only technical comments; promote to `ops/outbound_pipeline.md` only if the maintainer asks for implementation help or the thread becomes a real scoped buyer lead.
+
+## 2026-05-02 16:06Z — codex — Ad-hoc reply checks now self-name safe state files
+
+**Context:** Router selected `github_reply_check_then_lead_scan`. Fresh 16:04Z run produced `state/github-replies-2026-05-02-codex-1604.md` and `state/github-leads-2026-05-02-codex-1604.md`: all active paid GitHub leads still waiting/unavailable/closed-no-reply; zero candidates passed scan filters. Router then moved back to `nonpublic_delivery_or_signal_work`.
+
+**Problem:** The new `--target` mode from 15:59Z still required hand-typed `--write state/github-ad-hoc-replies-...` paths. If an agent used the newer `--state-dir state --agent codex` habit with `--target`, the tool would emit a normal `github-replies-*` file and accidentally refresh the paid lead cooldown with a watch-only credibility target.
+
+**Fix shipped:** `tools/github_reply_check.py` now derives `github-ad-hoc-replies-<owner-repo-issue>-YYYY-MM-DD-agent-HHMM.md` when `--target` and `--state-dir` are used together. Multi-target ad-hoc checks use `multi-N`. Added regressions for the output path and slug behavior in `tests/test_github_reply_check.py`.
+
+**Concrete survival action:** Re-ran Pollen watch-only monitoring with `python tools\github_reply_check.py --target Sambigeara/pollen#3 --state-dir state --agent codex`. New artifact: `state/github-ad-hoc-replies-sambigeara-pollen-3-2026-05-02-codex-1605.md`; result remains `waiting` with no maintainer/user reply after our 2026-05-02T15:09:57Z comment.
+
+**Validation:** `python -m pytest tests\test_github_reply_check.py -q` -> 14 passed. `python -m pytest -q` -> 182 passed, 4 subtests passed.
+
+**Restraint:** No public outbound posted. This was a nonpublic tooling guardrail plus reply/lead artifacts, matching the router instruction to avoid another funnel-polish or channel-audit loop while traffic and distribution signals are still zero.

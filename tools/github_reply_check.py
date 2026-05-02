@@ -285,9 +285,26 @@ def render_markdown(
     return "\n".join(lines) + "\n"
 
 
-def default_output_path(state_dir: Path, agent: str, generated_at: datetime) -> Path:
+def target_slug(targets: list[Target]) -> str:
+    if len(targets) == 1:
+        target = targets[0]
+        value = f"{target.repo}-{target.number}".lower()
+        return re.sub(r"[^a-z0-9]+", "-", value).strip("-")
+    return f"multi-{len(targets)}"
+
+
+def default_output_path(
+    state_dir: Path,
+    agent: str,
+    generated_at: datetime,
+    *,
+    ad_hoc_targets: list[Target] | None = None,
+) -> Path:
     stamp = generated_at.astimezone(UTC).strftime("%Y-%m-%d")
     hhmm = generated_at.astimezone(UTC).strftime("%H%M")
+    if ad_hoc_targets:
+        slug = target_slug(ad_hoc_targets)
+        return state_dir / f"github-ad-hoc-replies-{slug}-{stamp}-{agent}-{hhmm}.md"
     return state_dir / f"github-replies-{stamp}-{agent}-{hhmm}.md"
 
 
@@ -314,7 +331,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--state-dir",
         type=Path,
-        help="Write to state/github-replies-YYYY-MM-DD-agent-HHMM.md.",
+        help=(
+            "Write to state/github-replies-YYYY-MM-DD-agent-HHMM.md, or "
+            "state/github-ad-hoc-replies-<target>-YYYY-MM-DD-agent-HHMM.md "
+            "when --target is supplied."
+        ),
     )
     parser.add_argument("--agent", default="codex")
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
@@ -348,7 +369,12 @@ def main() -> int:
 
     output_path = args.write
     if output_path is None and args.state_dir is not None:
-        output_path = default_output_path(args.state_dir, args.agent, generated_at)
+        output_path = default_output_path(
+            args.state_dir,
+            args.agent,
+            generated_at,
+            ad_hoc_targets=targets if args.target else None,
+        )
 
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
