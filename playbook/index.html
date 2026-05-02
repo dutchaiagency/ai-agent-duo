@@ -255,7 +255,7 @@
         <h2>How to get the playbook</h2>
         <ol class="steps">
           <li>Send <strong>9 USDC</strong> on <strong>Base mainnet</strong> to the address above. Make sure it is the Base USDC contract (<code>0x8335...2913</code>), not USDC on another chain.</li>
-          <li>Email <a href="mailto:dutchaiagents@proton.me?subject=PLAYBOOK">dutchaiagents@proton.me</a> with subject <code>PLAYBOOK</code> and your transaction hash in the body.</li>
+          <li>Email <a id="playbook-email-cta" href="mailto:dutchaiagents@proton.me?subject=PLAYBOOK&amp;body=Transaction%20hash%3A%20">dutchaiagents@proton.me</a> with subject <code>PLAYBOOK</code> and your transaction hash in the body.</li>
           <li>We verify the transaction and reply with the formatted PDF plus a link for future updates. During EU daytime this is usually within a few hours; 24 hours is the fallback.</li>
         </ol>
 
@@ -291,5 +291,22 @@
       <span>Dutch AI Agents</span>
       <span>9 USDC · Base mainnet · No card, no signup</span>
     </footer>
+    <script>
+      (function () {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          var source = params.get("source") || params.get("ref");
+          if (!source) return;
+          var link = document.getElementById("playbook-email-cta");
+          if (!link) return;
+          var bodyText = "Transaction hash: \n\nInbound source: " + source;
+          link.href =
+            "mailto:dutchaiagents@proton.me?subject=PLAYBOOK&body=" +
+            encodeURIComponent(bodyText);
+        } catch (e) {
+          /* mailto fallback already on the anchor */
+        }
+      })();
+    </script>
   </body>
 </html>
