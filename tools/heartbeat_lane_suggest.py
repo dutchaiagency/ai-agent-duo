@@ -86,6 +86,14 @@ CHANNEL_UNLOCK_ASK_WINDOW = timedelta(hours=6)
 PAGE_TRAFFIC_BOT_BASELINE_7D = 210
 PAGE_TRAFFIC_MAX_AGE = timedelta(hours=36)
 PAGE_TRAFFIC_JSON_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
+LAUNCH_RESPONSE_WINDOW = timedelta(minutes=90)
+LAUNCH_URL_RE = re.compile(r"https://[^\s)>]+")
+LAUNCH_CLOSED_TERMS = (
+    "status: closed",
+    "status: inactive",
+    "window: closed",
+    "launch closed",
+)
 
 
 @dataclass(frozen=True)
@@ -108,6 +116,14 @@ class BridgeAsk:
     at: datetime
     from_agent: str
     excerpt: str
+
+
+@dataclass(frozen=True)
+class LaunchWindow:
+    path: Path
+    at: datetime
+    venue: str
+    url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -265,6 +281,51 @@ def load_events(state_dir: Path) -> list[StateEvent]:
         if (event := classify_event(path)) is not None
     ]
     return sorted(events, key=lambda event: event.at)
+
+
+def launch_window_venue(path: Path) -> str | None:
+    name = path.name.lower()
+    if "launch-window-active" not in name:
+        return None
+    if "lobsters" in name or "lobste" in name:
+        return "Lobsters"
+    if "hn" in name or "hacker-news" in name:
+        return "HN"
+    return "HN/Lobsters"
+
+
+def extract_launch_url(text: str) -> str | None:
+    match = LAUNCH_URL_RE.search(text)
+    return match.group(0).rstrip(".,;") if match else None
+
+
+def load_active_launch_window(
+    state_dir: Path,
+    now: datetime,
+    *,
+    window: timedelta = LAUNCH_RESPONSE_WINDOW,
+) -> LaunchWindow | None:
+    if not state_dir.exists():
+        return None
+
+    windows: list[LaunchWindow] = []
+    for path in state_dir.glob("*launch-window-active-*.md"):
+        venue = launch_window_venue(path)
+        at = parse_timestamp(path)
+        if venue is None or at is None or at > now or now - at > window:
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if has_any(text, LAUNCH_CLOSED_TERMS):
+            continue
+        windows.append(
+            LaunchWindow(
+                path=path,
+                at=at,
+                venue=venue,
+                url=extract_launch_url(text),
+            )
+        )
+    return max(windows, key=lambda launch: launch.at) if windows else None
 
 
 def latest(events: list[StateEvent], kind: str) -> StateEvent | None:
@@ -623,6 +684,7 @@ def suggest_next_action(
     recent_unlock_asks: tuple[BridgeAsk, ...] = (),
     last_cast_at: datetime | None = None,
     pages_traffic: PageTrafficSnapshot | None = None,
+    active_launch: LaunchWindow | None = None,
 ) -> Suggestion:
     cooldown = github_cooldown_status(events, now)
     latest_lead = latest(events, "github_leads")
@@ -642,6 +704,26 @@ def suggest_next_action(
         )
         if event is not None
     )
+
+    if active_launch is not None:
+        url_note = f" Live URL: {active_launch.url}." if active_launch.url else ""
+        return Suggestion(
+            decision="post_launch_window_active",
+            reason=(
+                f"{active_launch.venue} launch-window marker "
+                f"`{active_launch.path.as_posix()}` is active since "
+                f"{stamp(active_launch.at)}. First-window reply latency beats "
+                f"new content or GitHub scanning while the thread is live.{url_note}"
+            ),
+            next_steps=(
+                "Open the live thread and read the newest comments before replying.",
+                "Run `python wallet/balance.py` and `python tools/outbound_fact_check.py research/hn-launch-comment-pack.md` before using any canned number.",
+                "Use `research/hn-launch-comment-pack.md` as adapted reply source; do not paste verbatim and do not start a new-content lane.",
+                "After 90 minutes or when the thread cools, write fresh replies and log the launch result in ops/improvements.md.",
+            ),
+            cooldown=cooldown,
+            latest_events=latest_events,
+        )
 
     if deadline is not None and now >= deadline:
         return Suggestion(
@@ -839,6 +921,7 @@ def main(argv: list[str] | None = None) -> int:
     recent_unlock_asks = load_recent_bridge_unlock_asks(bridge_db, now)
     last_cast_at = last_successful_cast_time(args.ops_dir / "farcaster_cast_log.md")
     pages_traffic = load_latest_pages_traffic(args.state_dir)
+    active_launch = load_active_launch_window(args.state_dir, now)
     if pages_traffic is not None:
         pages_traffic = PageTrafficSnapshot(
             pages_traffic.path,
@@ -855,6 +938,7 @@ def main(argv: list[str] | None = None) -> int:
         recent_unlock_asks,
         last_cast_at,
         pages_traffic,
+        active_launch,
     )
     print(format_suggestion(suggestion, now), end="")
     return 0

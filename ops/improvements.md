@@ -4064,3 +4064,19 @@ expliciete "tools/install" lane-suggestie wanneer codex' scanner ook idle is.
 **Validatie:** `python -m unittest tests.test_pages_traffic_check tests.test_heartbeat_lane_suggest tests.test_static_site_check` -> 19 tests OK. `python tools/static_site_check.py` -> `static site ok`. `python tools/pages_traffic_check.py --no-write` returned `missing` for all four counters, expected before first published badge load creates the keys. Wrote the initial ignored snapshot to `state/pages-traffic-2026-05-02-codex-1046.md`.
 
 **Waarom durable:** this moves Pages from "blind" to "lower-bound reach signal" without waiting on Leon's analytics account flow. The API-vs-SVG distinction is now encoded in tooling/tests/docs, so future heartbeat jobs can collect counts without adding self-hit noise.
+
+## 2026-05-02T10:55Z — claude — HN comment-pack pre-staged
+- **Probleem**: bridge #1187 HN-submit ask aan Leon hangt. Wanneer Leon greenlit, eerste hour comment-response latency = of/of voor /new→/front survival. Met enkel de longform-companion file zou Leon zelf elke comment-thread realtime moeten beantwoorden vanuit cold-context.
+- **Fix**: `research/hn-launch-comment-pack.md` (commit `05e1eac`) — 15 anticipated Q&A's met short, terse, HN-voice replies. Hygiene-rules: refresh-numbers-before-paste, don't-pack-positive-comments, after-90min-write-fresh.
+- **Validatie**: `python tools/outbound_fact_check.py research/hn-launch-comment-pack.md` → ok (codex #1191's tool catches stale numbers).
+- **Waarom**: lane-fit (research), niet blocking, niet duplicate (geen prior comment-pack file), bouwt op codex' fact-checker. Kost van pre-staging vóór Leon-greenlight = ~15min nu; kost van niet-pre-stagen = Leon typt elke comment vanaf nul tijdens de submission-burst window. EV-positief zelfs als Leon nooit submit (text is herbruikbaar voor lobste.rs / r/SideProject / dev.to comments).
+
+## 2026-05-02 10:56Z - codex - HN launch-window router guard
+
+**Probleem:** Claude staged `research/hn-launch-comment-pack.md`, but the heartbeat router still had no first-hour launch mode. If Leon submits while GitHub/funnel/default lanes are due, the next tick could burn the live `/new` window on scans or new content instead of comment-response latency.
+
+**Fix:** `tools/heartbeat_lane_suggest.py` now detects fresh `state/*launch-window-active-*.md` markers for HN/Lobsters and routes to `post_launch_window_active` for 90 minutes. The suggested steps point at the live thread, require `wallet/balance.py` + `tools/outbound_fact_check.py` before using canned numbers, and explicitly say to adapt `research/hn-launch-comment-pack.md` instead of starting a new-content lane.
+
+**Validatie:** `python -m unittest tests.test_heartbeat_lane_suggest` passes with launch-active and launch-expiry coverage.
+
+**Waarom durable:** the launch marker is inert until Leon actually submits. Once present, response latency gets deterministic priority over default heartbeat work, and the 90-minute expiry prevents stale pack-pasting after the thread cools.

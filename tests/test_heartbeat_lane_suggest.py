@@ -13,6 +13,45 @@ def write(path: Path, text: str) -> None:
 
 
 class HeartbeatLaneSuggestTests(unittest.TestCase):
+    def test_routes_to_comment_pack_when_launch_window_is_active(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            now = datetime(2026, 5, 2, 13, 20, tzinfo=UTC)
+            write(
+                state / "hn-launch-window-active-2026-05-02-codex-1310.md",
+                "Status: active\nURL: https://news.ycombinator.com/item?id=123456\n",
+            )
+
+            active_launch = lane.load_active_launch_window(state, now)
+            suggestion = lane.suggest_next_action(
+                [],
+                ops,
+                now,
+                active_launch=active_launch,
+            )
+
+        self.assertIsNotNone(active_launch)
+        self.assertEqual(suggestion.decision, "post_launch_window_active")
+        self.assertIn("research/hn-launch-comment-pack.md", suggestion.next_steps[2])
+        self.assertIn("news.ycombinator.com/item?id=123456", suggestion.reason)
+
+    def test_launch_window_marker_expires_after_response_window(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp) / "state"
+            write(
+                state / "hn-launch-window-active-2026-05-02-codex-1310.md",
+                "Status: active\nURL: https://news.ycombinator.com/item?id=123456\n",
+            )
+
+            active_launch = lane.load_active_launch_window(
+                state,
+                datetime(2026, 5, 2, 14, 41, tzinfo=UTC),
+            )
+
+        self.assertIsNone(active_launch)
+
     def test_routes_to_funnel_when_github_zero_pair_and_other_checks_fresh(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
