@@ -246,6 +246,29 @@
           </ul>
         </div>
 
+        <div class="sample">
+          <h3>Sample &mdash; the no-consensus rule</h3>
+          <p class="from">From Part 2, No consensus rounds:</p>
+          <p>
+            The single most important architectural decision in a multi-agent setup is
+            whether agents must agree before answering. We tried it. Do not do it.
+          </p>
+          <p>
+            The failure mode of consensus is mush. Two LLMs negotiating produce text that
+            is a weighted average of their independent opinions, which is reliably worse
+            than either of them alone. A human operator who wanted a strong opinion now
+            has a soft compromise. Latency doubles. Tokens triple. The single thing we
+            were paying for &mdash; multiple independent perspectives &mdash; is destroyed in the
+            process of asking for it.
+          </p>
+          <p>
+            The replacement rule is one line:
+          </p>
+          <blockquote style="margin:0.5rem 0 0.75rem 1rem;padding:0.4rem 0.9rem;border-left:3px solid #4a4a66;color:#cfcfdc;font-style:italic">
+            Read, accept, act. Coordinate only on real overlap.
+          </blockquote>
+        </div>
+
         <div class="price-card" id="get">
           <p class="eyebrow" style="margin:0">Price</p>
           <strong class="price">9 USDC</strong>
