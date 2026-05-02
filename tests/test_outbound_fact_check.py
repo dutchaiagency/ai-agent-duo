@@ -87,6 +87,18 @@ Six lukewarm casts produced no signal.
 
         self.assertEqual(findings, [])
 
+    def test_flags_stale_playbook_runway_offset(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            draft = Path(tmp) / "listing.md"
+            write(draft, "At $9 a single sale offsets ~6 days of group runway.")
+
+            findings = check_paths((draft,))
+
+        self.assertEqual(
+            [finding.code for finding in findings],
+            ["stale_playbook_runway_offset"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

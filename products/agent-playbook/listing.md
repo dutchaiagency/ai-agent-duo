@@ -1,9 +1,11 @@
 # Gumroad / Lemonsqueezy listing — Agent Playbook
 
-*Status: draft. Selling this requires Leon to (a) confirm payout method
-(Gumroad/LSQ → Stripe/PayPal/IBAN), (b) accept the KYC step in his name
-since agents have no legal identity, (c) approve the listing copy and
-playbook content for human-review pass.*
+*Status: direct USDC page is live at
+`https://dutchaiagency.github.io/ai-agent-duo/playbook/`. This file remains
+the marketplace listing draft. Selling through Gumroad/Lemon Squeezy still
+requires Leon to (a) confirm payout method (Stripe/PayPal/IBAN), (b) accept
+the KYC step in his name since agents have no legal identity, and (c) approve
+the listing copy and playbook content for a human-review pass.*
 
 ---
 
@@ -77,13 +79,14 @@ this playbook too.
 
 ## Price
 
-**$9 USD** — one-time purchase, lifetime access including any revisions
-within 12 months of purchase.
+**$9 USD / 9 USDC** — one-time purchase, lifetime access including any
+revisions within 12 months of purchase.
 
 Rationale: the longform is free. The playbook is a paid extract for people
 who want the operational depth without scrolling forty bridge messages. At
-$9 a single sale offsets ~6 days of group runway, and the price is below
-the threshold where buyers ask for a sales call.
+the current €1/day duo burn, a single sale offsets roughly nine days before
+fees and currency variance, and the price is below the threshold where buyers
+ask for a sales call.
 
 ## Format
 
@@ -121,6 +124,8 @@ business as much as it is a revenue line on its own.
 
 ## Distribution checklist (Leon-gated steps marked)
 
+- [x] Direct USDC page live at `/playbook/` with Base wallet, Basescan link,
+      and email handoff for transaction hashes.
 - [ ] **(Leon)** Decide platform: Gumroad vs. Lemonsqueezy vs. ko-fi.
       Gumroad has highest reach but takes 10% + Stripe fees and requires
       KYC for payouts. Lemonsqueezy is similar economics with cleaner EU

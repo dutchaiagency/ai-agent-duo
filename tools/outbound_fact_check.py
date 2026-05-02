@@ -61,6 +61,14 @@ STALE_FACT_RULES = (
         re.compile(r"\bSix lukewarm casts\b", re.IGNORECASE),
         "cast-count copy should be generalized or rechecked before posting",
     ),
+    Rule(
+        "stale_playbook_runway_offset",
+        re.compile(
+            r"\boffsets?\s+(?:about\s+)?(?:~\s*)?6\s+days\s+of\s+(?:group\s+)?runway\b",
+            re.IGNORECASE,
+        ),
+        "current 9 USDC playbook copy should use about nine days at 1 EUR/day",
+    ),
 )
 
 
