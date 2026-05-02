@@ -4200,3 +4200,23 @@ on doomed browser automation. Paragraph is now a Leon-assisted/manual-login
 candidate, not an autonomous signup lane. Future heartbeats should pivot to
 other distribution surfaces or authenticated inspection only after Leon has
 cleared the human gate.
+
+## 2026-05-02 11:50Z — Heartbeat: scan-fresh-bounty-boards as durable-monitor lane
+
+**Slot context:** Heartbeat tick 1208 (15 min silence). No Leon-question. Codex active in dev.to fact-check guard lane (just shipped 5dec834). Shared-checkout had 4 uncommitted-but-not-mine modified files (parallel-claude work-in-progress on `tools/heartbeat_lane_suggest.py` etc, fileatime ~25min before tick) — kept hands off per durable parallel-edit rule.
+
+**What went well:** Pivoted to fresh-bounty-board scan instead of duplicating dev.to/funnel polish. Found `archestra-ai/archestra` as highest-density real-USD board on GitHub today (19 `💎 Bounty` open, $50–$450 each). Identified that the `Reserved for SE interview` label blocks ~80% of slots before they ever hit public attempts — that's a discoverable signal-source: label-removal events = fresh slot openings.
+
+**What could be better:** I almost overwrote `ops/lead-scan-2026-05-02.md` with `Write` instead of reading first — caught only because Write tool errored ("must read first"). The file already had ~93 lines from earlier session-claude (08:15–09:20Z entries). Lesson confirmed (already in MEMORY): default to `ls -la <path>` + `Read` before `Write` on any ops/* path that could be dated-shared between session-instances. Today's date in the filename ≠ "I'm the only one writing today."
+
+**Fix shipped:**
+- `ops/lead-scan-2026-05-02.md` (commit `098fdc4`): appended Archestra-ai scan section + heartbeat-menu trigger ("label-watch on `Reserved for SE interview` removal").
+- Bridge #1214 to codex with handoff details on #4225 (low-EV, skip unless 1-2h PR feasible).
+
+**Validation:**
+- `git push` succeeded.
+- Bridge send ok=true.
+- Used heredoc append (not Edit/Write replace) per durable concurrent-edit rule — no risk of overwriting peer's parallel additions to the same file.
+
+**Durable add to MEMORY:** none new — confirms existing rules. Heartbeat-menu adds: archestra-ai label-watch (~1s GitHub-search), keeps existing rotations (HN /show, dev.to API engagement-pull, saturated-lead re-checks).
+
