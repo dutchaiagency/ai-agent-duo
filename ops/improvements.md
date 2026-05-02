@@ -3073,3 +3073,79 @@ while `gh api repos/...` worked, so the scanner had a fetch blind spot.
 same issue, but real bug reports often split root cause and downstream impact
 into separate issue numbers. Following cheap same-repo references prevents
 low-quality duplicate outreach without blocking genuinely new code reads.
+
+## 2026-05-01T16:03Z codex — Reply monitor treated disappeared repos as raw errors
+
+**Probleem:** De 16:00 UTC reply-check had geen inbound replies, maar
+`bytecrazelabs/franchiflow #34` en `Gilabs-Studio/gims-platform #243` kwamen
+als `error` in het rapport omdat `gh issue view` faalde. Handmatige REST-checks
+gaven ook 404. Ruwe exceptions in het dagelijkse rapport zijn minder bruikbaar
+dan een expliciete lane-status: deze targets zijn niet bumpbaar zolang de repo
+of issue onleesbaar is.
+
+**Fix in same turn:**
+1. `tools/github_reply_check.py` gebruikt nu `gh issue view` eerst en valt
+   daarna terug op REST `gh api repos/{repo}/issues/{number}` plus comments.
+2. Als GraphQL en REST allebei falen, rapporteert het script `unavailable`
+   in plaats van een ruwe `CalledProcessError`.
+3. `tests/test_github_reply_check.py` dekt REST-normalisatie, fallback na
+   GraphQL-failure, en de unavailable-status.
+4. `ops/outbound_pipeline.md`, `ops/revenue_pipeline.md`, en
+   `ops/no_inventory_validation_lane.md` leggen de 16:00-16:02 UTC uitkomst
+   vast: geen replies, geen reservations, nul actionable GitHub leads, en geen
+   bumps op FranchiFlow/GIMS zolang ze invisible blijven.
+
+**Validation:**
+- `python -m pytest tests\test_github_reply_check.py` -> 9 passed.
+- `python -m pytest tests` -> 76 passed.
+- Rerun `python tools\github_reply_check.py --write state\github-replies-2026-05-01.md`
+  classificeert FranchiFlow en GIMS als `unavailable` in plaats van `error`.
+
+## 2026-05-01T16:05Z — Gemini activation and tool verification
+
+**What went wrong / could be better:**
+- Gemini's first turn encountered a quota limit on google_web_search.
+- Initial un_shell_command failed because of bash-style \&&\ in a Windows/PowerShell environment.
+
+**Fix shipped:**
+- Switched to PowerShell-native \;\ for command chaining.
+- Verified local environment health (\python\, \gh\, \git\).
+- First bridge-sync completed: announced presence to Claude, Codex, and Grok; sent status report and lane choice to Leon.
+
+**Validation:**
+- \python\, \gh\, and \git\ versions successfully returned via shell.
+- Bridge sends returned \ok: true\.
+- \ops/improvements.md\ updated via PowerShell \c\ (Add-Content).
+
+**Lane Claim:**
+- Gemini claims **Brand/Copy-Review and Peer-Verification**. Goal: Ensure high-signal, verifiable output to maintain trust and avoid hallucination-based work-leak.
+
+## 2026-05-02T06:38Z codex — Heartbeat monitor produced signal but broad file search was noisy
+
+**Probleem:** De proactive heartbeat vroeg om een concrete survival-actie. De
+revenue checks zelf waren goed: `tools/github_reply_check.py`,
+`tools/github_lead_scan.py`, GitHub reservation search, en Proton unread/search
+gaven een current snapshot. Mijn aanvullende brede PowerShell `Select-String`
+over `ops,tools,state,research` nam echter `__pycache__` en andere generated
+state mee, waardoor de output explodeerde en de command timeoutte.
+
+**Fix in same turn:**
+1. Dagrapporten geschreven: `state/github-replies-2026-05-02.md` en
+   `state/github-leads-2026-05-02.md`.
+2. `ops/outbound_pipeline.md`, `ops/revenue_pipeline.md`, en
+   `ops/no_inventory_validation_lane.md` bijgewerkt met de 06:38 UTC uitkomst:
+   geen inbound, geen reservations, nul actionable leads, FranchiFlow nog
+   unavailable, GIMS `closed_no_reply`.
+3. Werkwijze aangescherpt: voor repo-brede PowerShell searches voortaan alleen
+   tekstextensies targeten en generated directories zoals `__pycache__`,
+   `.pytest_cache`, `state/browser`, en binary/cache artifacts uitsluiten.
+
+**Waarom:** Heartbeat-werk moet korte, verifieerbare survival-status opleveren.
+Noisy recursive searches kosten compute en verbergen de bruikbare signalen.
+
+
+## 2026-05-02 06:43 UTC — Cast-angle differentiation under "marketing-ronde" promise (claude)
+**Probleem**: na #1119 belofte aan Leon ("marketing-ronde rond dev.to-URL"), default actie zou letterlijk recasten over dev.to zijn — maar dat is dezelfde URL als gisteren 16:02Z (~14h45m geleden). Recast = spam-perceptie, lage marginal value.
+**Fix**: pre-draft check `tail ops/farcaster_cast_log.md` om laatste 3 angles te zien, dan kies een angle die NIET overlapt. Vandaag: snowflake-decode tactic uit playbook (concrete code + security-flavored) drives naar zelfde funnel-eindpunt (/playbook/) maar via andere hook. Ondersteunt "marketing-ronde" semantically (zelfde campaign, andere creative).
+**Validatie**: cast geland 06:42Z (314 chars), URL pre-fetch confirmed 200 + correct heading vóór posting; geen retry-loop nodig (stdout non-empty).
+**Waarom**: "marketing-ronde" als belofte ≠ "exact zelfde cast nogmaals". Onder time-pressure default-output van LLM is letterlijke herhaling; deliberate angle-rotation kost ~30 sec en multiplied per-cast EV. Algemene regel: bij elke nieuwe cast in dezelfde campaign, log-tail check + minimum één van {hook, code-snippet, voorbeeld, target-audience} moet anders zijn dan vorige 2 casts.
