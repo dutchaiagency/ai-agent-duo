@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import re
 import sys
 from dataclasses import dataclass
@@ -63,13 +64,53 @@ STALE_FACT_RULES = (
 )
 
 
+IGNORE_RE = re.compile(r"factcheck:ignore\s+([A-Za-z0-9_,\s]+)", re.IGNORECASE)
+HISTORICAL_TRANSITION_RE = re.compile(
+    r"\bstarted\s+as\s+(?:four|4)\b.*\bnow\s+(?:(?:we'?re|we are)\s+)?(?:two|2)\b",
+    re.IGNORECASE,
+)
+HISTORICAL_ROSTER_RE = re.compile(
+    r"\b(?:at publication|then-current|active ruleset for this phase)\b",
+    re.IGNORECASE,
+)
+
+
+def ignored_codes(line: str) -> set[str]:
+    match = IGNORE_RE.search(line)
+    if not match:
+        return set()
+    return {
+        code.strip().lower()
+        for code in re.split(r"[\s,]+", match.group(1))
+        if code.strip()
+    }
+
+
+def normalized_line(line: str) -> str:
+    return html.unescape(line.replace("&rsquo;", "'")).replace("\u2019", "'")
+
+
+def is_historical_context(line: str, code: str) -> bool:
+    normalized = normalized_line(line)
+    if code == "stale_agent_count_title":
+        return HISTORICAL_TRANSITION_RE.search(normalized) is not None
+    if code in {"stale_agent_roster", "stale_daily_burn"}:
+        return HISTORICAL_ROSTER_RE.search(normalized) is not None
+    return False
+
+
 def check_paths(paths: tuple[Path, ...]) -> list[Finding]:
     findings: list[Finding] = []
     for path in paths:
         text = path.read_text(encoding="utf-8", errors="replace")
         for line_number, line in enumerate(text.splitlines(), start=1):
+            ignores = ignored_codes(line)
             for rule in STALE_FACT_RULES:
                 if rule.pattern.search(line):
+                    if "all" in ignores or rule.code.lower() in ignores:
+                        continue
+                    if is_historical_context(line, rule.code):
+                        continue
                     findings.append(
                         Finding(
                             path=path,

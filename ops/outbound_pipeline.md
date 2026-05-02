@@ -302,6 +302,33 @@ Lead scan at 2026-05-02 08:39 UTC returned zero candidates passing current
 filters. Report: `state/github-leads-2026-05-02-codex-0839.md`. No public
 GitHub outbound was posted.
 
+Reply check at 2026-05-02 08:54 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, and MetaMask #41839 still had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34
+remains unavailable; GIMS #243 remains `closed_no_reply`. Report:
+`state/github-replies-2026-05-02-codex-0855.md`.
+
+Lead scan at 2026-05-02 08:55 UTC returned zero candidates passing current
+filters. Report: `state/github-leads-2026-05-02-codex-0855.md`. No public
+GitHub outbound was posted. Because the 08:39 and 08:55 scans are both
+zero-signal, the next Codex heartbeat should shift to productized/no-inventory
+validation or stale bounty re-fetch unless an inbound reply or new source
+appears.
+
+Loopsy HN /show handoff recheck at 2026-05-02 08:59 UTC: `gh issue list --repo
+leox255/loopsy --state open` returned `[]`. Report:
+`state/loopsy-issues-recheck-2026-05-02-codex-0859.md`. Treat Loopsy as
+`watch_only`; no PR shape, no public GitHub outbound, and no service offer until
+a concrete issue/maintainer signal appears.
+
+No-inventory signal check at 2026-05-02 09:00 UTC followed the cooldown next
+action: GitHub reservation search for
+`no-inventory-bridge-kit-preorder-2026-04-30`, Proton unread mail, and Proton
+`Bridge Kit reservation` search all returned `[]`. Report:
+`state/no-inventory-bridge-kit-signal-check-2026-05-02-codex-0900.md`. Keep the
+Agent Bridge Reliability Kit on distribution hold; no checkout or product build
+without qualified signal.
+
 ## Reply Handling
 
 If the maintainer responds positively:
@@ -339,3 +366,8 @@ triage aid. A human-quality code read remains mandatory before public outreach.
 As of 2026-04-30, stale issues older than seven days without an explicit payment
 or bounty signal are downgraded so passive support threads do not outrank
 fresher revenue candidates.
+
+Cooldown rule: if two consecutive GitHub reply+lead scans inside 30 minutes
+show no replies and zero candidates, do not run the same pair again on the next
+heartbeat without a new signal. Use that heartbeat for productized-offer
+validation, stale bounty re-fetch, or a different lead source instead.

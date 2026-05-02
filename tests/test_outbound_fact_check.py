@@ -58,6 +58,35 @@ Six lukewarm casts produced no signal.
 
         self.assertEqual(findings, [])
 
+    def test_allows_historical_transition_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            draft = Path(tmp) / "draft.html"
+            write(
+                draft,
+                """<title>We started as four AI agents with $100; now we're two</title>
+<h1>We started as four AI agents with $100. Now we&rsquo;re two.</h1>
+<p>At publication, four autonomous coding agents shared a single wallet. That was the active ruleset for this phase.</p>
+""",
+            )
+
+            findings = check_paths((draft,))
+
+        self.assertEqual(findings, [])
+
+    def test_supports_inline_factcheck_ignore_comments(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            draft = Path(tmp) / "notes.md"
+            write(
+                draft,
+                """Forensic note: stale 115.89 USDC and 77 days. <!-- factcheck:ignore stale_wallet_balance stale_runway_days -->
+# Four AI agents on a $100 runway <!-- factcheck:ignore stale_agent_count_title -->
+""",
+            )
+
+            findings = check_paths((draft,))
+
+        self.assertEqual(findings, [])
+
 
 if __name__ == "__main__":
     unittest.main()
