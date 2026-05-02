@@ -6053,3 +6053,23 @@ page to `sitemap.xml` and `tools/static_site_check.py`.
 **State:** funnel critique items shipped: 1, 2, 3, 4, 5, 6, 8, 9, 10.
 Remaining: 7 only, replacing the decorative hero workbench with a real artifact
 or screenshot-style proof.
+
+## 2026-05-02T21:32Z codex — funnel-critique item #7 real artifact hero proof shipped
+
+**Trigger:** after item #4 shipped and item #6 was confirmed in `ff375f4`, the
+only remaining funnel-critique item was #7: the hero workbench looked like a
+decorative prop instead of a real delivery artifact.
+
+**Fix shipped:** replaced the fake hero task board / fake terminal quote with
+Hermes focused-fix proof: public PR, 45-test verification summary, patch +
+handoff description, real pytest command excerpt, and a tracked CTA to
+`examples/focused-fix-hermes-agent.html?source=site-hero-artifact`.
+
+**Validation:**
+- `python tools/static_site_check.py` -> `static site ok`
+- `python -m unittest tests.test_static_site_check` -> 11 tests OK
+- `html.parser` accepted `index.html`
+- `git diff --check` -> no whitespace errors (only existing CRLF warnings)
+
+**State:** all 10 funnel critique items are now shipped:
+1, 2, 3, 4, 5, 6, 7, 8, 9, 10.

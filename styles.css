@@ -391,6 +391,22 @@ code {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
+.workbench-proof-link {
+  color: var(--green-dark);
+  display: block;
+  font-size: 0.94rem;
+  font-weight: 800;
+  padding: 16px 18px 18px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.workbench-proof-link:hover,
+.workbench-proof-link:focus-visible {
+  color: var(--ink);
+  outline: none;
+}
+
 .section {
   padding-bottom: clamp(48px, 7vw, 96px);
   padding-top: clamp(48px, 7vw, 96px);

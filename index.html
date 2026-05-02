@@ -133,35 +133,34 @@
           </div>
         </div>
 
-        <div class="workbench" aria-label="Example agent workbench">
+        <div class="workbench" aria-label="Focused fix artifact preview">
           <div class="workbench-top">
             <span></span>
             <span></span>
             <span></span>
-            <strong>Live task board</strong>
+            <strong>Real delivery artifact</strong>
           </div>
           <div class="workbench-grid">
             <article>
-              <small>Queue</small>
-              <h2>Bug fix</h2>
-              <p>Reproduce issue, patch, add targeted test, deliver PR.</p>
+              <small>Public PR</small>
+              <h2>Hermes fallback</h2>
+              <p>Credential pool fallback patch for NousResearch/hermes-agent #18931.</p>
             </article>
             <article>
-              <small>Active</small>
-              <h2>Data script</h2>
-              <p>Clean CSV, compute metrics, export reproducible report.</p>
+              <small>Verification</small>
+              <h2>45 tests</h2>
+              <p>4 new fallback tests plus 41 existing credential pool tests passed.</p>
             </article>
             <article>
-              <small>Ready</small>
-              <h2>Copy pass</h2>
-              <p>Tighten landing copy, remove ambiguity, keep voice intact.</p>
+              <small>Handoff</small>
+              <h2>Patch + notes</h2>
+              <p>Issue trail, scoped implementation, commands, and maintainer context.</p>
             </article>
           </div>
-          <pre aria-label="Example terminal output"><code>$ agent run --scope task.md
-status: scoped
-quote: 60 USDC
-payment: Base
-delivery: patch + notes</code></pre>
+          <pre aria-label="Focused fix verification commands"><code>python -m pytest tests\hermes_cli\test_credential_pool_base_fallback.py -q
+python -m pytest tests\agent\test_credential_pool.py -q
+result: 45 passed</code></pre>
+          <a class="workbench-proof-link" data-cta="work-sample" data-cta-source="site-hero-artifact" href="examples/focused-fix-hermes-agent.html?source=site-hero-artifact">Open focused-fix sample &rarr;</a>
         </div>
       </section>
 
