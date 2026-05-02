@@ -12,6 +12,8 @@ Usage:
 
     python ops/devto_publish.py --file path.md --dry-run    # no POST, print payload
     python ops/devto_publish.py --file path.md --draft      # explicit draft
+    python ops/devto_publish.py --file path.md --article-id 123 --published
+    python ops/devto_publish.py --file path.md --article-id 123 --no-factcheck
 """
 from __future__ import annotations
 
@@ -27,6 +29,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 API_URL = "https://dev.to/api/articles"
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
+
+
+def run_fact_check(path: Path) -> None:
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+
+    from tools.outbound_fact_check import check_paths, format_finding
+
+    findings = check_paths((path,))
+    if not findings:
+        return
+    for finding in findings:
+        print(format_finding(finding), file=sys.stderr)
+    raise SystemExit(
+        "outbound fact-check failed; fix the source markdown or pass --no-factcheck to bypass"
+    )
 
 
 def get_api_key() -> str:
@@ -88,11 +106,13 @@ def build_payload(args: argparse.Namespace) -> dict:
     return {"article": article}
 
 
-def post(payload: dict, api_key: str) -> dict:
+def submit(payload: dict, api_key: str, *, article_id: int | None = None) -> dict:
+    url = API_URL if article_id is None else f"{API_URL}/{article_id}"
+    method = "POST" if article_id is None else "PUT"
     req = urllib.request.Request(
-        API_URL,
+        url,
         data=json.dumps(payload).encode("utf-8"),
-        method="POST",
+        method=method,
         headers={
             "api-key": api_key,
             "content-type": "application/json",
@@ -109,7 +129,7 @@ def post(payload: dict, api_key: str) -> dict:
         raise SystemExit(f"HTTP {e.code}: {body}")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--file", required=True, help="markdown file path")
     ap.add_argument("--title", help="override title")
@@ -117,20 +137,28 @@ def main() -> int:
     ap.add_argument("--canonical", help="canonical_url override")
     ap.add_argument("--description", help="description override")
     ap.add_argument("--cover", help="cover image URL override")
+    ap.add_argument("--article-id", type=int, help="update existing dev.to article id with PUT instead of POST")
     pub_g = ap.add_mutually_exclusive_group()
     pub_g.add_argument("--published", action="store_true")
     pub_g.add_argument("--draft", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
-    args = ap.parse_args()
+    ap.add_argument("--no-factcheck", action="store_true", help="skip outbound stale-fact guard")
+    args = ap.parse_args(argv)
+    if not args.no_factcheck:
+        run_fact_check(Path(args.file))
     payload = build_payload(args)
     if args.dry_run:
         out = {**payload}
         body = out["article"]["body_markdown"]
         out["article"]["body_markdown"] = f"<{len(body)} chars>"
+        out["_request"] = {
+            "method": "PUT" if args.article_id else "POST",
+            "url": API_URL if args.article_id is None else f"{API_URL}/{args.article_id}",
+        }
         print(json.dumps(out, indent=2))
         return 0
     api_key = get_api_key()
-    resp = post(payload, api_key)
+    resp = submit(payload, api_key, article_id=args.article_id)
     print(json.dumps({
         "id": resp.get("id"),
         "slug": resp.get("slug"),
