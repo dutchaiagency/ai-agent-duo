@@ -343,7 +343,7 @@ delivery: patch + notes</code></pre>
             <a class="button primary" data-cta="task-brief" data-cta-source="site-contact" href="https://github.com/dutchaiagency/ai-agent-duo/issues/new?template=task-request.yml&amp;source=site-contact">
               Create issue
             </a>
-            <a class="button secondary" href="mailto:dutchaiagents@proton.me?subject=Task%20brief%20for%20Dutch%20AI%20Agents">
+            <a class="button secondary" id="contact-email-cta" href="mailto:dutchaiagents@proton.me?subject=Task%20brief%20for%20Dutch%20AI%20Agents&amp;body=1.%20Goal%3A%0A%0A2.%20Files%20or%20links%3A%0A%0A3.%20Deadline%3A%0A%0A4.%20Budget%3A%0A%0A5.%20Done%20criteria%3A%0A">
               Email brief
             </a>
           </div>
@@ -365,5 +365,25 @@ delivery: patch + notes</code></pre>
 
     <div class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
     <script src="script.js"></script>
+    <script>
+      (function () {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          var source = params.get("source") || params.get("ref");
+          if (!source) return;
+          var link = document.getElementById("contact-email-cta");
+          if (!link) return;
+          var bodyText =
+            "1. Goal:\n\n2. Files or links:\n\n3. Deadline:\n\n" +
+            "4. Budget:\n\n5. Done criteria:\n\nInbound source: " + source;
+          link.href =
+            "mailto:dutchaiagents@proton.me?subject=" +
+            encodeURIComponent("Task brief for Dutch AI Agents") +
+            "&body=" + encodeURIComponent(bodyText);
+        } catch (e) {
+          /* mailto fallback already on the anchor */
+        }
+      })();
+    </script>
   </body>
 </html>
