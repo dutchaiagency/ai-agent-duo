@@ -183,6 +183,112 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(suggestion.decision, "devto_engagement_pull")
         self.assertIn("Latest GitHub reply+lead scan pair", suggestion.reason)
 
+    def test_due_github_followup_overrides_plain_lead_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-replies-2026-05-02-codex-2010.md",
+                (
+                    "# GitHub Reply Check - 2026-05-02 20:10 UTC\n\n"
+                    "| State | Lead | Last agent comment | Latest reply | Note |\n"
+                    "| --- | --- | --- | --- | --- |\n"
+                    "| waiting | [Otoehe/Buy-My-Behavior #3](https://github.com/Otoehe/Buy-My-Behavior/issues/3) | 2026-04-29T20:14:21Z | - | No maintainer or user reply after our latest comment. |\n"
+                ),
+            )
+            write(
+                state / "github-leads-2026-05-02-codex-2016.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                ops / "outbound_pipeline.md",
+                (
+                    "## Active Non-Farcaster Target Queue\n\n"
+                    "| Lead | Status | Intake tag | Next action |\n"
+                    "| --- | --- | --- | --- |\n"
+                    "| Otoehe/Buy-My-Behavior #3 | Contacted 2026-04-29 | `github-outbound-otoehe` | If no reply after 2026-05-02T20:14Z, post one final follow-up. |\n"
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 20, 16, tzinfo=UTC),
+            )
+
+        self.assertEqual(suggestion.decision, "github_due_followup")
+        self.assertIn("Otoehe/Buy-My-Behavior #3 reached its 72h", suggestion.reason)
+        self.assertIn("one short no-reply follow-up", suggestion.next_steps[1])
+
+    def test_due_github_followup_with_stale_reply_report_routes_to_verify(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-replies-2026-05-02-codex-1811.md",
+                (
+                    "# GitHub Reply Check - 2026-05-02 18:11 UTC\n\n"
+                    "| State | Lead | Last agent comment | Latest reply | Note |\n"
+                    "| --- | --- | --- | --- | --- |\n"
+                    "| waiting | [Otoehe/Buy-My-Behavior #3](https://github.com/Otoehe/Buy-My-Behavior/issues/3) | 2026-04-29T20:14:21Z | - | No maintainer or user reply after our latest comment. |\n"
+                ),
+            )
+            write(
+                ops / "outbound_pipeline.md",
+                (
+                    "## Active Non-Farcaster Target Queue\n\n"
+                    "| Lead | Status | Intake tag | Next action |\n"
+                    "| --- | --- | --- | --- |\n"
+                    "| Otoehe/Buy-My-Behavior #3 | Contacted 2026-04-29 | `github-outbound-otoehe` | If no reply after 2026-05-02T20:14Z, post one final follow-up. |\n"
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 20, 16, tzinfo=UTC),
+            )
+
+        self.assertEqual(suggestion.decision, "github_due_followup_verify")
+        self.assertIn("latest reply report is stale", suggestion.reason)
+        self.assertIn("github_reply_check.py", suggestion.next_steps[0])
+
+    def test_posted_followup_policy_suppresses_due_followup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-replies-2026-05-02-codex-2010.md",
+                (
+                    "# GitHub Reply Check - 2026-05-02 20:10 UTC\n\n"
+                    "| State | Lead | Last agent comment | Latest reply | Note |\n"
+                    "| --- | --- | --- | --- | --- |\n"
+                    "| waiting | [Otoehe/Buy-My-Behavior #3](https://github.com/Otoehe/Buy-My-Behavior/issues/3) | 2026-04-29T20:14:21Z | - | No maintainer or user reply after our latest comment. |\n"
+                ),
+            )
+            write(
+                ops / "outbound_pipeline.md",
+                (
+                    "## Active Non-Farcaster Target Queue\n\n"
+                    "| Lead | Status | Intake tag | Next action |\n"
+                    "| --- | --- | --- | --- |\n"
+                    "| Otoehe/Buy-My-Behavior #3 | Contacted 2026-04-29; single 72h follow-up posted 2026-05-02T20:17Z | `github-outbound-otoehe` | Wait for reply. No further bump unless Otoehe asks. |\n"
+                ),
+            )
+
+            events = lane.load_events(state)
+            latest_reply = lane.latest(events, "github_replies")
+            due = lane.due_github_followups(
+                latest_reply,
+                ops,
+                datetime(2026, 5, 2, 20, 16, tzinfo=UTC),
+            )
+
+        self.assertEqual(due, ())
+
     def test_future_state_files_are_ignored_for_past_now_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1239,6 +1345,27 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
             )
 
         self.assertEqual(suggestion.decision, "no_inventory_signal_check")
+
+    def test_no_inventory_bridge_kit_terms_are_zero_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = (
+                Path(tmp)
+                / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-2040.md"
+            )
+            write(
+                path,
+                (
+                    "GitHub reservation issues: []\n"
+                    "Zero Bridge Kit reservations.\n"
+                    "0 matching Bridge Kit emails.\n"
+                    "Keep the Bridge Kit on distribution hold.\n"
+                ),
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        self.assertTrue(event.zero_signal)
 
     def test_deadline_passed_overrides_cooldown(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

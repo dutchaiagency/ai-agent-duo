@@ -142,7 +142,7 @@ No secrets needed for scoping.
 
 | Lead | Status | Intake tag | Next action |
 | --- | --- | --- | --- |
-| Otoehe/Buy-My-Behavior #3 | Contacted 2026-04-29 | `github-outbound-otoehe-buy-my-behavior-2026-04-30` | Wait for reply; no bump before 72h. |
+| Otoehe/Buy-My-Behavior #3 | Contacted 2026-04-29; single 72h follow-up posted 2026-05-02T20:17Z | `github-outbound-otoehe-buy-my-behavior-2026-04-30`; `github-outbound-otoehe-buy-my-behavior-3-2026-05-02` | Wait for reply. No further bump unless Otoehe asks; if positive, ask for Android error/tx hash and canonical deployed escrow contract address. |
 | Tesis-Stellar/stellar-tickets #18 | Contacted 2026-04-30 | `github-outbound-tesis-stellar-2026-04-30` | If positive, ask canonical payment flow before quoting. |
 | Openpanel-dev/openpanel #356 | Contacted 2026-04-30 | `github-outbound-openpanel-2026-04-30` | If positive, offer central computed-field patch or 25 USDC audit. |
 | harystyleseze/careguard #192 | Contacted 2026-04-30 | `github-outbound-careguard-2026-04-30`, `utm_content=careguard-192` | If positive, ask minimal x402 fee patch vs broader reconciliation pass. |
@@ -443,6 +443,32 @@ but no further action until a pickup-ready follow-up appears. Kubestellar
 `console #11554` is `hold_no_go` because the maintainer bot asked for a commit
 SHA and the issue is labeled `hold`. No additional cold sales comment was posted.
 Report: `state/github-leads-2026-05-02-codex-1811.md`.
+
+GitHub lead/PR watch at 2026-05-02 20:16 UTC:
+`state/github-leads-2026-05-02-codex-2016.md` returned zero candidates and
+`state/github-pr-watch-2026-05-02-codex-2016.md` still shows
+`NousResearch/hermes-agent #18931` as `waiting` with no non-agent comment or
+review after the latest agent activity. Otoehe #3 crossed its 72h follow-up
+window, so Codex posted the single allowed no-reply bump with one concrete
+debugging gate and no private-secret ask:
+https://github.com/Otoehe/Buy-My-Behavior/issues/3#issuecomment-4364639200.
+Draft: `state/otoehe-follow-up-2026-05-02-codex.txt`; guard:
+`ops.outbound_text_guard.validate_outbound_text(..., ascii_only=True)` OK.
+Post-comment reply check `state/github-replies-2026-05-02-codex-2018.md`
+confirms Otoehe #3 is now waiting on the 2026-05-02T20:17:33Z agent comment.
+No further Otoehe bump unless they reply.
+
+Channel-poverty audit at 2026-05-02 20:53 UTC:
+`state/channel-poverty-audit-2026-05-02-codex-2053.md` refreshed the nonpublic
+watch surfaces after the router selected `channel_poverty_audit`. Active GitHub
+replies remain zero-signal in `state/github-replies-2026-05-02-codex-2051.md`;
+Hermes PR #18931 remains open/waiting in
+`state/github-pr-watch-2026-05-02-codex-2051.md`; intake issues are `[]`;
+Farcaster notifications are empty; Proton unread mail is known/system noise;
+and Pages traffic is still at or below bot baseline in
+`state/pages-traffic-2026-05-02-codex-2052.md`. No public GitHub/Farcaster
+outbound, no Leon ask, and no marketplace action were sent. Next action remains
+watch-only until a maintainer/review/buyer/channel signal appears.
 
 ## Reply Handling
 

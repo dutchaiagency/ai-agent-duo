@@ -39,10 +39,13 @@ NO_INVENTORY_ZERO_TERMS = (
     "0 reservation issues",
     "0 unread emails",
     "0 matching reservation emails",
+    "0 matching bridge kit emails",
     "zero reservation issues",
+    "zero bridge kit reservations",
     "zero unread emails",
     "zero unread mail",
     "zero matching reservation emails",
+    "zero matching bridge kit emails",
     "keep the distribution hold",
 )
 BOUNTY_ZERO_TERMS = (
@@ -122,6 +125,8 @@ PRODUCTIZED_REVIEW_FRESH_WINDOW = timedelta(minutes=90)
 GITHUB_NONZERO_TRIAGE_WINDOW = timedelta(minutes=90)
 FARCASTER_COOLDOWN = timedelta(minutes=30)
 FARCASTER_REPLY_OBSERVE_WINDOW = timedelta(minutes=60)
+GITHUB_FOLLOW_UP_WINDOW = timedelta(hours=72)
+GITHUB_REPLY_CHECK_FRESH_WINDOW = timedelta(minutes=30)
 CHANNEL_SCOUT_FRESH_WINDOW = timedelta(minutes=90)
 DEVTO_ZERO_ARCHIVE_MIN_POST_AGE = timedelta(hours=24)
 DEVTO_ZERO_ARCHIVE_POLL_COOLDOWN = timedelta(hours=6)
@@ -159,6 +164,15 @@ class BridgeAsk:
     at: datetime
     from_agent: str
     excerpt: str
+
+
+@dataclass(frozen=True)
+class DueFollowUp:
+    label: str
+    url: str
+    last_agent_at: datetime
+    due_at: datetime
+    source_path: Path
 
 
 @dataclass(frozen=True)
@@ -520,6 +534,121 @@ def minutes_old(now: datetime, event: StateEvent | None) -> float | None:
     if event is None:
         return None
     return (now - event.at).total_seconds() / 60
+
+
+def split_markdown_row(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def extract_github_label(value: str) -> tuple[str | None, str]:
+    link_match = re.search(
+        r"\[(?P<label>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\s+#\d+)\]\((?P<url>[^)]+)\)",
+        value,
+    )
+    if link_match:
+        return " ".join(link_match.group("label").split()), link_match.group("url")
+
+    plain_match = re.search(
+        r"(?P<label>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\s+#\d+)",
+        value,
+    )
+    if plain_match:
+        return " ".join(plain_match.group("label").split()), ""
+    return None, ""
+
+
+def parse_active_queue_followup_policy(ops_dir: Path) -> dict[str, str]:
+    path = ops_dir / "outbound_pipeline.md"
+    if not path.exists():
+        return {}
+
+    policies: dict[str, str] = {}
+    in_queue = False
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("## Active Non-Farcaster Target Queue"):
+            in_queue = True
+            continue
+        if in_queue and line.startswith("## "):
+            break
+        if not in_queue or not line.startswith("|"):
+            continue
+        cells = split_markdown_row(line)
+        if len(cells) < 4 or cells[0].lower() in {"lead", "---"}:
+            continue
+        label, _url = extract_github_label(cells[0])
+        if label is None:
+            continue
+        policies[label.lower()] = " | ".join(cells[1:]).lower()
+    return policies
+
+
+def policy_allows_followup(policy: str) -> bool:
+    if not policy:
+        return False
+    blocked_terms = (
+        "single 72h follow-up posted",
+        "follow-up posted",
+        "no further bump",
+        "do not bump",
+        "watch-only",
+        "watch only",
+        "no paid cta",
+        "closed_no_reply",
+    )
+    return not any(term in policy for term in blocked_terms)
+
+
+def parse_latest_reply_waiting_rows(path: Path) -> tuple[DueFollowUp, ...]:
+    rows: list[DueFollowUp] = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = split_markdown_row(line)
+        if len(cells) < 5:
+            continue
+        state = cells[0].strip().lower()
+        if state in {"state", "---"} or state != "waiting":
+            continue
+        label, url = extract_github_label(cells[1])
+        if label is None:
+            continue
+        last_agent_raw = cells[2].strip()
+        if last_agent_raw == "-":
+            continue
+        try:
+            last_agent_at = datetime.fromisoformat(
+                last_agent_raw.replace("Z", "+00:00")
+            ).astimezone(UTC)
+        except ValueError:
+            continue
+        rows.append(
+            DueFollowUp(
+                label=label,
+                url=url,
+                last_agent_at=last_agent_at,
+                due_at=last_agent_at + GITHUB_FOLLOW_UP_WINDOW,
+                source_path=path,
+            )
+        )
+    return tuple(rows)
+
+
+def due_github_followups(
+    latest_reply: StateEvent | None,
+    ops_dir: Path,
+    now: datetime,
+) -> tuple[DueFollowUp, ...]:
+    if latest_reply is None or latest_reply.kind != "github_replies":
+        return ()
+
+    policies = parse_active_queue_followup_policy(ops_dir)
+    due = [
+        row
+        for row in parse_latest_reply_waiting_rows(latest_reply.path)
+        if row.due_at <= now
+        and policy_allows_followup(policies.get(row.label.lower(), ""))
+    ]
+    return tuple(sorted(due, key=lambda row: row.due_at))
 
 
 def parse_devto_published_at(value: str) -> datetime | None:
@@ -1003,6 +1132,40 @@ def suggest_next_action(
                 "Open ops/no_inventory_validation_lane.md and classify the lane as scale, park, or kill.",
                 "If zero qualified signal remains, recycle useful checklist pieces into productized services.",
                 "Append the decision to ops/revenue_pipeline.md and ops/improvements.md.",
+            ),
+            cooldown=cooldown,
+            latest_events=latest_events,
+        )
+
+    due_followups = due_github_followups(latest_reply, ops_dir, now)
+    if due_followups:
+        target = due_followups[0]
+        reply_age = minutes_old(now, latest_reply)
+        reply_is_stale = (
+            reply_age is None
+            or reply_age > GITHUB_REPLY_CHECK_FRESH_WINDOW.total_seconds() / 60
+        )
+        url_note = f" {target.url}" if target.url else ""
+        stale_note = (
+            " The latest reply report is stale, so verify the thread before posting."
+            if reply_is_stale
+            else " The latest reply report is fresh enough to use as the gate."
+        )
+        return Suggestion(
+            decision="github_due_followup_verify"
+            if reply_is_stale
+            else "github_due_followup",
+            reason=(
+                f"{target.label} reached its 72h no-reply follow-up window at "
+                f"{stamp(target.due_at)} based on latest agent comment "
+                f"{stamp(target.last_agent_at)} in `{target.source_path.as_posix()}`."
+                f"{stale_note}"
+            ),
+            next_steps=(
+                "Run `python tools/github_reply_check.py --state-dir state --agent codex` first if the latest reply report is stale; continue only if the target still shows `waiting`.",
+                f"Draft exactly one short no-reply follow-up for {target.label}{url_note}; use one concrete debugging gate and no private-secret ask.",
+                "Validate the draft through `ops.outbound_text_guard.validate_outbound_text(..., ascii_only=True)` before posting.",
+                "After posting, update ops/outbound_pipeline.md and ops/revenue_pipeline.md to mark the lead no-further-bump/watch-only unless they reply.",
             ),
             cooldown=cooldown,
             latest_events=latest_events,

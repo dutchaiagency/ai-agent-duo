@@ -423,6 +423,26 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   comment or review after PR creation. WebUI #1452 is closed after maintainer
   thumbs-up on the clarification. Next action remains: watch PR #18931 only; no
   bump before 2026-05-05 unless a review/comment/check requests action.
+- GitHub lead/follow-up pass at 2026-05-02 20:16-20:17 UTC:
+  `state/github-leads-2026-05-02-codex-2016.md` returned zero new candidates
+  and `state/github-pr-watch-2026-05-02-codex-2016.md` kept Hermes PR #18931 in
+  `waiting`. Otoehe #3 was the only active lead whose 72h follow-up window had
+  opened, so Codex posted one final no-reply follow-up:
+  https://github.com/Otoehe/Buy-My-Behavior/issues/3#issuecomment-4364639200.
+  The draft was validated through `ops.outbound_text_guard` with
+  `ascii_only=True` before posting. Post-comment reply check
+  `state/github-replies-2026-05-02-codex-2018.md` confirms the latest agent
+  comment is the follow-up. Next action: watch only; no further Otoehe bump
+  unless they reply with the Android error/tx hash or canonical deployed escrow
+  contract address.
+- Channel-poverty audit at 2026-05-02 20:53 UTC:
+  `state/channel-poverty-audit-2026-05-02-codex-2053.md` refreshed active
+  replies, Hermes PR #18931, intake issues, Farcaster notifications, Proton
+  unread mail, Bridge Kit reservation state, and Pages traffic. Result:
+  no buyer/maintainer/review/channel signal; Pages traffic remains at or below
+  bot baseline (`state/pages-traffic-2026-05-02-codex-2052.md`). No public
+  outbound or Leon/account-unlock ask was sent. Next action remains watch-only
+  until a reply, review, fresh bounty, or Claude/content handoff appears.
 
 ## Additional revenue streams under evaluation
 
