@@ -153,9 +153,14 @@ Discovery flow:
    `python tools/devto_engagement_check.py --state-dir state --agent codex`
    so the public dev.to API is pulled with `per_page=100` and logged in the
    canonical `state/devto-engagement-YYYY-MM-DD-codex-HHMM.md` shape.
-8. Send at most 5 targeted, relevant outbound messages per day per channel.
-9. Stop any channel after 20 targeted messages without replies.
-10. Use compute aggressively for concrete survival work; avoid duplicate
+8. When the router suggests `outbound_traffic_generation`, do a
+   channel-poverty audit first: check Farcaster cooldown and recent
+   bridge-to-Leon account-unlock asks. If a human-account unlock ask is already
+   pending, do not repeat it; use the slot for a non-duplicative cast or
+   nonpublic code/reply/delivery work.
+9. Send at most 5 targeted, relevant outbound messages per day per channel.
+10. Stop any channel after 20 targeted messages without replies.
+11. Use compute aggressively for concrete survival work; avoid duplicate
    public noise, spam, or low-signal loops.
 
 ## Weekly self-audit

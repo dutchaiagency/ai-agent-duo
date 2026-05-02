@@ -10,10 +10,13 @@ re-fetch, or funnel work.
 from __future__ import annotations
 
 import argparse
+import json
 import re
+import sqlite3
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from os import environ
 from pathlib import Path
 
 
@@ -45,9 +48,41 @@ DEVTO_ZERO_TERMS = (
     "total reactions: 0",
     "total comments: 0",
 )
+CHANNEL_UNLOCK_TERMS = (
+    "account unlock",
+    "unlock",
+    "human account",
+    "show hn",
+    "hacker news",
+    "hn /show",
+    "reddit",
+    "lobsters",
+    "product hunt",
+    "x account",
+    "twitter",
+    "linkedin",
+    "captcha",
+    "phone",
+    "kyc",
+)
+CHANNEL_ASK_TERMS = (
+    "wil je",
+    "kun je",
+    "can you",
+    "could you",
+    "ask",
+    "nodig",
+    "vereist",
+    "gated",
+    "blocked",
+    "blokker",
+    "submit",
+)
 FUNNEL_PATH_PREFIXES = ("playbook/", "longform/")
 FUNNEL_SATURATION_COMMITS = 4
 FUNNEL_SATURATION_WINDOW = timedelta(minutes=60)
+FARCASTER_COOLDOWN = timedelta(minutes=30)
+CHANNEL_UNLOCK_ASK_WINDOW = timedelta(hours=6)
 
 
 @dataclass(frozen=True)
@@ -63,6 +98,13 @@ class StateEvent:
     at: datetime
     zero_signal: bool
     reply_signal: bool = False
+
+
+@dataclass(frozen=True)
+class BridgeAsk:
+    at: datetime
+    from_agent: str
+    excerpt: str
 
 
 @dataclass(frozen=True)
@@ -222,6 +264,16 @@ def normalize_now(value: str | None) -> datetime:
     return parsed.astimezone(UTC)
 
 
+def parse_bridge_timestamp(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
 def minutes_old(now: datetime, event: StateEvent | None) -> float | None:
     if event is None:
         return None
@@ -322,11 +374,150 @@ def funnel_saturation_reason(
     )
 
 
+def parse_cast_log_time(line: str) -> datetime | None:
+    timestamp = line.split("|", 1)[0].strip()
+    try:
+        return datetime.strptime(timestamp, "%Y-%m-%dT%H:%MZ").replace(tzinfo=UTC)
+    except ValueError:
+        return None
+
+
+def last_successful_cast_time(log_path: Path) -> datetime | None:
+    if not log_path.exists():
+        return None
+
+    times: list[datetime] = []
+    for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if " | success " not in f"{line} " and " | success |" not in line:
+            continue
+        if parsed := parse_cast_log_time(line):
+            times.append(parsed)
+    return max(times) if times else None
+
+
+def farcaster_cooldown_reason(last_cast_at: datetime | None, now: datetime) -> str | None:
+    if last_cast_at is None:
+        return None
+    remaining = FARCASTER_COOLDOWN - (now - last_cast_at)
+    if remaining <= timedelta(0):
+        return None
+    wait_minutes = max(1, int((remaining.total_seconds() + 59) // 60))
+    return (
+        f"Farcaster cooldown remains active for ~{wait_minutes}m "
+        f"(last cast {stamp(last_cast_at)})."
+    )
+
+
+def is_channel_unlock_ask(text: str) -> bool:
+    lower = text.lower()
+    return has_any(lower, CHANNEL_UNLOCK_TERMS) and has_any(lower, CHANNEL_ASK_TERMS)
+
+
+def bridge_ask_excerpt(text: str, max_chars: int = 180) -> str:
+    compact = " ".join(text.strip().split())
+    if len(compact) <= max_chars:
+        return compact
+    return compact[: max_chars - 3].rstrip() + "..."
+
+
+def resolve_bridge_db(repo_dir: Path) -> Path | None:
+    if value := environ.get("BRIDGE_DB"):
+        return Path(value)
+
+    config_path = repo_dir / ".mcp.json"
+    if not config_path.exists():
+        return None
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    servers = config.get("mcpServers", {})
+    if not isinstance(servers, dict):
+        return None
+    for server in servers.values():
+        if not isinstance(server, dict):
+            continue
+        env = server.get("env", {})
+        if isinstance(env, dict) and isinstance(env.get("BRIDGE_DB"), str):
+            return Path(env["BRIDGE_DB"])
+    return None
+
+
+def load_recent_bridge_unlock_asks(
+    bridge_db: Path | None,
+    now: datetime,
+    *,
+    window: timedelta = CHANNEL_UNLOCK_ASK_WINDOW,
+    query_limit: int = 80,
+) -> tuple[BridgeAsk, ...]:
+    if bridge_db is None or not bridge_db.exists():
+        return ()
+
+    try:
+        con = sqlite3.connect(f"{bridge_db.resolve().as_uri()}?mode=ro", uri=True)
+        rows = con.execute(
+            """
+            SELECT ts, from_agent, body
+            FROM messages
+            WHERE to_agent = 'leon'
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (query_limit,),
+        ).fetchall()
+        con.close()
+    except sqlite3.Error:
+        return ()
+
+    asks: list[BridgeAsk] = []
+    for ts, from_agent, body in rows:
+        at = parse_bridge_timestamp(str(ts))
+        text = str(body)
+        if at is None or now - at > window or at > now:
+            continue
+        if not is_channel_unlock_ask(text):
+            continue
+        asks.append(
+            BridgeAsk(
+                at=at,
+                from_agent=str(from_agent),
+                excerpt=bridge_ask_excerpt(text),
+            )
+        )
+    return tuple(sorted(asks, key=lambda ask: ask.at, reverse=True))
+
+
+def channel_poverty_reason(
+    now: datetime,
+    recent_unlock_asks: tuple[BridgeAsk, ...],
+    last_cast_at: datetime | None,
+) -> str | None:
+    recent_unlock_ask = recent_unlock_asks[0] if recent_unlock_asks else None
+    cooldown_reason = farcaster_cooldown_reason(last_cast_at, now)
+
+    if recent_unlock_ask is None and cooldown_reason is None:
+        return None
+
+    parts: list[str] = []
+    if cooldown_reason:
+        parts.append(cooldown_reason)
+    if recent_unlock_ask:
+        parts.append(
+            "Recent Leon channel-unlock ask is still pending "
+            f"({recent_unlock_ask.from_agent} at {stamp(recent_unlock_ask.at)}: "
+            f"{recent_unlock_ask.excerpt!r})."
+        )
+    return " ".join(parts)
+
+
 def suggest_next_action(
     events: list[StateEvent],
     ops_dir: Path,
     now: datetime,
     recent_commits: tuple[CommitTouch, ...] = (),
+    recent_unlock_asks: tuple[BridgeAsk, ...] = (),
+    last_cast_at: datetime | None = None,
 ) -> Suggestion:
     cooldown = github_cooldown_status(events, now)
     latest_lead = latest(events, "github_leads")
@@ -414,12 +605,26 @@ def suggest_next_action(
             )
         saturation_reason = funnel_saturation_reason(recent_commits, now)
         if saturation_reason:
+            poverty_reason = channel_poverty_reason(now, recent_unlock_asks, last_cast_at)
+            if poverty_reason:
+                return Suggestion(
+                    decision="channel_poverty_audit",
+                    reason=f"{cooldown.reason} {saturation_reason} {poverty_reason}",
+                    next_steps=(
+                        "Do not send another Leon account-unlock ask while a recent one is pending.",
+                        "Check whether Farcaster has genuinely new information and is outside cooldown before casting.",
+                        "If no non-duplicative public action exists, spend the slot on nonpublic code, reply, or delivery work and log why.",
+                    ),
+                    cooldown=cooldown,
+                    latest_events=latest_events,
+                )
             return Suggestion(
                 decision="outbound_traffic_generation",
                 reason=f"{cooldown.reason} {saturation_reason}",
                 next_steps=(
-                    "Run one targeted traffic action before another playbook or longform polish commit.",
-                    "Use a distinct Farcaster, GitHub, dev.to, or HN angle with a source-tagged playbook/longform link.",
+                    "Run a channel-poverty audit before another playbook or longform polish commit.",
+                    "Use a distinct Farcaster, GitHub, dev.to, or HN angle with a source-tagged playbook/longform link only if the channel is open.",
+                    "If the best path needs Leon's human account, send one binary unlock ask and do not repeat it inside the cooldown window.",
                     "Log the channel, URL, and early engagement signal in ops/ or state/ for the next heartbeat.",
                 ),
                 cooldown=cooldown,
@@ -498,6 +703,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ops-dir", type=Path, default=Path("ops"))
     parser.add_argument("--repo-dir", type=Path, default=Path("."))
     parser.add_argument(
+        "--bridge-db",
+        type=Path,
+        help="Optional agent-bridge SQLite DB path for recent Leon unlock asks.",
+    )
+    parser.add_argument(
         "--now",
         help="Override current UTC time for tests, for example 2026-05-02T09:17Z.",
     )
@@ -509,7 +719,17 @@ def main(argv: list[str] | None = None) -> int:
     now = normalize_now(args.now)
     events = load_events(args.state_dir)
     recent_commits = load_recent_commits(args.repo_dir)
-    suggestion = suggest_next_action(events, args.ops_dir, now, recent_commits)
+    bridge_db = args.bridge_db or resolve_bridge_db(args.repo_dir)
+    recent_unlock_asks = load_recent_bridge_unlock_asks(bridge_db, now)
+    last_cast_at = last_successful_cast_time(args.ops_dir / "farcaster_cast_log.md")
+    suggestion = suggest_next_action(
+        events,
+        args.ops_dir,
+        now,
+        recent_commits,
+        recent_unlock_asks,
+        last_cast_at,
+    )
     print(format_suggestion(suggestion, now), end="")
     return 0
 

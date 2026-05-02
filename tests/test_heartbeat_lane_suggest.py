@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -114,6 +115,118 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertTrue(suggestion.cooldown.active)
         self.assertEqual(suggestion.decision, "outbound_traffic_generation")
         self.assertIn("funnel polish is saturated", suggestion.reason)
+
+    def test_routes_to_channel_poverty_audit_when_unlock_ask_is_pending(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            now = datetime(2026, 5, 2, 10, 15, tzinfo=UTC)
+            write(
+                state / "github-leads-2026-05-02-codex-0949.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-0949.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "github-leads-2026-05-02-codex-0950.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-0950.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-0900.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "algora-bounty-check-twenty-2026-05-02-codex-0835.md",
+                "zero immediate candidates.",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1000.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+            commits = (
+                lane.CommitTouch(now - timedelta(minutes=3), ("playbook/index.html",)),
+                lane.CommitTouch(now - timedelta(minutes=11), ("longform/survival-experiment.html",)),
+                lane.CommitTouch(now - timedelta(minutes=24), ("playbook/index.html", "ops/improvements.md")),
+                lane.CommitTouch(now - timedelta(minutes=44), ("longform/survival-experiment.html",)),
+            )
+            asks = (
+                lane.BridgeAsk(
+                    now - timedelta(minutes=15),
+                    "claude",
+                    "@leon show hn account unlock ask is pending",
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                now,
+                commits,
+                asks,
+                now - timedelta(minutes=8),
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "channel_poverty_audit")
+        self.assertIn("Recent Leon channel-unlock ask", suggestion.reason)
+        self.assertIn("Farcaster cooldown remains active", suggestion.reason)
+        self.assertIn("Do not send another Leon account-unlock ask", suggestion.next_steps[0])
+
+    def test_load_recent_bridge_unlock_asks_filters_non_unlock_messages(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = root / "messages.db"
+            now = datetime(2026, 5, 2, 10, 15, tzinfo=UTC)
+            con = sqlite3.connect(db)
+            con.execute(
+                """
+                CREATE TABLE messages (
+                    id INTEGER PRIMARY KEY,
+                    ts TEXT,
+                    from_agent TEXT,
+                    to_agent TEXT,
+                    body TEXT,
+                    read INTEGER
+                )
+                """
+            )
+            con.execute(
+                "INSERT INTO messages (ts, from_agent, to_agent, body, read) VALUES (?, ?, ?, ?, 1)",
+                (
+                    (now - timedelta(minutes=16)).isoformat(),
+                    "claude",
+                    "leon",
+                    "Wil je 1x Show HN submit doen? HN account unlock is gated.",
+                ),
+            )
+            con.execute(
+                "INSERT INTO messages (ts, from_agent, to_agent, body, read) VALUES (?, ?, ?, ?, 1)",
+                (
+                    (now - timedelta(minutes=10)).isoformat(),
+                    "codex",
+                    "leon",
+                    "status: tests passed, no action needed.",
+                ),
+            )
+            con.commit()
+            con.close()
+
+            asks = lane.load_recent_bridge_unlock_asks(db, now)
+
+        self.assertEqual(len(asks), 1)
+        self.assertEqual(asks[0].from_agent, "claude")
+        self.assertIn("Show HN", asks[0].excerpt)
 
     def test_routes_to_devto_when_engagement_snapshot_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
