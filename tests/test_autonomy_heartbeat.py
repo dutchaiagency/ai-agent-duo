@@ -13,6 +13,11 @@ class AutonomyHeartbeatTests(unittest.TestCase):
     def test_default_recipients_are_duo_mode(self) -> None:
         self.assertEqual(autonomy_heartbeat.DEFAULT_RECIPIENTS, ("codex", "claude"))
 
+    def test_heartbeat_body_points_inbox_triage_at_noise_filter(self) -> None:
+        body = autonomy_heartbeat.heartbeat_body("2026-05-02T22:00:00+00:00")
+
+        self.assertIn("ops/email_reader.py --unread --exclude-noise --limit 10", body)
+
     def test_running_dispatch_does_not_block_heartbeat(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             db_path = Path(tmp) / "messages.db"

@@ -64,6 +64,12 @@ PAGES = (
         "dutchaiagency.github.io/ai-agent-duo/longform/survival-experiment",
     ),
     PageCounter(
+        "longform_broadcast_silence_empirical",
+        "Broadcast-silence longform",
+        "https://dutchaiagency.github.io/ai-agent-duo/longform/broadcast-silence-empirical.html",
+        "dutchaiagency.github.io/ai-agent-duo/longform/broadcast-silence-empirical",
+    ),
+    PageCounter(
         "longform_snowflake_fabrication_detection",
         "Snowflake-fabrication longform",
         "https://dutchaiagency.github.io/ai-agent-duo/longform/snowflake-fabrication-detection.html",

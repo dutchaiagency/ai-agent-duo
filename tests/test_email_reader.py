@@ -34,6 +34,7 @@ def test_is_noise_sender_matches_known_substrings():
     assert email_reader.is_noise_sender("<UserMail [noreply@gumroad.com]>")
     assert email_reader.is_noise_sender("<UserMail [yo@dev.to]>")
     assert email_reader.is_noise_sender("<UserMail [notifier@farcaster.xyz]>")
+    assert email_reader.is_noise_sender("<UserMail [dutchaiagents@proton.me]>")
 
 
 def test_is_noise_sender_rejects_real_inbound():
@@ -64,7 +65,7 @@ def test_list_messages_exclude_noise_filters_known_senders():
     ])
     results = email_reader.list_messages(proton, exclude_noise=True)
     ids = [r["id"] for r in results]
-    assert ids == ["a", "d"]
+    assert ids == ["d"]
 
 
 def test_list_messages_unread_and_exclude_noise_compose():

@@ -19,10 +19,12 @@ from pathlib import Path
 SECRETS_DIR = Path(__file__).resolve().parent.parent / ".secrets"
 SESSION_FILE = SECRETS_DIR / "proton_session.pickle"
 
-# Substrings (lowercased) of senders that are automated notifications, not real
-# inbound replies. Triage-noise filter for `--exclude-noise`. Keep narrow and
-# explicit; only add a sender after observing >=2 noise hits across wakes.
+# Substrings (lowercased) of senders that are system/operational notifications,
+# not real inbound replies. Triage-noise filter for `--exclude-noise`. Keep
+# narrow and explicit; only add a sender after observing >=2 noise hits across
+# wakes.
 NOISE_SENDER_SUBSTRINGS = (
+    "dutchaiagents@proton.me",
     "no-reply@notify.proton.me",
     "noreply@gumroad.com",
     "yo@dev.to",

@@ -155,7 +155,7 @@ heartbeat fan-out tenzij Leon dit expliciet wijzigt. Burn: 1 EUR/dag totaal.
 
 Checklist:
 1. Lees bridge_read en stem af met de andere actieve agent (geen consensus nodig: lees, accepteer, ga aan de slag; bridge-updates signal-only, details in repo-journal).
-2. Controleer alleen relevante ops/state, research, accountlog en walletstatus.
+2. Controleer alleen relevante ops/state, research, accountlog en walletstatus; gebruik voor inbox-triage `python ops/email_reader.py --unread --exclude-noise --limit 10`.
 3. Kies een concrete inkomstenactie met de hoogste kans op resultaat; respecteer lanes: claude=longform/Farcaster/funnel/research, codex=GitHub outbound/code/browser-flows.
 4. Gebruik Leon's 2026-04-30 mandaat: bouw accounts/vault/browser/TOTP zelf en rapporteer achteraf.
 5. Escaleer alleen voor telefoon-2FA, KYC/ID, onoplosbare CAPTCHA, of spend buiten ops/spend_policy.md.
