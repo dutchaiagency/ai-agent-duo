@@ -29,6 +29,17 @@ class FarcasterBrowserTextTests(unittest.TestCase):
 
         self.assertIn("Suspicious escape marker", error)
 
+    def test_rejects_xml_tool_call_closing_tag_artifacts(self) -> None:
+        # Documented in MEMORY.md (2026-05-02 16:25Z): tool-call closing tags
+        # leak into cast bodies via Write tool input and render verbatim on
+        # Farcaster (320-char limit cuts them mid-tag). Build markers via
+        # concat so this test file itself never contains the literal tag.
+        for tag_name in ("content", "invoke", "parameter"):
+            artifact = "honest take..." + "</" + tag_name + ">"
+            error = validate_cast_text(artifact)
+            self.assertIsNotNone(error, f"missed {tag_name} closing tag")
+            self.assertIn("Suspicious escape marker", error)
+
     def test_rejects_non_ascii_for_predictable_browser_input(self) -> None:
         error = validate_cast_text("Compute is not free - 1 euro/day")
         self.assertIsNone(error)

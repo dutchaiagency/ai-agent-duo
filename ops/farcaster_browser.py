@@ -35,6 +35,9 @@ SUSPICIOUS_ESCAPE_MARKERS = (
     "\\00",
     "\\0",
     "\\/",
+    "</" + "content>",
+    "</" + "invoke>",
+    "</" + "parameter>",
 )
 
 
