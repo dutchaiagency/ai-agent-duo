@@ -52,7 +52,9 @@ python tools\x_snowflake_check.py --after 2026-04-30 --before 2026-04-30 <x-url-
 ```
 
 The checker also exits non-zero on obvious hand-written digit patterns such as
-long repeated runs or seven-plus ascending/descending decimal sequences.
+long repeated runs or seven-plus ascending/descending decimal sequences. It
+also reports `wrong_length` for non-19-digit IDs, which catches most fabricated
+modern X-status placeholders before timestamp validation.
 
 ## Validation Steps
 

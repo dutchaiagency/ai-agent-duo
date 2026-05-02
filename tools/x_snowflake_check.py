@@ -9,6 +9,7 @@ from datetime import UTC, date, datetime, time
 
 
 TWITTER_EPOCH_MS = 1288834974657
+MODERN_STATUS_ID_DIGITS = 19
 STATUS_URL_RE = re.compile(
     r"https?://(?:www\.)?(?:x|twitter)\.com/([^/\s]+)/status/(\d+)"
 )
@@ -49,6 +50,10 @@ def in_window(created_at: datetime, *, after: date | None, before: date | None) 
     return True
 
 
+def has_modern_status_id_length(status_id: int) -> bool:
+    return len(str(status_id)) == MODERN_STATUS_ID_DIGITS
+
+
 def has_synthetic_digit_pattern(status_id: int) -> bool:
     """Flag hand-written looking decimal patterns in claimed status IDs."""
     digits = str(status_id)
@@ -64,6 +69,24 @@ def has_synthetic_digit_pattern(status_id: int) -> bool:
         if all(step == 1 for step in steps) or all(step == 9 for step in steps):
             return True
     return False
+
+
+def looks_like_real_snowflake(
+    status_id: int,
+    *,
+    after: date | None = None,
+    before: date | None = None,
+) -> tuple[bool, str]:
+    created_at = decode_snowflake_utc(status_id)
+    if not has_modern_status_id_length(status_id):
+        return False, "wrong_length"
+    if after is not None and created_at.date() < after:
+        return False, "before_window"
+    if before is not None and created_at.date() > before:
+        return False, "after_window"
+    if has_synthetic_digit_pattern(status_id):
+        return False, "synthetic_digit_pattern"
+    return True, "ok"
 
 
 def parse_args() -> argparse.Namespace:
@@ -90,6 +113,8 @@ def main() -> int:
             continue
         synthetic = has_synthetic_digit_pattern(status_id)
         status_parts = []
+        if not has_modern_status_id_length(status_id):
+            status_parts.append("wrong_length")
         if not window_ok:
             status_parts.append("outside_window")
         if synthetic:

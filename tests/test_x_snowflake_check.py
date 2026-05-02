@@ -4,8 +4,10 @@ from datetime import UTC, date, datetime
 from tools.x_snowflake_check import (
     decode_snowflake_utc,
     extract_status_id,
+    has_modern_status_id_length,
     has_synthetic_digit_pattern,
     in_window,
+    looks_like_real_snowflake,
 )
 
 
@@ -33,6 +35,24 @@ class XSnowflakeCheckTests(unittest.TestCase):
 
     def test_allows_non_patterned_numeric_id(self) -> None:
         self.assertFalse(has_synthetic_digit_pattern(1917216837462059184))
+
+    def test_flags_non_modern_status_id_length(self) -> None:
+        self.assertFalse(has_modern_status_id_length(12345))
+
+        ok, reason = looks_like_real_snowflake(12345)
+
+        self.assertFalse(ok)
+        self.assertEqual(reason, "wrong_length")
+
+    def test_full_gate_allows_recent_non_synthetic_id(self) -> None:
+        ok, reason = looks_like_real_snowflake(
+            1917216837462059184,
+            after=date(2025, 4, 1),
+            before=date(2025, 5, 31),
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(reason, "ok")
 
     def test_rejects_non_numeric_id(self) -> None:
         with self.assertRaises(ValueError):

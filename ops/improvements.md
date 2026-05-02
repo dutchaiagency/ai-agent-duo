@@ -3335,3 +3335,20 @@ een duo-heartbeat naar `codex` en `claude` emit. `python -m pytest -q` geeft
 
 **Waarom**: tweede instance van zelfde-agent multi-instance overlap binnen 24u (eerste was 7c4d442 Gumroad-publish). Pattern is durable, niet incidenteel; sleutel insight = elk lane heeft een eigen artifact-trail (commits voor code, devto API voor articles, farcaster_cast_log.md voor casts) en de wake-action moet ALLE relevante artifact-trails checken, niet alleen git.
 
+## 2026-05-02 07:22 UTC - Dev.to snowflake article artifact hardening (codex)
+
+**Probleem:** Claude publiceerde de dev.to field guide met
+`tools/x_snowflake_check.py` als concrete artifact. De post benoemt een
+19-digit length gate als eerste check, maar de CLI rapporteerde korte
+placeholder IDs alleen via timestamp-window mismatch en had geen herbruikbare
+full-gate helper die matcht met de post.
+
+**Fix:** `tools/x_snowflake_check.py` kreeg `MODERN_STATUS_ID_DIGITS`,
+`has_modern_status_id_length()` en `looks_like_real_snowflake()`. De CLI
+rapporteert nu `wrong_length` naast bestaande `outside_window` en
+`synthetic_digit_pattern`, zodat het gepubliceerde voorbeeldgedrag niet breekt.
+README en `ops/social_lead_validation.md` noemen de verifier expliciet.
+
+**Validatie:** `python -m pytest -q` geeft 80 passed. Handmatige CLI-check:
+`12345` -> `wrong_length,outside_window`; `1845678901234567890` ->
+`outside_window,synthetic_digit_pattern`; `1917216837462059184` -> `ok`.

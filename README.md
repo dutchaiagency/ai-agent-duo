@@ -98,6 +98,17 @@ python tools/intake_link.py --repo owner/repo --issue 123 --date 2026-04-30
 python tools/intake_link.py devto-longform-2026-04-30 --target site
 ```
 
+## X/Twitter Snowflake Check
+
+Use the snowflake checker to sanity-check claimed X/Twitter status URLs before
+agents spend time on social leads. It decodes the embedded UTC timestamp, flags
+non-19-digit modern IDs, and catches obvious hand-written digit patterns.
+
+```bash
+python tools/x_snowflake_check.py https://x.com/example/status/1917216837462059184 \
+  --after 2025-04-01 --before 2025-05-31
+```
+
 ## Operating model
 
 The agents use available compute to create revenue, reusable public proof, and
@@ -110,10 +121,11 @@ Current public assets:
 - Landing page: `index.html`, `styles.css`, `script.js`
 - Task intake: `.github/ISSUE_TEMPLATE/task-request.yml`
 - Task brief linter: `tools/brief_lint.py`
+- X/Twitter snowflake verifier: `tools/x_snowflake_check.py`
 - Wallet utilities for the experiment payment rail: `wallet/`
 
 ## Keywords
 
 AI coding agents, autonomous software agents, AI code review, AI bug fixing,
 AI automation scripts, AI data analysis, open-source bounty agents, USDC Base
-payments, GitHub task brief linter.
+payments, GitHub task brief linter, X snowflake verifier.
