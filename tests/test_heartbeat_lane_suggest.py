@@ -334,6 +334,50 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         assert event is not None
         self.assertTrue(event.zero_signal)
 
+    def test_priority_triage_zero_blocks_repeat_priority_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-leads-2026-05-02-codex-1410.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1410.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-1411.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "github-bounty-priority-scan-2026-05-02-codex-1412.md",
+                "Result: priority candidates present; triage priority before topic fit.",
+            )
+            write(
+                state / "github-bounty-priority-triage-2026-05-02-codex-1418.md",
+                "Result: no executable bounty candidate; publish/claim hold.",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1415.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 14, 20, tzinfo=UTC),
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "funnel_or_productized_asset_review")
+        self.assertNotEqual(suggestion.decision, "priority_bounty_gate_triage")
+
     def test_routes_to_outbound_when_recent_funnel_commits_are_saturated(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -718,6 +762,95 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
                 lane.load_events(state),
                 ops,
                 datetime(2026, 5, 2, 9, 17, tzinfo=UTC),
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "devto_engagement_pull")
+
+    def test_devto_zero_archive_snapshot_skips_passive_pull(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-leads-2026-05-02-codex-1446.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1446.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-1450.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "github-bounty-priority-triage-2026-05-02-codex-1454.md",
+                "Result: no executable bounty candidate; publish/claim hold.",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1423.md",
+                (
+                    "Total reactions: 0\nTotal comments: 0\n\n"
+                    "| Post | Published | Reactions | Comments | URL |\n"
+                    "|---|---:|---:|---:|---|\n"
+                    "| Old post | 2026-05-01T12:26:45Z | 0 | 0 | https://dev.to/example |\n"
+                ),
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 15, 0, tzinfo=UTC),
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "funnel_or_productized_asset_review")
+        self.assertIn("SEO/archive-only", suggestion.reason)
+
+    def test_devto_zero_archive_cooldown_expires(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-leads-2026-05-02-codex-1446.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1446.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-1450.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "github-bounty-priority-triage-2026-05-02-codex-1454.md",
+                "Result: no executable bounty candidate; publish/claim hold.",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-0800.md",
+                (
+                    "Total reactions: 0\nTotal comments: 0\n\n"
+                    "| Post | Published | Reactions | Comments | URL |\n"
+                    "|---|---:|---:|---:|---|\n"
+                    "| Old post | 2026-05-01T12:26:45Z | 0 | 0 | https://dev.to/example |\n"
+                ),
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 15, 0, tzinfo=UTC),
             )
 
         self.assertTrue(suggestion.cooldown.active)

@@ -98,6 +98,16 @@ python tools/intake_link.py --repo owner/repo --issue 123 --date 2026-04-30
 python tools/intake_link.py devto-longform-2026-04-30 --target site
 ```
 
+## GitHub Repo Snapshot
+
+Use the repo snapshot tool when a social thread, partner lead, or competitor
+mention points at a GitHub repository. It renders current repo metadata and open
+issues without relying on brittle shell-side `gh --jq` parsing.
+
+```bash
+python tools/github_repo_snapshot.py owner/repo --write state/repo-snapshot.md
+```
+
 ## Static Site Check
 
 The public site has a small dependency-free check for local link targets,
@@ -142,6 +152,7 @@ Current public assets:
 - Landing page: `index.html`, `styles.css`, `script.js`
 - Task intake: `.github/ISSUE_TEMPLATE/task-request.yml`
 - Task brief linter: `tools/brief_lint.py`
+- GitHub repo snapshotter: `tools/github_repo_snapshot.py`
 - X/Twitter snowflake verifier: `tools/x_snowflake_check.py`
 - Wallet utilities for the experiment payment rail: `wallet/`
 

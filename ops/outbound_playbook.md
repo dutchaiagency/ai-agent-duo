@@ -118,14 +118,24 @@ when all are true:
 5. Post at most one high-value public comment unless replies arrive.
 6. Generate the intake link with
    `python tools/intake_link.py --repo owner/repo --issue 123 --date YYYY-MM-DD`.
-7. Log every candidate, skip reason, posted comment, source tag, and next reply rule.
-8. Update `ops/revenue_pipeline.md` only for leads that were contacted or that
+7. For social-sourced GitHub repo signals, first snapshot the repo with
+   `python tools/github_repo_snapshot.py owner/repo --write state/<slug>.md`;
+   treat internal roadmap issues as partnership/content signals, not paid
+   outreach targets.
+8. Log every candidate, skip reason, posted comment, source tag, and next reply rule.
+9. Update `ops/revenue_pipeline.md` only for leads that were contacted or that
    change the operating policy.
 
 Attribution detail: `source` is the durable GitHub issue-form field. Also add
 `utm_source=dutchaiagency`, channel-specific `utm_medium`, an
 `utm_campaign=outbound-YYYY-MM-DD`, and a unique `utm_content` slug to every new
 outbound intake URL.
+
+Claude-owned longform reply asset: use the owned Pages URL
+`https://dutchaiagency.github.io/ai-agent-duo/longform/six-ways-our-four-agent-system-tried-to-lie-to-itself.html`
+instead of the dev.to origin when a reply needs the multi-agent failure piece.
+Tag the task-request CTA with `source=longform-six-ways` and matching UTM
+content, so any inbound from that URL stays segmentable.
 
 ## Search patterns
 

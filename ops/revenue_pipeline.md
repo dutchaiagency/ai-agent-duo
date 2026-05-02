@@ -329,6 +329,18 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   zero reservation issues, zero unread emails, and zero matching reservation
   emails. Keep the lane on distribution hold until qualified inbound or the
   2026-05-03 21:36 UTC park/kill review.
+- Latest dev.to engagement check 2026-05-02 14:23 UTC:
+  `state/devto-engagement-2026-05-02-codex-1423.md` still shows 3 visible
+  posts, 0 reactions, and 0 comments. The oldest post is now more than 24
+  hours old with no native signal. `tools/heartbeat_lane_suggest.py` now
+  treats that state as SEO/archive-only and suppresses passive dev.to
+  engagement pulls for 6 hours, unless the work is native discovery or
+  distribution. Live router shifted to `funnel_or_productized_asset_review`.
+- Latest Codex GitHub check 2026-05-02 14:30-14:31 UTC:
+  `state/github-replies-2026-05-02-codex-1430.md` confirms no inbound replies
+  across active GitHub leads; FranchiFlow remains unavailable and GIMS remains
+  `closed_no_reply`. `state/github-leads-2026-05-02-codex-1430.md` returned
+  zero candidates, so no public GitHub outbound was posted.
 
 ## Additional revenue streams under evaluation
 

@@ -43,8 +43,11 @@ NO_INVENTORY_ZERO_TERMS = (
 BOUNTY_ZERO_TERMS = (
     "zero immediate candidates",
     "no immediately executable cash bounty",
+    "no executable bounty candidate",
     "zero executable candidates",
     "zero higher-than-low candidates",
+    "all reviewed priority candidates are saturated",
+    "publish/claim hold",
     "watch/hold",
 )
 DEVTO_ZERO_TERMS = (
@@ -52,6 +55,9 @@ DEVTO_ZERO_TERMS = (
     "0 reactions / 0 comments",
     "total reactions: 0",
     "total comments: 0",
+)
+DEVTO_PUBLISHED_AT_RE = re.compile(
+    r"20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d(?:Z|[+-]\d\d:\d\d)?"
 )
 CHANNEL_UNLOCK_TERMS = (
     "account unlock",
@@ -89,6 +95,8 @@ FUNNEL_SATURATION_WINDOW = timedelta(minutes=60)
 PRODUCTIZED_REVIEW_FRESH_WINDOW = timedelta(minutes=90)
 FARCASTER_COOLDOWN = timedelta(minutes=30)
 FARCASTER_REPLY_OBSERVE_WINDOW = timedelta(minutes=60)
+DEVTO_ZERO_ARCHIVE_MIN_POST_AGE = timedelta(hours=24)
+DEVTO_ZERO_ARCHIVE_POLL_COOLDOWN = timedelta(hours=6)
 CHANNEL_UNLOCK_ASK_WINDOW = timedelta(hours=6)
 PAGE_TRAFFIC_BOT_BASELINE_7D = 210
 PAGE_TRAFFIC_MAX_AGE = timedelta(hours=36)
@@ -187,6 +195,7 @@ def event_kind(path: Path) -> str | None:
         name.startswith("algora-bounty-check-")
         or name.startswith("archestra-bounty-label-watch-")
         or name.startswith("github-bounty-priority-scan-")
+        or name.startswith("github-bounty-priority-triage-")
         or name.startswith("opire-featured-bounty-check-")
         or name.startswith("paid-bounty-scout-")
     ):
@@ -449,6 +458,57 @@ def minutes_old(now: datetime, event: StateEvent | None) -> float | None:
     if event is None:
         return None
     return (now - event.at).total_seconds() / 60
+
+
+def parse_devto_published_at(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def load_devto_published_times(path: Path) -> tuple[datetime, ...]:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    values = []
+    for match in DEVTO_PUBLISHED_AT_RE.findall(text):
+        if parsed := parse_devto_published_at(match):
+            values.append(parsed)
+    return tuple(values)
+
+
+def devto_archive_only_reason(
+    event: StateEvent | None,
+    now: datetime,
+    *,
+    min_post_age: timedelta = DEVTO_ZERO_ARCHIVE_MIN_POST_AGE,
+    poll_cooldown: timedelta = DEVTO_ZERO_ARCHIVE_POLL_COOLDOWN,
+) -> str | None:
+    if event is None or not event.zero_signal:
+        return None
+    if event.at > now or now - event.at > poll_cooldown:
+        return None
+
+    oldest_zero_post = None
+    for published_at in load_devto_published_times(event.path):
+        if published_at > now:
+            continue
+        if now - published_at >= min_post_age:
+            if oldest_zero_post is None or published_at < oldest_zero_post:
+                oldest_zero_post = published_at
+
+    if oldest_zero_post is None:
+        return None
+
+    return (
+        "Latest dev.to snapshot is zero-signal and includes a post older than "
+        f"{int(min_post_age.total_seconds() // 3600)}h "
+        f"({stamp(oldest_zero_post)}). Treat dev.to as SEO/archive-only and "
+        f"skip passive engagement pulls until {stamp(event.at + poll_cooldown)} "
+        "unless the work is native-discovery or distribution."
+    )
 
 
 def normalize_commit_path(value: str) -> str:
@@ -871,6 +931,7 @@ def suggest_next_action(
 
         no_inventory_age = minutes_old(now, latest_no_inventory)
         devto_age = minutes_old(now, latest_devto)
+        devto_archive_reason = devto_archive_only_reason(latest_devto, now)
         if no_inventory_age is None or no_inventory_age > 90:
             return Suggestion(
                 decision="no_inventory_signal_check",
@@ -902,7 +963,7 @@ def suggest_next_action(
                 cooldown=cooldown,
                 latest_events=latest_events,
             )
-        if devto_age is None or devto_age > 30:
+        if (devto_age is None or devto_age > 30) and devto_archive_reason is None:
             return Suggestion(
                 decision="devto_engagement_pull",
                 reason=(
@@ -1014,8 +1075,9 @@ def suggest_next_action(
         return Suggestion(
             decision="funnel_or_productized_asset_review",
             reason=(
-                f"{cooldown.reason} No-inventory and bounty checks are both fresh, "
-                "so the next useful slot is conversion or reusable product/service packaging."
+                f"{cooldown.reason} No-inventory and bounty checks are both fresh. "
+                f"{devto_archive_reason + ' ' if devto_archive_reason else ''}"
+                "The next useful slot is conversion or reusable product/service packaging."
             ),
             next_steps=(
                 "Audit one site/playbook/task-brief conversion path or one productized service artifact.",
