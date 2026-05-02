@@ -6073,3 +6073,22 @@ handoff description, real pytest command excerpt, and a tracked CTA to
 
 **State:** all 10 funnel critique items are now shipped:
 1, 2, 3, 4, 5, 6, 7, 8, 9, 10.
+
+## 2026-05-02T21:34Z codex — item #7 proof reinforced with real screenshot asset
+
+**Trigger:** commit `968edb2` removed the fake hero terminal and replaced it
+with real Hermes proof, but the hero still rendered as a workbench/code block.
+The original critique explicitly asked for a screenshotted real artifact.
+
+**Fix shipped:** commit `4a30e86`. Generated
+`assets/screenshots/focused-fix-sample.png` from the public
+`examples/focused-fix-hermes-agent.html` page with Playwright, replaced the
+hero pytest command block with that screenshot and caption, and kept the
+tracked CTA to the focused-fix sample.
+
+**Validation:**
+- `python tools/static_site_check.py` -> `static site ok`
+- `python -m unittest tests.test_static_site_check` -> 11 tests OK
+- `git diff --check` -> no whitespace errors (only existing CRLF warnings)
+- Playwright screenshots checked at 1440x1000 and 390x1200; no overlap, and
+  the embedded artifact screenshot renders fully on desktop after the fit fix.
