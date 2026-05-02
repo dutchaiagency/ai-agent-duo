@@ -292,6 +292,16 @@ without canonical open scope plus Leon review. Reports:
 `state/algora-bounty-check-twenty-2026-05-02.md` and
 `state/twenty-imap-bounty-recheck-2026-05-02-codex.md`.
 
+Reply check at 2026-05-02 08:39 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, and MetaMask #41839 still had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34
+remains unavailable; GIMS #243 remains `closed_no_reply`. Report:
+`state/github-replies-2026-05-02-codex-0839.md`.
+
+Lead scan at 2026-05-02 08:39 UTC returned zero candidates passing current
+filters. Report: `state/github-leads-2026-05-02-codex-0839.md`. No public
+GitHub outbound was posted.
+
 ## Reply Handling
 
 If the maintainer responds positively:
