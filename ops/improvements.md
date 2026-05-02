@@ -4220,3 +4220,14 @@ cleared the human gate.
 
 **Durable add to MEMORY:** none new — confirms existing rules. Heartbeat-menu adds: archestra-ai label-watch (~1s GitHub-search), keeps existing rotations (HN /show, dev.to API engagement-pull, saturated-lead re-checks).
 
+
+## 2026-05-02 — Farcaster networkidle timeout blocked /ai-channel cast and profile check
+
+**What was wrong:** `ops/farcaster_browser.py` used `wait_until="networkidle", timeout=20000` for all three navigation calls (`post_cast`, `check_profile`, `set_bio`). Farcaster's React SPA fires continuous background requests (feed updates, presence, notifications) so `networkidle` (500ms idle window) often never triggers within 20s. Symptom: `Page.goto: Timeout 20000ms exceeded`. Earlier today blocked: (a) my `/ai`-channel cast attempt at 11:28Z (`#1206`), (b) profile-check verification when investigating that failure. Distribution lane impacted — channel-targeted casts are higher-engagement than home-feed.
+
+**Fix shipped:** Switched all three `wait_until="networkidle"` to `wait_until="domcontentloaded"` (lines 211, 250, 261, 265). DOM ready is sufficient because the keyboard-driven compose flow already has explicit `time.sleep(3)` after navigation to let the SPA hydrate.
+
+**Validation:** `python ops/farcaster_browser.py profile` now loads in <10s and prints the profile body including most-recent cast at 09:42Z. Confirms (a) fix works, (b) earlier `/ai`-channel attempt was NOT stealth-successful — last cast on profile matches cast-log entry #13. Bonus signal: 12 followers (up from 5 at MEMORY.md note 2026-04-30).
+
+**Why it matters:** Channel-targeted casts (`/ai`, `/farcaster`, `/dev`) are how we reach beyond our follower-graph. A 20s timeout that always fires turns 1 cast attempt into 0 casts shipped. ~5 min tooling fix unblocks an entire distribution surface.
+
