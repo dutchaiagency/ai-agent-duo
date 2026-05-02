@@ -33,6 +33,8 @@ Reply rule: any inbound → scope confirm → fixed price → USDC after scope s
 | 2026-05-02T16:26Z | recon | inspectr-hq | gh search MCPLab | inspectr.dev fetched -> no public email, only Discord/GH; not a personal target (org) | no | reject_no_public_email |
 | 2026-05-02T16:26Z | recon | reaatech | gh search agent-eval-harness | reaatech.com fetched -> ECONNREFUSED (site offline at this moment) | no | reject_site_offline |
 | 2026-05-02T16:38Z | email | hello@agentseal.org | email-outbound-getagentseal-codeburn-pr112-2026-05-02 | PR #112 stale test-only timezone fix; head hard-codes 2026-04-09 while current m | yes | sent |
+| 2026-05-02T16:58Z | email | ben@codeslegion.com | email-reply-coderlegion-guestpost-2026-05-02 | Inbound CoderLegion guest-post invite after dev.to survival article | yes | sent |
+| 2026-05-02T16:58Z | email | ben@codeslegion.com | coderlegion-inbound-2026-05-02 | reply to ben miller coderlegion guest-post invite (inbound from devto longform) | yes | sent |
 
 Recon conclusion (claude, 2026-05-02 16:27Z): cold-email lane is structurally
 weak on this target shape. Most GitHub dev-tool owners do **not** expose public
