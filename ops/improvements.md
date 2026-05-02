@@ -4614,3 +4614,62 @@ My wake started at ~13:38Z, fetched git (no `fb6c313` yet), saw uncommitted `ops
 **Waarom**: parallel-wake + duo-mode means whichever agent scouts a dead surface first MUST document the verdict so peer doesn't burn compute redoing it. Empty result + written-up verdict > empty result + silence. Cost ~3 min, saves ~5-10 min next agent who feels the "scout bountycaster" urge.
 
 **Side-note**: this also applies to Algora/Gitcoin/Code4rena scouts that come back empty. Default = write the dead-surface verdict file even when result is "nothing here", because absence-of-result is itself information for peers.
+
+---
+
+## 2026-05-02T13:58Z — codex — Social repo side-signal needed a safe snapshot path
+
+**Probleem:** Claude flagged QuadWork from a Farcaster thread as a possible
+peer/comp/collaborator. My first `gh repo view --jq ...` scout failed because
+`repositoryTopics` was `null`, and `Get-Date -AsUTC` failed on this older
+PowerShell. That is exactly the kind of brittle shell-side parsing that turns a
+live social signal into wasted cycles.
+
+**Fix shipped:**
+- `tools/github_repo_snapshot.py`: new read-only GitHub repo snapshot CLI. It
+  parses JSON in Python, handles null optional fields, renders Markdown, and can
+  write directly to `state/`.
+- `tests/test_github_repo_snapshot.py`: null-field, mocked `gh`, and Markdown
+  escaping coverage.
+- `state/quadwork-scout-2026-05-02-codex-1354.md`: QuadWork scout captured as a
+  durable side-signal, with explicit "no GitHub pitch on their internal epic"
+  guidance.
+- `README.md` and `ops/outbound_playbook.md`: procedure points to the snapshot
+  tool for social-sourced GitHub repo signals.
+
+**Validation:**
+- `python -m unittest tests.test_github_repo_snapshot` -> 3/3 OK.
+- `python -m py_compile tools\github_repo_snapshot.py` passed.
+- Live run:
+  `python tools\github_repo_snapshot.py realproject7/quadwork --issue-limit 1`
+  produced current metadata and issue #630 without `--jq`.
+
+**Waarom:** Farcaster/GitHub overlap is now common. A small snapshot tool keeps
+future partner/competitor/revenue scouts factual, prevents duplicate manual
+`gh` parsing, and makes "do not pitch this" decisions visible to the next wake.
+
+## 2026-05-02T13:58Z — codex — Bounty priority scan made executable
+
+**Probleem:** Claude's Midnight scan caught the priority-label blind spot, but the durable instruction was still prose. The next bounty-shopping heartbeat could forget it or recreate a one-off `gh search` manually.
+
+**Fix:** added `tools/github_bounty_priority_scan.py`, a read-only GitHub issue scanner that fetches open bounty issues, groups by priority labels, and writes `state/github-bounty-priority-scan-YYYY-MM-DD-agent-HHMM.md`. `tools/heartbeat_lane_suggest.py` now classifies those snapshots and routes fresh positive scans to `priority_bounty_gate_triage`, with explicit gates for live re-verification, project publication rules, and AI-content disqualification risk.
+
+**Validatie:** `python -m pytest tests\test_github_bounty_priority_scan.py tests\test_heartbeat_lane_suggest.py` -> 27 passed. Existing bounty tests still pass: `python -m pytest tests\test_algora_bounty_check.py tests\test_archestra_bounty_watch.py` -> 11 passed. Combined rerun -> 38 passed. Live Midnight scan wrote `state/github-bounty-priority-scan-2026-05-02-codex-1357.md`: 52 open bounty issues, 3 high-priority, 11 medium-priority, 37 low-priority, 1 unprioritized; router at `2026-05-02T13:58Z` chooses `priority_bounty_gate_triage`.
+
+**Waarom:** This turns "sort by priority before topic fit" from memory into code. It does not greenlight Midnight drafting; it only prevents low-priority defaulting and forces the human-review gate before any public work.
+
+## 2026-05-02T14:00Z — claude — Wake-cycle close: signal->tool duo-pattern healthy
+
+**Observation:** This wake-batch closed an interesting feedback loop. At 13:52Z I posted #1243 (priority-label blind-spot scan + recommendation). 5 min later codex shipped `bec9632` (executable scanner + router integration). My snapshot was a one-time read; codex's tool makes it durable across heartbeats. Same pattern landed earlier this morning on Farcaster reply-log (my `fb6c313` reply tool -> codex's `a5be530` router integration in 8 min).
+
+**Pattern:** claude observes -> sends signal -> codex hardens into tool + router. Inverse also occurs (codex ships scout-tool -> claude uses it for content). This is the duo-mode lane-split working as designed (claude=research/longform/Farcaster, codex=GitHub outbound/code/tooling). No fix needed; logging because the same pattern resolved cleanly twice in 4 hours and is worth recognizing as the healthy default.
+
+**Wake-cycle hygiene check (this batch):**
+- Wake-action protocol step 1 (`bridge_list_recent`): caught codex `#1246`/`#1247` already in inbox, no surprise
+- Step 2 (`git fetch && git log --since="10 minutes ago"`): caught `bec9632`+`c66a5b2`+`5ebf603` (3 commits within 6 min before wake), no parallel-edit conflict
+- Step 3 (`*_log.md` tail-read per refinement #5): farcaster_cast_log + farcaster_reply_log both clean, no overlap risk
+- No new artifact required this wake (Midnight bounty work blocked on Leon-greenlight gate; reply observe-window binding; no inbound)
+
+**Validation:** Wake closed without duplicate work, without volume-spam, with two healthy signal-acks (#1243 to codex, #1244 verify-loop close). One mild self-correction noted: my own #1243 was light by 5 min on codex's `bec9632`, so the priority-scan signal landed slightly behind where the executable tooling went. Not actionable to fix; signal-then-tool order is healthy.
+
+**Waarom:** Periodic positive-pattern logging (not just bug-fix) calibrates future wakes against what "good" looks like in this duo. Most cycles produce regression entries; this one didn't, and that's information.
