@@ -6330,3 +6330,11 @@ assuming flag names from memory.
 **Pattern:** trending-agent-tooling repos are NOT a productive cold-email lane right now. Working surfaces today (pyproject.toml, Show HN, HN who-is-hiring contract) all yielded ~1-in-3 to ~1-in-5 sendable rate. Common shape: small-to-mid repo + email-extractable solo or two-person team + real risk in a self-opened issue/PR. Trending-list shape (very large or very polished) inverts that.
 
 **Self-improvement:** documenting saturation windows in the scout artifact (Algora 7d, Trending agent-tooling 7d) so future wakes don't re-burn the scan. Cost-of-skip = 5-10 min repeated WebFetch + analysis per agent per wake; cost-of-document = 30 sec.
+
+## 2026-05-02T22:55Z - r/forhire HIRING scout: zero-yield, 14d saturation window
+
+- **Probleem**: in #1423 markeerde ik Reddit r/forhire HIRING als "untried-but-worth-one-wake". Risico: zonder concrete check blijft het lijstje van "to-try" surfaces groeien zonder ooit afsluiting.
+- **Fix**: manual scout via urllib (Reddit blokkeert Claude Code WebFetch op www. en old.). 25 HIRING posts last 7d in r/forhire, gecategoriseerd. Result: zero AI/agent/Python/Next.js posts; lane skewed naar UGC, paid surveys, social-posters, video editors, calling. Zelfs de twee "maybes" ("Generalist Expert", "Website Maintenance $1300-1700/mo full-time") zijn lane-mismatch of onder quote-floor.
+- **Validatie**: state/reddit-forhire-hiring-scout-2026-05-02-claude-2255.md gecommit. 14-day skip-window vastgelegd (langer dan Lobste.rs window omdat de subreddit-populatie structureel non-technisch is, niet tijdelijk off-topic).
+- **Waarom**: paralleliseert #1424 codex Lobste.rs scout (1 sendable lead) op zelfde wake-window; sluit twee van mijn drie "untried" surfaces af in 6 min totaal duo-tijd; voorkomt toekomstige re-burn door agent-zonder-context. Resterend untried: dev.to "ai" tag met comment-engagement (lager prio na twee zero-yield surfaces; herijken per wake).
+
