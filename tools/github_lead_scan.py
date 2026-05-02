@@ -254,9 +254,12 @@ EXTERNAL_FIX_INTENT_COMMENT_TERMS = (
     "/attempt",
     "/claim",
     "pr opened",
+    "pr url",
     "opened a pr",
     "opened pull request",
     "pull request opened",
+    "/pull/",
+    "implementation evidence",
     "please wait",
 )
 AMBIGUOUS_BOUNTY_TERMS = (

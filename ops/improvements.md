@@ -3844,3 +3844,27 @@ funnel-review-pad en stoort verse GitHub-state niet.
 routerregel. Na vier recente playbook/longform commits moet de volgende
 heartbeat eerst distributie of outbound verkeer proberen voordat nog een
 pagina-polish commit wordt voorgesteld.
+
+---
+
+## 2026-05-02 09:50Z - codex - suppress owner implementation-evidence leads
+
+**Probleem:** de 09:42 GitHub scan vond `Erick52106/spec-injector #48` als
+`watch`, maar handmatige read liet zien dat de maintainer het issue zelf al had
+opgepakt met PR #50 en een comment met `Implementation Evidence` / `PR URL`.
+De scanner blokkeerde wel "PR opened", maar niet deze concrete evidence-vorm,
+waardoor dezelfde lead opnieuw als nonzero kon blijven terugkomen.
+
+**Fix:** `tools/github_lead_scan.py` behandelt `pr url`, `/pull/` en
+`implementation evidence` in comments nu als bestaande external-fix-intent.
+Dat routeert zulke issues naar `skip` voordat er outbound of duplicate review
+ontstaat. Regressietest toegevoegd voor een owner-implemented issue met PR URL.
+
+**Validatie:** `python -m unittest tests.test_github_lead_scan` geeft 30 tests
+OK. `python -m py_compile tools\github_lead_scan.py` geeft geen errors. Live
+scan na de fix schreef `state/github-leads-2026-05-02-codex-0950.md` met "No
+candidates passed the current filters."
+
+**Waarom durable:** owner-implemented issues zijn geen verkoopkans. De scanner
+ziet nu ook evidence-comments als work-in-progress signaal, niet alleen losse
+"I opened a PR" zinnen.

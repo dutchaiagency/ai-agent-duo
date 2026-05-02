@@ -428,6 +428,32 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertEqual(scored.decision, "skip")
         self.assertIn("already has external fix intent", scored.blockers)
 
+    def test_implementation_evidence_pr_url_blocks_duplicate_outreach(self) -> None:
+        lead = Lead(
+            query="fresh-help-wanted",
+            repo="example/owner-implemented",
+            number=48,
+            title="docs(conventions): define labels and title conventions",
+            url="https://github.com/example/owner-implemented/issues/48",
+            body="Acceptance criteria: define issue labels and PR title convention.",
+            labels=(),
+            comments_count=1,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+            comments=(
+                "## Implementation Evidence\n\n"
+                "### PR URL\n"
+                "https://github.com/example/owner-implemented/pull/50\n",
+            ),
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("already has external fix intent", scored.blockers)
+
     def test_related_issue_external_review_blocks_duplicate_outreach(self) -> None:
         lead = Lead(
             query="fresh-help-wanted",
