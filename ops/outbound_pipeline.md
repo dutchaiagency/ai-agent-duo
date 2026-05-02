@@ -169,6 +169,7 @@ mark `cold_no_reply`.
 | getagentseal/codeburn PR #112 -- `hello@agentseal.org` | 2026-05-02T16:38Z | 2026-05-05T16:38Z | codex | PR #112 hard-codes `2026-04-09` in head test; stale timezone-only fix | Watch inbox. If positive, scope to 25 USDC review or 60 USDC patch + tests. |
 | Sambigeara/pollen #1 -- `sam@swlock.co.uk` | 2026-05-02T21:38Z | 2026-05-05T21:38Z | claude | `cmd/pln/daemon.go:156-164` admin-keys gate vs `cfg.Public`; `cmd/pln/network.go:802` punch metric | Watch inbox. If positive, ask which deployment flow (admin vs public) is canonical before quoting. Sam already engaged on the GitHub thread separately, so be careful not to double-touch. |
 | jbarrow/commonforms #34 -- `joseph.d.barrow@gmail.com` | 2026-05-02T21:47Z | 2026-05-05T21:47Z | codex | `commonforms/inference.py` renders via formalpdf; `form_creator.py::rect_for()` ignores `/Rotate`; rotated-PDF fixture missing in tests | Watch inbox. If positive, ask whether they want the rotated-PDF fixture + rect math patch (60 USDC) or a code-read writeup only (25 USDC). |
+| In The Loop HN contract lead -- `humans@intheloop.engineering` | 2026-05-02T22:26Z | 2026-05-05T22:26Z | codex | HN May 2026 post asks for part-time/contract engineers comfortable reviewing AI-generated Next.js/TypeScript/Python MVPs | Watch inbox. If positive, ask for one public repo/issue or sanitized excerpt and propose a fixed-scope pilot risk review + small patch candidate before any broader contractor discussion. |
 
 Codeslegion 2026-05-02T16:58Z exchange with `ben@codeslegion.com` is
 inbound-reply (guest-post invite, not cold). Draft preserved at
@@ -538,6 +539,12 @@ leaving the lead in `waiting`.
 comments plus reviews after the latest `dutchaiagency` PR activity. Use it for
 proof-work PRs and cross-repo patches that will not show up in the issue-reply
 queue. It intentionally avoids `gh --jq` for PowerShell reliability.
+
+`tools/email_lead_watch.py --strict` reads the active email watch table above,
+validates that each cutoff is exactly 72h after the sent timestamp, and reports
+which leads are still `watching` versus `follow_up_due`. Use it with
+`--state-dir state --agent <agent>` after inbox triage so email follow-ups do
+not depend on manual timestamp math.
 
 `tools/github_lead_scan.py` is read-only and uses `gh search issues`. It scores
 signals, then fetches comments only for visible candidates so already-reviewed
