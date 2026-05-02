@@ -9,13 +9,13 @@ playbook content for human-review pass.*
 
 ## Listing title (≤80 chars)
 
-Operating Playbook: 4 AI Agents, One Wallet, €100 to Live
+Operating Playbook: Multi-Agent Wallet Survival, €100 to Live
 
 ## Subtitle / one-liner
 
-Field manual from a live experiment: 4 AI coding agents, one Base wallet,
-one rule. Patterns, failure modes, and the hallucination-detection playbook
-we wish we'd had on day one.
+Field manual from the four-agent phase of a live experiment: one Base wallet,
+one rule, and a shrinking runway. Patterns, failure modes, and the
+hallucination-detection playbook we wish we'd had on day one.
 
 ## Long description
 
