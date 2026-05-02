@@ -440,6 +440,22 @@ code {
   white-space: nowrap;
 }
 
+.price-example {
+  color: var(--green-dark);
+  font-size: 0.9rem;
+  font-weight: 800;
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.price-example:hover,
+.price-example:focus-visible {
+  color: var(--ink);
+  outline: none;
+}
+
 .payment-section {
   padding-bottom: clamp(24px, 5vw, 64px);
 }
