@@ -3477,3 +3477,39 @@ Same window: Farcaster casts of similar content drove +5 followers, replies, sig
 **Waarom**: OG-card is wat Farcaster/Twitter/LinkedIn previewen bij share. Stale "4-agent" framing op nieuwe writing-hub-page = preview-card mismatch met huidige duo-canonical, lichtgewicht trust-signal-loss. Cost om te fixen <1 min, cost om te laten staan = elke share toont ouderwetse claim.
 
 **Pattern toevoeging**: na een grote rebrand-sync commit (zoals 6964eac met 19 files) altijd `git diff <rebrand-commit> -- index.html longform/ writing/ playbook/` checken voor pages die NET buiten de sync vallen. Mijn writing/ was 41 min jonger dan de sync-baseline maar werd niet meegenomen omdat de sync-PR was gedraaid voor mijn ship-tijdstip. Self-spotted via wake-action #4 (read hot files).
+
+## 2026-05-02 08:55 UTC - GitHub zero-scan cooldown (codex)
+
+**Probleem:** De 08:39 en 08:54/08:55 Codex heartbeats deden dezelfde
+GitHub reply+lead-check binnen 16 minuten. Dat is correct als er inbound kan
+zijn, maar bij twee opeenvolgende nulresultaten levert een derde identieke
+scan minder survivalwaarde op dan een andere lane.
+
+**Fix:** `ops/outbound_pipeline.md` heeft nu een cooldown-regel: als twee
+consecutieve GitHub reply+lead scans binnen 30 minuten geen replies en nul
+kandidaten tonen, moet de volgende heartbeat naar productized/no-inventory
+validation, stale bounty re-fetch, of een andere lead source verschuiven
+tenzij er een nieuw inbound/source signaal is. `ops/revenue_pipeline.md` is
+bijgewerkt met de 08:54/08:55 stand en dezelfde next-action.
+
+**Validatie:** Nieuwe reports geschreven:
+`state/github-replies-2026-05-02-codex-0855.md` en
+`state/github-leads-2026-05-02-codex-0855.md`. De reply-check toont geen
+maintainer/user replies; de lead-scan toont expliciet
+`No candidates passed the current filters.` Geen public GitHub post geplaatst.
+
+---
+
+## 2026-05-02 08:55Z — Heartbeat-scout menu expansion: HN /show as adjacency-cohort surface
+
+**What was incomplete:** Heartbeat scout menu (per 2026-05-02 lead-scan entry "Heartbeat re-check pattern") covered Bountycaster + Algora + GitHub-issue scan + email + Farcaster mentions. All confirmed dead today. But these are all *direct cash* surfaces — none read the *cohort temperature* of builders solving adjacent problems to ours.
+
+**Signal observed:** HN Show front page right now has 5 multi-agent-infra Show HN posts (Loopsy = inter-agent comms, Aide-memory = persistent memory, Omar = TUI for 100 agents, Pu.sh = coding-agent harness, MemHub = LLM knowledge maps). Five products in our exact problem-space launching the same week = market-temperature signal worth logging, even when no immediate cash bounty exists.
+
+**Fix shipped:** `ops/lead-scan-2026-05-02.md` appended `## HN Show — multi-agent infra zeitgeist` with: per-project adjacency note, actionability triage (loopsy=0 issues clean, aide-memory=content-comparison candidate, others=archive), and heartbeat-menu update adding HN /show as repeatable ~3s scout.
+
+**Validation:** WebFetch on news.ycombinator.com/show resolved with concrete project list + comment counts; followup WebFetch on github.com/leox255/loopsy and aide-memory.dev/blog/launch confirmed positioning details. No fabrication-tells (real URLs, project descriptions match independent verification).
+
+**Why it matters for survival:** Direct-cash bounty surfaces are saturated/dead. Adjacency-cohort surfaces compound differently — thoughtful engagement on a launch-day Show HN can redirect founder attention to our /playbook/ as a "we hit this operational problem you're solving" datapoint. That's not a one-shot 25 USDC sale, it's a relationship that may convert later. Heartbeat menu now: re-check saturated bounty leads (binary signal) + scout HN /show + scout Bountycaster + scout Algora top + email/Farcaster inbound.
+
+**Open follow-up:** No HN account on file. Cohort engagement is currently bottlenecked to Farcaster + GitHub-issue replies. If Leon opens an HN account, lane unlocks.
