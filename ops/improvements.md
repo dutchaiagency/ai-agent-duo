@@ -3172,3 +3172,99 @@ Noisy recursive searches kosten compute en verbergen de bruikbare signalen.
 - Farcaster cast announcing the new dev.to URL: cadens-rule blocks (last cast 06:42Z = 16 min ago; rule = max 1/30min). Cast on next heartbeat (07:12Z+).
 - Bridge signal to codex: shipped post-commit with hash + URL.
 - No Leon ping: heartbeat says "geen rapport tenzij iets nieuws is dat zijn aandacht vraagt." Article live + verified is signal-only material; codex/gemini will see in `git log` and on dev.to dashboard.
+
+---
+
+## 2026-05-02T07:01Z codex — Opire featured cards need canonical GitHub verification
+
+**Probleem:** De 06:38 UTC bounty-scan had Algora afgedekt, maar Opire bleef
+alleen als algemene lead source in `ops/lead-scan-2026-04-30.md`. De live
+Opire featured feed toont bedragen die commercieel aantrekkelijk lijken, maar
+de kaartstatus is niet genoeg: twee featured TypeScript issues waren al gesloten
+op GitHub en de open issues hadden actieve PRs, assignees, of maintainer-signalen
+tegen bounty/automation-noise.
+
+**Fix in same turn:**
+1. `state/opire-featured-bounty-check-2026-05-02.md` geschreven met zes live
+   Opire featured cards, GitHub issue-state, related PRs, comment/assignee
+   signalen, en skip/watch-beslissing.
+2. `ops/revenue_pipeline.md` bijgewerkt: Opire blijft lead-discovery, maar geen
+   executable candidate zonder GitHub state + related-PR verificatie.
+3. Concrete pipeline-regel toegevoegd in het artifact: Opire-bedrag eerst
+   verifiëren tegen GitHub issue, assignees, related PRs, claim-comments, en
+   maintainer bounty-fatigue.
+
+**Validation:**
+- Opire live pages geopend vanaf `https://opire.dev/home` voor Godot, TypeORM,
+  AutoKey, Deno, Storybook, en Strapi bedragen/links.
+- `gh issue view` en `gh pr list` gebruikt voor alle zes canonical issues.
+- Extra feasibility check: `rustc`/`cargo` bestaan, maar Deno #18147 heeft al
+  open PR #33080 plus eerdere pogingen; `cl` ontbreekt, dus Godot C++/.NET web
+  export is geen lokale sub-4h candidate.
+
+**Post-mortem:** Ik verloor enkele minuten aan `gh issue view --json` velden
+die in deze CLI niet bestaan (`commentsCount`, `authorAssociation`) en een
+`--jq` string-quoting fout in PowerShell. Voor compacte GitHub summaries op
+Windows is de robuustere route: raw `--json` naar `ConvertFrom-Json`, daarna
+een kleine `[pscustomobject]` projectie.
+
+---
+
+## 2026-05-02 07:03Z — Duo-mode transition (Leon #1128): MEMORY + CLAUDE.md rebaseline
+
+**What changed:** Leon flipped permanent setup from 4-agent (claude+codex+gemini+grok, 1.50 EUR/dag) back to 2-agent duo (claude+codex, 1 EUR/dag). Gemini removed from CLI/key/autopilot/RECIPIENTS. Grok was already out of autopilot. Runway op 113.89 USDC = ~113 dagen ipv 77.
+
+**What I shipped (this cycle):**
+- `CLAUDE.md`: opening line 1.50→1, "4 agents" annotation→2 agents; nieuwe permanent-entry per Leon 2026-05-02 met lanes (claude=longform/Farcaster/funnel/research, codex=GitHub outbound/code/browser-flows) en aggressive heartbeat-daemon PID 91292.
+- `MEMORY.md` Project Overview + Wallet Status secties herschreven naar duo-mode + 1 EUR/dag + 113d runway. Lane-split regel ingekort tot duo. Gemini/Grok-historische details blijven verderop in het bestand voor context, niet bovenaan.
+
+**Validation:** Beide files Read+Edit roundtrip; `git status` toont CLAUDE.md unchanged in tracked-history (was already untracked) en MEMORY.md ligt buiten repo. Aggressive heartbeat-daemon PID 91292 confirmed in Leon's bericht.
+
+**Why it matters:** Stale top-of-file config-strings ("4 agents", "1.50 EUR/dag") leiden tot pressure-framing-fouten in status-rapportage (zie MEMORY.md "Pressure-framing ≠ canonical-config" lesson, recurrence-history). Vóór elke status-cijfer-claim moet `Grep "EUR/dag" CLAUDE.md` op de canonical waarde komen, niet op de meest recente Leon-message-frame. Dat werkt alleen als CLAUDE.md zelf actueel is. Cycle-close-rule blijft: bij elke perma-config-update door Leon, in dezelfde turn CLAUDE.md + MEMORY.md.top synchroniseren.
+
+**Open follow-up (niet in mijn lane):** Codex bezit telegram_bridge.py RECIPIENTS + autopilot.json wake-config. Leon zegt die zijn al teruggebracht naar 2; ik verifieer niet (lane-discipline). Indien codex post-mortem schrijft over zijn helft, dan ligt het volledige duo-transition record in deze file.
+
+---
+
+## 2026-05-02 07:12 UTC — Duo-mode ops baseline closed (codex)
+
+**Probleem:** Leons duo-mode besluit was deels verwerkt (`CLAUDE.md`,
+`ops/telegram_bridge.py`), maar stale defaults bleven in `AGENTS.md`,
+`ops/autonomy_heartbeat.py`, `ops/telegram_poll.py`, `ops/spend_policy.md` en
+`ops/autonomous_ops.md`. Daardoor kon een verse heartbeat of legacy poller
+Gemini/Grok opnieuw in fan-out zetten, ondanks het nieuwe mandaat.
+
+**Fix:** root `AGENTS.md`, spend policy, heartbeat defaults, legacy Telegram
+poller defaults, bridge docstring en autonomous ops procedures naar
+claude+codex en 1 EUR/dag gezet. Wallet read-only gecheckt:
+113.8907 USDC + 0.004111 ETH op Base, runway ~113 dagen volgens near-parity
+werkconventie.
+
+**Validatie:** `py_compile` op de drie gewijzigde Python scripts; runpy-check
+bevestigt defaults: heartbeat `('codex', 'claude')`, poll
+`('codex', 'claude')`, bridge `('claude', 'codex')`. De stale bridge PID
+verwees naar een dood proces; `ops/start_telegram_poll_background.ps1` heeft
+de Telegram bridge opnieuw gestart als PID 24560 en een tweede run detecteert
+die idempotent als al draaiend.
+
+**Waarom:** Bij elke agent-count/budget wijziging moeten niet alleen memory
+docs maar ook dispatch defaults worden aangepast. Anders lijkt de status
+correct, maar de volgende background wake maakt de oude agent-set weer actief.
+
+---
+
+## 2026-05-02 07:10 UTC — Heartbeat running-dispatch unblock (codex)
+
+**Probleem:** `ops/autonomy_heartbeat.py` rapporteerde running dispatches, maar
+blokkeerde daar ook op. Dat is fout onder Leons duo-mode/multi-instance regel:
+een stale `autopilot_dispatches.status='running'` kan dan opnieuw alle
+heartbeat-wakes stilzetten, ook als er geen unread bridge work is.
+
+**Fix:** Heartbeat emit blokkeert nu alleen nog op unread work voor de actieve
+recipients. Running dispatches blijven zichtbaar in `--check` output, maar zijn
+geen stopconditie meer. De prompt noemt duo-mode expliciet: claude+codex only,
+1 EUR/dag totaal, en de actuele lanes.
+
+**Validatie:** Nieuwe unittest dekt dat een running codex dispatch nog steeds
+een duo-heartbeat naar `codex` en `claude` emit. `python -m pytest -q` geeft
+78 passed.
