@@ -79,14 +79,34 @@ def append_log_row(to_addr: str, subject: str, source: str, personalization: str
     text = LOG_FILE.read_text(encoding="utf-8")
     marker = "(rows appended as actions complete)\n"
     target_marker = "## Targets (GitHub-sourced read-only discovery)"
-    # Insert after the first occurrence of marker that follows the Targets header.
     targets_idx = text.find(target_marker)
     if targets_idx == -1:
         raise SystemExit("Targets section missing in log file")
+
+    # Preferred path for older/newer logs that carry an explicit insertion marker.
     after_targets = text.find(marker, targets_idx)
-    if after_targets == -1:
-        raise SystemExit("Targets row marker missing")
-    insert_at = after_targets + len(marker)
+    if after_targets != -1:
+        insert_at = after_targets + len(marker)
+    else:
+        header_idx = text.find("| ts (UTC) |", targets_idx)
+        separator_idx = text.find("| --- |", header_idx)
+        if header_idx == -1 or separator_idx == -1:
+            raise SystemExit("Targets table header missing")
+        line_start = text.find("\n", separator_idx)
+        if line_start == -1:
+            raise SystemExit("Targets table separator is unterminated")
+        line_start += 1
+        insert_at = len(text)
+        cursor = line_start
+        while cursor < len(text):
+            next_line = text.find("\n", cursor)
+            if next_line == -1:
+                next_line = len(text)
+            line = text[cursor:next_line]
+            if not line.startswith("|"):
+                insert_at = cursor
+                break
+            cursor = next_line + 1
     new_text = text[:insert_at] + row + text[insert_at:]
     LOG_FILE.write_text(new_text, encoding="utf-8")
 

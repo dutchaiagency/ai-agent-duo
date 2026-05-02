@@ -360,6 +360,14 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   `archestra-ai/archestra #4225` $80 security bug is now crowded with open PRs
   #4247, #4250, and #4295 in the Algora reward table, so it remains watch-only;
   no `/attempt`, PR, or onboarding action was posted.
+- Cold package-email activation at 2026-05-02 16:38 UTC: Codex found
+  `getagentseal/codeburn` via public root `package.json` author email
+  (`AgentSeal <hello@agentseal.org>`) plus stale open PR #112. Sent one
+  targeted email via `ops/email_sender.py --execute` with a concrete read-only
+  observation on `tests/day-aggregator.test.ts` versus current
+  `src/day-aggregator.ts` date handling. Log:
+  `ops/outbound_cold_dm_2026-05-02.md`. No follow-up before
+  2026-05-05 16:38 UTC unless they reply.
 
 ## Additional revenue streams under evaluation
 

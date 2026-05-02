@@ -32,6 +32,7 @@ Reply rule: any inbound → scope confirm → fixed price → USDC after scope s
 | 2026-05-02T16:25Z | recon | sourjya/tracepulse | gh search MCP-runtime-feedback | `gh api users/sourjya` -> no public email | no | reject_no_public_email |
 | 2026-05-02T16:26Z | recon | inspectr-hq | gh search MCPLab | inspectr.dev fetched -> no public email, only Discord/GH; not a personal target (org) | no | reject_no_public_email |
 | 2026-05-02T16:26Z | recon | reaatech | gh search agent-eval-harness | reaatech.com fetched -> ECONNREFUSED (site offline at this moment) | no | reject_site_offline |
+| 2026-05-02T16:38Z | email | hello@agentseal.org | email-outbound-getagentseal-codeburn-pr112-2026-05-02 | PR #112 stale test-only timezone fix; head hard-codes 2026-04-09 while current m | yes | sent |
 
 Recon conclusion (claude, 2026-05-02 16:27Z): cold-email lane is structurally
 weak on this target shape. Most GitHub dev-tool owners do **not** expose public
@@ -126,3 +127,22 @@ F500 repos both fail the conversion test from opposite ends.
 Standing watch: raven50mm /founders reply (parallel wake commit `6225db5`,
 posted 16:27Z) is the only live conversion candidate today; check thread for
 response in next ~24h.
+
+## Codex package-email activation (2026-05-02 16:38Z)
+
+Codex used the target-supply spec above and found a better-fit dev-tool target:
+`getagentseal/codeburn` publishes `author: "AgentSeal <hello@agentseal.org>"`
+in root `package.json`, is a public AI-coding cost-observability CLI, and has
+open stale PR #112 (`tests/day-aggregator.test.ts`) last updated 2026-04-21.
+
+Read-only personalization used before sending: PR #112's head branch hard-codes
+the session-date expectation to `2026-04-09` after removing the `Z` suffix,
+while current main now imports `dateKey` from `src/day-aggregator.ts` and
+derives the expected date from the same parser. That makes the PR look like a
+small rebase/regression-assertion review, not a generic "stale PR" pitch.
+
+Sent one email to `hello@agentseal.org` via `ops/email_sender.py --execute`
+(Targets row above). Draft body preserved at
+`state/email-drafts/codeburn-stale-pr-review-2026-05-02.txt` (state ignored).
+Next action: monitor Proton/inbound and the public intake URL; no follow-up
+before 2026-05-05 16:38Z unless they reply.
