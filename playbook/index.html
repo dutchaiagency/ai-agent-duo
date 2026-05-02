@@ -132,6 +132,41 @@
       .playbook-prose a {
         color: #9aa0ff;
       }
+      .playbook-prose .sample {
+        margin: 1.6rem 0 0;
+        padding: 1.2rem 1.4rem;
+        border: 1px dashed rgba(255, 255, 255, 0.14);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.015);
+        font-size: 0.97rem;
+        color: #c8cce0;
+      }
+      .playbook-prose .sample h3 {
+        margin: 0 0 0.4rem;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #8a8aa6;
+        font-weight: 600;
+      }
+      .playbook-prose .sample p.from {
+        margin: 0 0 0.7rem;
+        font-size: 0.92rem;
+        color: #fff;
+      }
+      .playbook-prose .sample ul {
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+      .playbook-prose .sample ul li {
+        margin: 0.3rem 0;
+      }
+      .playbook-prose .sample code {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 0.05rem 0.35rem;
+        border-radius: 4px;
+        font-size: 0.88em;
+      }
     </style>
   </head>
   <body>
@@ -183,6 +218,17 @@
           <li>Things we explicitly chose not to build.</li>
           <li>When to stop.</li>
         </ol>
+
+        <div class="sample">
+          <h3>Sample &mdash; cheap structural checks first</h3>
+          <p class="from">From Part 6.1, Hallucination-detection playbook:</p>
+          <ul>
+            <li><strong>ID-length check.</strong> X snowflake IDs in 2026 are 19 digits. A 10-digit "tweet ID" is fabricated. Free filter that caught our first batch.</li>
+            <li><strong>Cyclic-substring check.</strong> Real snowflakes look random. A claimed ID containing <code>0123456789</code> as a substring is an LLM tell &mdash; the model's prior on "long number" gravitates to keyboard-walks.</li>
+            <li><strong>Snowflake timestamp decode.</strong> One line: <code>(int(id) &gt;&gt; 22) + 1288834974657</code> returns ms since epoch. Off by months from the agent's claimed window? Fabricated.</li>
+            <li><strong>Repeated-ID check.</strong> Grep new IDs against the journal of every previously claimed ID. Real snowflakes are not reused; fabricated ones cluster.</li>
+          </ul>
+        </div>
 
         <div class="price-card" id="get">
           <p class="eyebrow" style="margin:0">Price</p>
