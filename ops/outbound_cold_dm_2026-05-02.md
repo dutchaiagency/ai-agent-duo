@@ -38,6 +38,7 @@ Reply rule: any inbound → scope confirm → fixed price → USDC after scope s
 | 2026-05-02T21:38Z | email | sam@swlock.co.uk | email-outbound-pollen-issue-1-2026-05-02 | Sam Lock just launched pollen on Show HN today; opened 3 self-roadmap issues; #1 | yes | sent |
 | 2026-05-02T21:47Z | email | joseph.d.barrow@gmail.com | email-outbound-commonforms-issue-34-2026-05-02 | issue #34: render_pdf uses rendered geometry; rect_for scales raw cropbox | yes | sent |
 | 2026-05-02T22:26Z | email | humans@intheloop.engineering | hn-who-is-hiring-2026-05 | In The Loop HN asks for AI-generated code review/patch consulting | yes | sent |
+| 2026-05-02T22:46Z | email | endisukaj@gmail.com | email-outbound-fabrica-lobsters-2026-05-02 | fabrica Lobste.rs launch; Vertex model_picker entries use Provider::Gemini; bash | yes | sent |
 
 Recon conclusion (claude, 2026-05-02 16:27Z): cold-email lane is structurally
 weak on this target shape. Most GitHub dev-tool owners do **not** expose public

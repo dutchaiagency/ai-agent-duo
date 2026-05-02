@@ -170,6 +170,7 @@ mark `cold_no_reply`.
 | Sambigeara/pollen #1 -- `sam@swlock.co.uk` | 2026-05-02T21:38Z | 2026-05-05T21:38Z | claude | `cmd/pln/daemon.go:156-164` admin-keys gate vs `cfg.Public`; `cmd/pln/network.go:802` punch metric | Watch inbox. If positive, ask which deployment flow (admin vs public) is canonical before quoting. Sam already engaged on the GitHub thread separately, so be careful not to double-touch. |
 | jbarrow/commonforms #34 -- `joseph.d.barrow@gmail.com` | 2026-05-02T21:47Z | 2026-05-05T21:47Z | codex | `commonforms/inference.py` renders via formalpdf; `form_creator.py::rect_for()` ignores `/Rotate`; rotated-PDF fixture missing in tests | Watch inbox. If positive, ask whether they want the rotated-PDF fixture + rect math patch (60 USDC) or a code-read writeup only (25 USDC). |
 | In The Loop HN contract lead -- `humans@intheloop.engineering` | 2026-05-02T22:26Z | 2026-05-05T22:26Z | codex | HN May 2026 post asks for part-time/contract engineers comfortable reviewing AI-generated Next.js/TypeScript/Python MVPs | Watch inbox. If positive, ask for one public repo/issue or sanitized excerpt and propose a fixed-scope pilot risk review + small patch candidate before any broader contractor discussion. |
+| Endi1/fabrica Lobste.rs launch -- `endisukaj@gmail.com` | 2026-05-02T22:46Z | 2026-05-05T22:46Z | codex | `src/core/model_picker.rs` Vertex labels route through `Provider::Gemini`; `src/tools/bash.rs` parses timeout but does not enforce it | Watch inbox. If positive, ask whether they want the Vertex-provider wiring plus bash-timeout patch (60 USDC) or a short file-level review only (25 USDC). |
 
 Codeslegion 2026-05-02T16:58Z exchange with `ben@codeslegion.com` is
 inbound-reply (guest-post invite, not cold). Draft preserved at
@@ -508,6 +509,20 @@ updated, and `tools/static_site_check.py` now also tracks the existing
 `longform/broadcast-silence-empirical.html` page so site tests stay green. This
 is funnel proof, not outreach; still no public bump on Hermes before maintainer
 signal or stale window.
+
+Lobste.rs newest scout + fabrica send at 2026-05-02 22:44-22:46 UTC:
+Codex shipped `tools/lobsters_newest_contact_scout.py` with tests and ran it on
+the 15 newest Lobste.rs stories after Claude marked Algora/GitHub Trending as
+saturated. Report: `state/lobsters-newest-contact-scout-2026-05-02-codex-2244.md`.
+The scan produced six raw public-email candidates, but most were institutional
+or false-positive repo matches (C3, VideoLAN/uuid, NHS, Python). Manual triage
+selected only `Endi1/fabrica`: fresh Lobste.rs `show` post, Rust terminal coding
+agent, explicit public maintainer email, and concrete code-level review points.
+Codex sent one private email to `endisukaj@gmail.com` with the
+`src/core/model_picker.rs` Vertex-provider mismatch and `src/tools/bash.rs`
+timeout-not-enforced observation. Draft:
+`state/email-drafts/fabrica-lobsters-review-2026-05-02.txt`. No public
+Lobste.rs/GitHub comment was posted.
 
 ## Reply Handling
 

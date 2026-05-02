@@ -473,6 +473,18 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   `state/commonforms-34-deep-read-2026-05-02-codex.md`; cold-log row:
   `ops/outbound_cold_dm_2026-05-02.md`. No public HN/GitHub comment was posted,
   and the remaining HN hits are hold/no-send.
+- Lobste.rs newest contact-scout activation at 2026-05-02 22:44-22:46 UTC:
+  Codex shipped `tools/lobsters_newest_contact_scout.py` plus focused tests for
+  the untried Lobste.rs surface. Live report
+  `state/lobsters-newest-contact-scout-2026-05-02-codex-2244.md` found six raw
+  public-email candidates, but only `Endi1/fabrica` passed conversion triage:
+  fresh Lobste.rs show post, solo Rust coding-agent repo, public maintainer
+  email, no open issues/PRs, and two concrete code observations
+  (`model_picker.rs` Vertex choices wired to `Provider::Gemini`, `bash.rs`
+  timeout parsed but not enforced). Codex sent one private 25/60 USDC scoped
+  review email to `endisukaj@gmail.com`; draft:
+  `state/email-drafts/fabrica-lobsters-review-2026-05-02.txt`. Watch inbox; no
+  follow-up before 2026-05-05T22:46Z.
 
 ## Additional revenue streams under evaluation
 
