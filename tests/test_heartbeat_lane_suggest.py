@@ -540,6 +540,44 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         assert event is not None
         self.assertTrue(event.zero_signal)
 
+    def test_founders_engagement_scout_is_classified_as_zero_signal_channel_scout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = (
+                Path(tmp)
+                / "state"
+                / "founders-engagement-scout-2026-05-02-claude-1442.md"
+            )
+            write(
+                path,
+                "Outbound-engagement scout, no public reply posted.\n\n## Decision: no reply this wake\n",
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertEqual(event.kind, "channel_scout")
+        self.assertTrue(event.zero_signal)
+
+    def test_channel_poverty_audit_no_public_outbound_is_zero_signal_channel_scout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = (
+                Path(tmp)
+                / "state"
+                / "channel-poverty-audit-2026-05-02-claude-1458.md"
+            )
+            write(
+                path,
+                "No public outbound, no Farcaster cast/reply, no Leon ping issued from this slot.",
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertEqual(event.kind, "channel_scout")
+        self.assertTrue(event.zero_signal)
+
     def test_routes_to_channel_poverty_audit_when_unlock_ask_is_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -606,6 +644,139 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertIn("Recent Leon channel-unlock ask", suggestion.reason)
         self.assertIn("Farcaster cooldown remains active", suggestion.reason)
         self.assertIn("Do not send another Leon account-unlock ask", suggestion.next_steps[0])
+
+    def test_recent_zero_channel_scout_suppresses_duplicate_channel_poverty_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            now = datetime(2026, 5, 2, 14, 56, tzinfo=UTC)
+            write(
+                state / "github-leads-2026-05-02-codex-1430.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1430.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-claude-1350.md",
+                "zero reservation issues, zero unread mail. Keep the distribution hold.",
+            )
+            write(
+                state / "github-bounty-priority-triage-2026-05-02-codex-1404.md",
+                "Result: no executable bounty candidate; publish/claim hold.",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1423.md",
+                (
+                    "Total reactions: 0\nTotal comments: 0\n\n"
+                    "| Post | Published | Reactions | Comments | URL |\n"
+                    "|---|---:|---:|---:|---|\n"
+                    "| Old post | 2026-05-01T12:26:45Z | 0 | 0 | https://dev.to/example |\n"
+                ),
+            )
+            write(
+                state / "productized-asset-review-2026-05-02-codex-1439.md",
+                "Result: productized review shipped; next useful move is distribution.",
+            )
+            write(
+                state / "founders-engagement-scout-2026-05-02-claude-1442.md",
+                "Outbound-engagement scout, no public reply posted.\n\n## Decision: no reply this wake\n",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+            asks = (
+                lane.BridgeAsk(
+                    now - timedelta(minutes=20),
+                    "claude",
+                    "@leon show hn account unlock ask is pending",
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                now,
+                recent_unlock_asks=asks,
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "nonpublic_delivery_or_signal_work")
+        self.assertIn("Recent Leon channel-unlock ask", suggestion.reason)
+        self.assertIn("recent channel scout already found no qualified public action", suggestion.reason)
+        self.assertIn("Do not repeat the channel-poverty", suggestion.next_steps[0])
+
+    def test_recent_channel_poverty_audit_suppresses_duplicate_even_as_delta_refresh(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            now = datetime(2026, 5, 2, 14, 59, tzinfo=UTC)
+            write(
+                state / "github-leads-2026-05-02-codex-1430.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1430.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-claude-1350.md",
+                "zero reservation issues, zero unread mail. Keep the distribution hold.",
+            )
+            write(
+                state / "github-bounty-priority-triage-2026-05-02-codex-1404.md",
+                "Result: no executable bounty candidate; publish/claim hold.",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1423.md",
+                (
+                    "Total reactions: 0\nTotal comments: 0\n\n"
+                    "| Post | Published | Reactions | Comments | URL |\n"
+                    "|---|---:|---:|---:|---|\n"
+                    "| Old post | 2026-05-01T12:26:45Z | 0 | 0 | https://dev.to/example |\n"
+                ),
+            )
+            write(
+                state / "productized-asset-review-2026-05-02-codex-1439.md",
+                "Result: productized review shipped; next useful move is distribution.",
+            )
+            write(
+                state / "channel-poverty-audit-2026-05-02-claude-1458.md",
+                (
+                    "Delta refresh of the channel state.\n"
+                    "Next-cycle action = fresh target scout requiring parent >20 likes or >5 replies.\n"
+                ),
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+            asks = (
+                lane.BridgeAsk(
+                    now - timedelta(hours=5),
+                    "claude",
+                    "@leon show hn account unlock ask is pending",
+                ),
+            )
+
+            events = lane.load_events(state)
+            audit_event = [event for event in events if event.kind == "channel_scout"][-1]
+            suggestion = lane.suggest_next_action(
+                events,
+                ops,
+                now,
+                recent_unlock_asks=asks,
+            )
+
+        self.assertFalse(audit_event.zero_signal)
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "nonpublic_delivery_or_signal_work")
+        self.assertIn("channel-poverty audit already refreshed channel state", suggestion.reason)
+        self.assertIn("Do not repeat the channel-poverty", suggestion.next_steps[0])
 
     def test_recent_farcaster_reply_routes_to_observe_before_more_channel_work(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

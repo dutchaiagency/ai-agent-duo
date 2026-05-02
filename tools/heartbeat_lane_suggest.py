@@ -56,6 +56,19 @@ DEVTO_ZERO_TERMS = (
     "total reactions: 0",
     "total comments: 0",
 )
+CHANNEL_SCOUT_ZERO_TERMS = (
+    "no public outbound",
+    "no additional public outbound",
+    "no public reply posted",
+    "no farcaster cast/reply",
+    "no farcaster cast",
+    "decision: no reply",
+    "no reply this wake",
+    "zero qualified",
+    "zero actionable",
+    "no non-duplicative public action",
+    "distribution hold",
+)
 DEVTO_PUBLISHED_AT_RE = re.compile(
     r"20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d(?:Z|[+-]\d\d:\d\d)?"
 )
@@ -95,6 +108,7 @@ FUNNEL_SATURATION_WINDOW = timedelta(minutes=60)
 PRODUCTIZED_REVIEW_FRESH_WINDOW = timedelta(minutes=90)
 FARCASTER_COOLDOWN = timedelta(minutes=30)
 FARCASTER_REPLY_OBSERVE_WINDOW = timedelta(minutes=60)
+CHANNEL_SCOUT_FRESH_WINDOW = timedelta(minutes=90)
 DEVTO_ZERO_ARCHIVE_MIN_POST_AGE = timedelta(hours=24)
 DEVTO_ZERO_ARCHIVE_POLL_COOLDOWN = timedelta(hours=6)
 CHANNEL_UNLOCK_ASK_WINDOW = timedelta(hours=6)
@@ -204,6 +218,13 @@ def event_kind(path: Path) -> str | None:
         return "devto_engagement"
     if name.startswith("productized-asset-review-"):
         return "productized_review"
+    if (
+        name.startswith("channel-poverty-audit-")
+        or name.startswith("farcaster-channel-deadness-")
+        or name.startswith("farcaster-outbound-scout-")
+        or name.startswith("founders-engagement-scout-")
+    ):
+        return "channel_scout"
     return None
 
 
@@ -282,6 +303,8 @@ def classify_event(path: Path) -> StateEvent | None:
         zero_signal = has_any(lower, BOUNTY_ZERO_TERMS)
     elif kind == "devto_engagement":
         zero_signal = has_any(lower, DEVTO_ZERO_TERMS)
+    elif kind == "channel_scout":
+        zero_signal = has_any(lower, CHANNEL_SCOUT_ZERO_TERMS)
 
     return StateEvent(
         kind=kind,
@@ -706,6 +729,34 @@ def recent_farcaster_reply_reason(
     )
 
 
+def recent_channel_scout_reason(
+    event: StateEvent | None,
+    now: datetime,
+    *,
+    window: timedelta = CHANNEL_SCOUT_FRESH_WINDOW,
+) -> str | None:
+    if event is None:
+        return None
+    if event.at > now:
+        return None
+    if now - event.at > window:
+        return None
+    if event.path.name.startswith("channel-poverty-audit-"):
+        return (
+            "A recent channel-poverty audit already refreshed channel state "
+            f"at {stamp(event.at)} (`{event.path.as_posix()}`). Treat the "
+            "audit as fresh until a new inbound, target, or unlock signal appears."
+        )
+    if not event.zero_signal:
+        return None
+    return (
+        "A recent channel scout already found no qualified public action "
+        f"at {stamp(event.at)} (`{event.path.as_posix()}`). Treat the "
+        "channel-poverty check as fresh until a new inbound, target, or "
+        "unlock signal appears."
+    )
+
+
 def is_channel_unlock_ask(text: str) -> bool:
     lower = text.lower()
     return has_any(lower, CHANNEL_UNLOCK_TERMS) and has_any(lower, CHANNEL_ASK_TERMS)
@@ -828,6 +879,7 @@ def suggest_next_action(
     latest_bounty = latest(events, "bounty")
     latest_devto = latest(events, "devto_engagement")
     latest_productized = latest(events, "productized_review")
+    latest_channel_scout = latest(events, "channel_scout")
     deadline = parse_deadline(ops_dir)
     latest_events = tuple(
         event
@@ -838,6 +890,7 @@ def suggest_next_action(
             latest_bounty,
             latest_devto,
             latest_productized,
+            latest_channel_scout,
         )
         if event is not None
     )
@@ -992,6 +1045,7 @@ def suggest_next_action(
             )
             poverty_reason = channel_poverty_reason(now, recent_unlock_asks, last_cast_at)
             reply_reason = recent_farcaster_reply_reason(last_farcaster_reply_at, now)
+            scout_reason = recent_channel_scout_reason(latest_channel_scout, now)
             if reply_reason:
                 return Suggestion(
                     decision="farcaster_reply_observe",
@@ -1000,6 +1054,18 @@ def suggest_next_action(
                         "Do not post another Farcaster reply while the fresh outbound reply is in the observe window.",
                         "After roughly 30 minutes, re-fetch the parent permalink or check notifications to confirm whether the reply rendered.",
                         "If it rendered and no one responded, log the result and return to non-Farcaster lead work until a new target appears.",
+                    ),
+                    cooldown=cooldown,
+                    latest_events=latest_events,
+                )
+            if poverty_reason and scout_reason:
+                return Suggestion(
+                    decision="nonpublic_delivery_or_signal_work",
+                    reason=f"{reason} {poverty_reason} {scout_reason}",
+                    next_steps=(
+                        "Do not repeat the channel-poverty audit or Farcaster scout while the channel state is fresh.",
+                        "Spend this slot on nonpublic code, reply, delivery, or a new signal source that is not already in cooldown.",
+                        "Log the artifact and the restraint in ops/improvements.md so the next heartbeat has durable input.",
                     ),
                     cooldown=cooldown,
                     latest_events=latest_events,
@@ -1035,6 +1101,7 @@ def suggest_next_action(
         if outbound_reason:
             poverty_reason = channel_poverty_reason(now, recent_unlock_asks, last_cast_at)
             reply_reason = recent_farcaster_reply_reason(last_farcaster_reply_at, now)
+            scout_reason = recent_channel_scout_reason(latest_channel_scout, now)
             if reply_reason:
                 return Suggestion(
                     decision="farcaster_reply_observe",
@@ -1043,6 +1110,18 @@ def suggest_next_action(
                         "Do not post another Farcaster reply while the fresh outbound reply is in the observe window.",
                         "After roughly 30 minutes, re-fetch the parent permalink or check notifications to confirm whether the reply rendered.",
                         "If it rendered and no one responded, log the result and return to non-Farcaster lead work until a new target appears.",
+                    ),
+                    cooldown=cooldown,
+                    latest_events=latest_events,
+                )
+            if poverty_reason and scout_reason:
+                return Suggestion(
+                    decision="nonpublic_delivery_or_signal_work",
+                    reason=f"{cooldown.reason} {outbound_reason} {poverty_reason} {scout_reason}",
+                    next_steps=(
+                        "Do not repeat the channel-poverty audit or Farcaster scout while the channel state is fresh.",
+                        "Spend this slot on nonpublic code, reply, delivery, or a new signal source that is not already in cooldown.",
+                        "Log the artifact and the restraint in ops/improvements.md so the next heartbeat has durable input.",
                     ),
                     cooldown=cooldown,
                     latest_events=latest_events,
