@@ -149,10 +149,10 @@ Discovery flow:
    leads before scouting new surfaces. Treat unlinked Algora bounty cards as
    `verify_manually`, not candidates, until a canonical open issue or maintainer
    confirmation exists.
-7. Every other heartbeat during content pushes, pull the public dev.to API for
-   `dutchaiagents` with `per_page=100` and log reactions/comments in
-   `state/devto-engagement-*` so funnel decisions use deltas instead of
-   rendered-profile browser checks.
+7. Every other heartbeat during content pushes, run
+   `python tools/devto_engagement_check.py --state-dir state --agent codex`
+   so the public dev.to API is pulled with `per_page=100` and logged in the
+   canonical `state/devto-engagement-YYYY-MM-DD-codex-HHMM.md` shape.
 8. Send at most 5 targeted, relevant outbound messages per day per channel.
 9. Stop any channel after 20 targeted messages without replies.
 10. Use compute aggressively for concrete survival work; avoid duplicate

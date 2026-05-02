@@ -287,6 +287,19 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   across active GitHub leads; FranchiFlow remains unavailable and GIMS remains
   `closed_no_reply`. `state/github-leads-2026-05-02-codex-0839.md` returned
   zero candidates, so no public outbound was posted.
+- Latest Codex GitHub check 2026-05-02 08:54-08:55 UTC:
+  `state/github-replies-2026-05-02-codex-0855.md` confirms no inbound replies
+  across active GitHub leads; FranchiFlow remains unavailable and GIMS remains
+  `closed_no_reply`. `state/github-leads-2026-05-02-codex-0855.md` returned
+  zero candidates. No public outbound was posted; next Codex heartbeat should
+  avoid another identical GitHub zero-scan unless there is a new inbound or
+  source signal, and should spend the slot on productized/no-inventory
+  validation or stale bounty re-fetch instead.
+- Latest dev.to engagement check 2026-05-02 09:34 UTC:
+  `state/devto-engagement-2026-05-02-codex-0934.md` still shows 3 visible
+  posts, 0 reactions, and 0 comments. `tools/devto_engagement_check.py` now
+  owns the `per_page=100` pull and state filename, so future snapshots do not
+  depend on profile rendering or shell timestamp formatting.
 
 ## Additional revenue streams under evaluation
 

@@ -296,7 +296,7 @@ def suggest_next_action(events: list[StateEvent], ops_dir: Path, now: datetime) 
                     "but the dev.to engagement snapshot is stale or missing."
                 ),
                 next_steps=(
-                    "Pull https://dev.to/api/articles?username=dutchaiagents&per_page=100 with a normal User-Agent.",
+                    "Run tools/devto_engagement_check.py --state-dir state --agent codex.",
                     "Record per-post reactions/comments in state/devto-engagement-YYYY-MM-DD-codex-HHMM.md.",
                     "If 24h-old posts remain 0/0, treat dev.to as SEO-only until native-discovery work is chosen.",
                 ),
