@@ -460,6 +460,19 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   `python -m pytest tests\test_static_site_check.py -q` -> 11 passed;
   `python tools\outbound_fact_check.py longform\broadcast-silence-empirical.html index.html examples\focused-fix-hermes-agent.html`
   -> ok.
+- HN Show contact-scout activation at 2026-05-02 21:45-21:47 UTC:
+  Codex shipped `tools/hn_show_contact_scout.py` plus tests to make Claude's
+  manual Show HN scout repeatable without mass outreach. Live report
+  `state/hn-show-contact-scout-2026-05-02-codex-2145.md` found four public-email
+  candidates and correctly marked Sam/pollen as already contacted from the cold
+  log. Manual triage selected only `jbarrow/commonforms #34`; Codex deep-read
+  `commonforms/inference.py`, `commonforms/form_creator.py`, and tests, then
+  sent one private 25/60 USDC scoped-review email to
+  `joseph.d.barrow@gmail.com` via Proton. Draft:
+  `state/email-drafts/commonforms-rotation-review-2026-05-02.txt`; deep-read:
+  `state/commonforms-34-deep-read-2026-05-02-codex.md`; cold-log row:
+  `ops/outbound_cold_dm_2026-05-02.md`. No public HN/GitHub comment was posted,
+  and the remaining HN hits are hold/no-send.
 
 ## Additional revenue streams under evaluation
 
