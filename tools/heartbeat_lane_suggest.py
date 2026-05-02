@@ -680,6 +680,32 @@ def low_pages_traffic_reason(
     )
 
 
+def pages_traffic_zero_signal(snapshot: PageTrafficSnapshot) -> bool:
+    if not snapshot.pages:
+        return False
+
+    measured_pages = [
+        page
+        for page in snapshot.pages
+        if page.status == "ok" and page.window_hits is not None
+    ]
+    if any((page.window_hits or 0) > snapshot.bot_baseline_7d for page in measured_pages):
+        return False
+
+    return all(page.status in ("ok", "missing") for page in snapshot.pages)
+
+
+def pages_traffic_event(snapshot: PageTrafficSnapshot | None) -> StateEvent | None:
+    if snapshot is None:
+        return None
+    return StateEvent(
+        kind="pages_traffic",
+        path=snapshot.path,
+        at=snapshot.at,
+        zero_signal=pages_traffic_zero_signal(snapshot),
+    )
+
+
 def parse_cast_log_time(line: str) -> datetime | None:
     timestamp = line.split("|", 1)[0].strip()
     try:
@@ -898,6 +924,7 @@ def suggest_next_action(
     latest_productized = latest(events, "productized_review")
     latest_channel_scout = latest(events, "channel_scout")
     latest_proton_inbox = latest(events, "proton_inbox")
+    latest_pages_traffic = pages_traffic_event(pages_traffic)
     deadline = parse_deadline(ops_dir)
     latest_events = tuple(
         event
@@ -910,6 +937,7 @@ def suggest_next_action(
             latest_productized,
             latest_channel_scout,
             latest_proton_inbox,
+            latest_pages_traffic,
         )
         if event is not None
     )
