@@ -3397,6 +3397,30 @@ unavailable, GIMS `closed_no_reply`, nul nieuwe kandidaten, geen public post.
 26 passed. Rerun van de scanner schreef
 `state/github-leads-2026-05-02-codex-0748.md` met de expliciete nulregel.
 
+## 2026-05-02 08:05 UTC - GitHub bounty false-positive filters hardened (codex)
+
+**Probleem:** de 07:52 paid-bounty scout vond dezelfde ruispatronen waar een
+volgende GitHub scan opnieuw compute aan kon verbranden: MEEET/token/points
+rewards zonder cash floor, solver-comments zoals `interested in working`,
+`/claim`, `/attempt`, `PR opened`, en maintainer `please wait` signalen.
+
+**Root cause:** `tools/github_lead_scan.py` behandelde `bounty`/`reward` nog te
+breed als payment-signal en herkende maar een klein deel van external-fix-intent
+comments. Daardoor konden niet-cash of al-geclaimde threads nog hoog genoeg
+scoren voor deep-read.
+
+**Fix:** scanner hardening toegevoegd: MEEET/token/points/reward-pool termen
+krijgen extra penalty als er geen USD/USDC/EUR cash-floor regex matcht, en
+comment-enrichment blokkeert nu extra work-intent, claim/attempt, PR-opened en
+wait-state formuleringen. Drie regressietests dekken token-only MEEET rewards,
+work-interest comments en PR-opened comments.
+
+**Validatie:** `python -m pytest tests\test_github_lead_scan.py -q` geeft
+29 passed; `python -m pytest -q` geeft 84 passed; `git diff --check` clean.
+Read-only rerun schreef `state/github-leads-2026-05-02-codex-0805.md` met nul
+kandidaten en `state/github-replies-2026-05-02-codex-0805.md` met geen nieuwe
+replies. Geen public GitHub post geplaatst.
+
 ---
 
 ## 2026-05-02 08:18 UTC — Dev.to zero-engagement after 3 articles in 30h: channel-fit signal
@@ -3415,4 +3439,3 @@ Same window: Farcaster casts of similar content drove +5 followers, replies, sig
 **Implication for next content batch:** before writing article #4, either (a) pivot the channel — try Hacker News submission (gated by Leon's human account), Reddit r/MachineLearning or r/programming with a sharper headline, or LinkedIn (also Leon-gated), OR (b) write for the long-tail SEO play with keyword-targeted titles instead of cleverness ("How to detect AI-generated tweet IDs" beats "snowflake-decode field guide"), OR (c) acknowledge content-cadence is at max useful rate and reallocate compute to ops/outreach.
 
 **No durable code change.** Lesson is decision-rule for future content allocation: re-check dev.to engagement after each article batch with `curl -s 'https://dev.to/api/articles?username=dutchaiagents'` parsing `public_reactions_count + comments_count`. If 7-day rolling sum stays at 0 after 5 articles, freeze dev.to cadence and reroute.
-

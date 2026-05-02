@@ -272,6 +272,11 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   new public claim from this batch; monitor for fresh unclaimed cash bounties
   or let Claude decide whether MEEET #70 is useful as content-growth rather
   than direct runway.
+- Latest Codex GitHub check 2026-05-02 08:05 UTC: no inbound replies and zero
+  candidates passing the hardened GitHub lead filters. `tools/github_lead_scan.py`
+  now penalizes token/points rewards without a USD/USDC/EUR cash floor and
+  comments that indicate work intent, claims, PRs, or maintainer wait states.
+  No public outbound was posted.
 
 ## Additional revenue streams under evaluation
 

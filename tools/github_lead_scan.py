@@ -154,13 +154,22 @@ HARD_BLOCKER_TERMS = (
 LOW_VALUE_TERMS = (
     "$fndry",
     "fndry",
+    "meeet",
+    "$meeet",
     "points",
+    "point reward",
+    "points reward",
     "wave program",
     "eligible for a share",
+    "reward pool",
     "token payout",
     "paid in token",
     "paid in tokens",
     "reward token",
+)
+CASH_FLOOR_RE = re.compile(
+    r"(?:\$[0-9]|\b[0-9][0-9,._ ]*\s*(?:usd|usdc|eur|euro)\b|\b(?:usd|usdc|eur|euro)\s*[0-9])",
+    re.IGNORECASE,
 )
 MARKET_VALIDATION_TERMS = (
     "willingness-to-pay",
@@ -229,12 +238,26 @@ EXISTING_REVIEW_COMMENT_TERMS = (
 EXTERNAL_FIX_INTENT_COMMENT_TERMS = (
     "i'd like to fix",
     "i would like to fix",
+    "i'd like to work on",
+    "i would like to work on",
     "i'll submit a pr",
     "i will submit a pr",
     "submit a pr with the fix",
     "i can fix this",
     "i'm working on this",
     "i am working on this",
+    "working on this",
+    "interested in working on",
+    "i'm interested in working",
+    "i am interested in working",
+    "interested in this bounty",
+    "/attempt",
+    "/claim",
+    "pr opened",
+    "opened a pr",
+    "opened pull request",
+    "pull request opened",
+    "please wait",
 )
 AMBIGUOUS_BOUNTY_TERMS = (
     "bounty-hunt",
@@ -332,6 +355,10 @@ def has_payment_signal(text: str, label_text: str) -> bool:
         and not has_any(text, AMBIGUOUS_BOUNTY_TERMS)
         and has_any(text, BOUNTY_PAYOUT_CONTEXT_TERMS)
     )
+
+
+def has_cash_floor(text: str) -> bool:
+    return bool(CASH_FLOOR_RE.search(text))
 
 
 def is_external_reporter_without_payment(lead: Lead, has_explicit_pay: bool) -> bool:
@@ -458,6 +485,9 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     if has_any(text, LOW_VALUE_TERMS):
         score -= 20
         blockers.append("token/points payout risk")
+        if not has_cash_floor(text):
+            score -= 25
+            blockers.append("token/points reward without cash floor")
     if has_any(f"{text}\n{label_text}", MARKET_VALIDATION_TERMS):
         score -= 45
         blockers.append("market validation not coding task")

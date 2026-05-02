@@ -108,6 +108,32 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertEqual(scored.decision, "skip")
         self.assertIn("token/points payout risk", scored.blockers)
 
+    def test_token_reward_without_cash_floor_is_skipped(self) -> None:
+        lead = Lead(
+            query="fresh-bounty-typescript",
+            repo="example/meeet-rewards",
+            number=70,
+            title="MEEET reward: fix checkout import",
+            url="https://github.com/example/meeet-rewards/issues/70",
+            body=(
+                "Reward pool: 100000 MEEET points.\n"
+                "Acceptance criteria: checkout import succeeds.\n"
+                "Relevant files: src/import.ts."
+            ),
+            labels=("bounty", "bug", "help wanted"),
+            comments_count=0,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("token/points payout risk", scored.blockers)
+        self.assertIn("token/points reward without cash floor", scored.blockers)
+
     def test_bounty_hunt_wording_is_not_payment_signal(self) -> None:
         lead = Lead(
             query="fresh-bounty-typescript",
@@ -343,6 +369,58 @@ class GitHubLeadScanTests(unittest.TestCase):
             assignees=(),
             state="open",
             comments=("I'd like to fix this bug. I'll submit a PR with the fix.",),
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("already has external fix intent", scored.blockers)
+
+    def test_work_interest_comment_blocks_duplicate_outreach(self) -> None:
+        lead = Lead(
+            query="fresh-bounty-typescript",
+            repo="example/solver-queue",
+            number=22,
+            title="Bounty: fix paid checkout",
+            url="https://github.com/example/solver-queue/issues/22",
+            body=(
+                "Acceptance criteria: paid checkout succeeds.\n"
+                "Relevant files: src/checkout.ts.\n"
+                "Budget: 75 USDC."
+            ),
+            labels=("bounty", "bug"),
+            comments_count=1,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+            comments=("I'm interested in working on this bounty.",),
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("already has external fix intent", scored.blockers)
+
+    def test_pr_opened_comment_blocks_duplicate_outreach(self) -> None:
+        lead = Lead(
+            query="fresh-bounty-typescript",
+            repo="example/pr-active",
+            number=23,
+            title="Paid bug: repair billing sync",
+            url="https://github.com/example/pr-active/issues/23",
+            body=(
+                "Acceptance criteria: paid invoices sync.\n"
+                "Relevant files: src/billing.ts.\n"
+                "Budget: 75 USDC."
+            ),
+            labels=("bug",),
+            comments_count=1,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+            comments=("PR opened in #24 for this issue.",),
         )
 
         scored = score_lead(lead, now=NOW)
