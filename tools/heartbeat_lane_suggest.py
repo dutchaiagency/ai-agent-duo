@@ -34,6 +34,10 @@ NO_INVENTORY_ZERO_TERMS = (
     "0 reservation issues",
     "0 unread emails",
     "0 matching reservation emails",
+    "zero reservation issues",
+    "zero unread emails",
+    "zero unread mail",
+    "zero matching reservation emails",
     "keep the distribution hold",
 )
 BOUNTY_ZERO_TERMS = (

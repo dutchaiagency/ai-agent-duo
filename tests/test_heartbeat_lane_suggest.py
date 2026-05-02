@@ -420,6 +420,24 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(snapshot.pages[0].label, "Playbook")
         self.assertEqual(snapshot.pages[0].window_hits, 14)
 
+    def test_no_inventory_zero_words_are_classified_as_zero_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = (
+                Path(tmp)
+                / "state"
+                / "no-inventory-bridge-kit-signal-check-2026-05-02-claude-1350.md"
+            )
+            write(
+                path,
+                "Same as 12:18 UTC: zero reservation issues, zero unread mail. Keep the distribution hold.",
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertTrue(event.zero_signal)
+
     def test_routes_to_channel_poverty_audit_when_unlock_ask_is_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

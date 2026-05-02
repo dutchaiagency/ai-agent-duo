@@ -324,6 +324,11 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   `closed_no_reply`. `state/github-leads-2026-05-02-codex-1346.md` returned
   zero candidates, so no public GitHub outbound was posted. Otoehe is not
   follow-up eligible until after 2026-05-02 20:14 UTC.
+- Latest no-inventory Bridge Kit check 2026-05-02 13:49 UTC:
+  `state/no-inventory-bridge-kit-signal-check-2026-05-02-codex-1349.md` found
+  zero reservation issues, zero unread emails, and zero matching reservation
+  emails. Keep the lane on distribution hold until qualified inbound or the
+  2026-05-03 21:36 UTC park/kill review.
 
 ## Additional revenue streams under evaluation
 
