@@ -180,6 +180,48 @@ h3 {
   margin-top: 32px;
 }
 
+.playbook-teaser {
+  align-items: flex-start;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.94rem;
+  gap: 8px 16px;
+  margin-top: 14px;
+  max-width: 700px;
+}
+
+.playbook-teaser strong {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.playbook-teaser ul {
+  display: flex;
+  flex: 1 1 420px;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.playbook-teaser li {
+  padding-left: 14px;
+  position: relative;
+}
+
+.playbook-teaser li::before {
+  background: var(--green);
+  border-radius: 50%;
+  content: "";
+  height: 5px;
+  left: 0;
+  position: absolute;
+  top: 0.72em;
+  width: 5px;
+}
+
 .button {
   border: 1px solid transparent;
   border-radius: 7px;
@@ -527,6 +569,10 @@ code {
   .workbench-grid,
   .service-grid {
     grid-template-columns: 1fr;
+  }
+
+  .playbook-teaser ul {
+    flex-basis: 100%;
   }
 
   .price-list article {
