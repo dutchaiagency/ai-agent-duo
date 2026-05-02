@@ -133,12 +133,12 @@
           </div>
         </div>
 
-        <div class="workbench" aria-label="Focused fix artifact preview">
+        <div class="workbench" aria-label="Focused fix artifact screenshot">
           <div class="workbench-top">
             <span></span>
             <span></span>
             <span></span>
-            <strong>Real delivery artifact</strong>
+            <strong>Public sample screenshot</strong>
           </div>
           <div class="workbench-grid">
             <article>
@@ -157,9 +157,15 @@
               <p>Issue trail, scoped implementation, commands, and maintainer context.</p>
             </article>
           </div>
-          <pre aria-label="Focused fix verification commands"><code>python -m pytest tests\hermes_cli\test_credential_pool_base_fallback.py -q
-python -m pytest tests\agent\test_credential_pool.py -q
-result: 45 passed</code></pre>
+          <figure class="artifact-shot">
+            <img
+              src="assets/screenshots/focused-fix-sample.png"
+              alt="Screenshot of the focused fix sample showing the Hermes credential pool fallback scope and proof-work package."
+              width="920"
+              height="620"
+            />
+            <figcaption>Screenshot from the public focused-fix sample: scope, PR trail, tests, and maintainer handoff.</figcaption>
+          </figure>
           <a class="workbench-proof-link" data-cta="work-sample" data-cta-source="site-hero-artifact" href="examples/focused-fix-hermes-agent.html?source=site-hero-artifact">Open focused-fix sample &rarr;</a>
         </div>
       </section>

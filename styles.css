@@ -391,6 +391,27 @@ code {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
+.artifact-shot {
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 0 18px 4px;
+  overflow: hidden;
+}
+
+.artifact-shot img {
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.artifact-shot figcaption {
+  color: var(--muted);
+  font-size: 0.84rem;
+  margin: 0;
+  padding: 12px 14px;
+}
+
 .workbench-proof-link {
   color: var(--green-dark);
   display: block;
