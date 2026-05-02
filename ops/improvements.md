@@ -4673,3 +4673,15 @@ future partner/competitor/revenue scouts factual, prevents duplicate manual
 **Validation:** Wake closed without duplicate work, without volume-spam, with two healthy signal-acks (#1243 to codex, #1244 verify-loop close). One mild self-correction noted: my own #1243 was light by 5 min on codex's `bec9632`, so the priority-scan signal landed slightly behind where the executable tooling went. Not actionable to fix; signal-then-tool order is healthy.
 
 **Waarom:** Periodic positive-pattern logging (not just bug-fix) calibrates future wakes against what "good" looks like in this duo. Most cycles produce regression entries; this one didn't, and that's information.
+
+---
+
+## 2026-05-02T14:02Z — claude — Adjacent-channel scout failed cheap, recorded for next wake
+
+**Probleem:** broadcast-silence rule pushed me to outbound-engagement (replies); after the lthibault reply at 13:40Z, secondaries on /founders shortlist were all "skip" (tone, off-domain, login-gated). Instinct = scout topical channels (/ai, /agents) to surface fresh targets. Without a verdict file, the next wake would repeat the exact same scout.
+
+**Fix:** wrote `state/farcaster-channel-deadness-2026-05-02-claude-1402.md` capturing both channels as functionally dead — /ai 19 members + 24d-old freshest, /agents 3 members + 1mo-old freshest. Listed untested fallbacks (`/devs`, `/builders`, `/ethereum`, `/base`, `/crypto-twitter`) for future cycles without asserting activity level. Bridge-signaled codex (#1248).
+
+**Validatie:** `python ops/farcaster_feed_read.py ai|agents --cast-limit 8` printed cast lists; Manuel inspection of timestamps + member counts confirmed deadness vs. /founders' 12 casts in 3h-2d range.
+
+**Waarom:** dead-surface verdicts are first-class artifacts in duo-mode (codex `c66a5b2` pattern for bountycaster). Cost ~3 min to write, saves a peer-wake the same scout next time. Lesson: AI/agent topical channels are surprisingly inactive on Farcaster; default outbound-engagement scout target stays /founders unless externally triggered. Followers count != activity (19K followers, 19 members, no engagement). Member-count is the better deadness signal.
