@@ -178,6 +178,7 @@ def event_kind(path: Path) -> str | None:
         return "no_inventory"
     if (
         name.startswith("algora-bounty-check-")
+        or name.startswith("archestra-bounty-label-watch-")
         or name.startswith("opire-featured-bounty-check-")
         or name.startswith("paid-bounty-scout-")
     ):
@@ -341,31 +342,61 @@ def github_cooldown_status(
     cooldown_window: timedelta = timedelta(minutes=45),
 ) -> CooldownStatus:
     lead_events = [event for event in events if event.kind == "github_leads"]
-    if len(lead_events) < 2:
-        return CooldownStatus(False, "Fewer than two timestamped GitHub lead scans.")
+    if not lead_events:
+        return CooldownStatus(False, "No timestamped GitHub lead scans.")
 
-    first, second = lead_events[-2], lead_events[-1]
-    if not first.zero_signal or not second.zero_signal:
-        return CooldownStatus(False, "Latest GitHub lead scans were not both zero-signal.")
-    if second.at - first.at > zero_pair_window:
-        return CooldownStatus(False, "Latest zero lead scans were not inside 30 minutes.")
-    if now - second.at > cooldown_window:
+    if len(lead_events) >= 2:
+        first, second = lead_events[-2], lead_events[-1]
+        if first.zero_signal and second.zero_signal:
+            if (
+                second.at - first.at <= zero_pair_window
+                and now - second.at <= cooldown_window
+            ):
+                reply_events = [
+                    event
+                    for event in events
+                    if event.kind == "github_replies"
+                    and first.at - timedelta(minutes=5)
+                    <= event.at
+                    <= second.at + timedelta(minutes=5)
+                ]
+                if any(event.reply_signal for event in reply_events):
+                    return CooldownStatus(False, "A reply signal appeared during the zero-scan window.")
+
+                return CooldownStatus(
+                    True,
+                    (
+                        "Two consecutive GitHub lead scans inside 30 minutes were zero-signal "
+                        f"({stamp(first.at)} and {stamp(second.at)})."
+                    ),
+                )
+        if not second.zero_signal:
+            return CooldownStatus(False, "Latest GitHub lead scan was not zero-signal.")
+
+    latest_lead = lead_events[-1]
+    if not latest_lead.zero_signal:
+        return CooldownStatus(False, "Latest GitHub lead scan was not zero-signal.")
+    if latest_lead.at > now or now - latest_lead.at > cooldown_window:
         return CooldownStatus(False, "Latest zero lead scan is outside the cooldown window.")
 
-    reply_events = [
+    matching_replies = [
         event
         for event in events
         if event.kind == "github_replies"
-        and first.at - timedelta(minutes=5) <= event.at <= second.at + timedelta(minutes=5)
+        and latest_lead.at - timedelta(minutes=5)
+        <= event.at
+        <= latest_lead.at + timedelta(minutes=5)
     ]
-    if any(event.reply_signal for event in reply_events):
-        return CooldownStatus(False, "A reply signal appeared during the zero-scan window.")
+    if any(event.reply_signal for event in matching_replies):
+        return CooldownStatus(False, "A reply signal appeared in the latest GitHub scan pair.")
+    if not matching_replies:
+        return CooldownStatus(False, "Latest zero lead scan has no matching reply scan.")
 
     return CooldownStatus(
         True,
         (
-            "Two consecutive GitHub lead scans inside 30 minutes were zero-signal "
-            f"({stamp(first.at)} and {stamp(second.at)})."
+            "Latest GitHub reply+lead scan pair was zero-signal "
+            f"({stamp(latest_lead.at)})."
         ),
     )
 
@@ -742,8 +773,32 @@ def suggest_next_action(
         )
 
     if cooldown.active:
-        no_inventory_age = minutes_old(now, latest_no_inventory)
         bounty_age = minutes_old(now, latest_bounty)
+        if (
+            latest_bounty is not None
+            and latest_bounty.path.name.startswith("archestra-bounty-label-watch-")
+            and not latest_bounty.zero_signal
+            and bounty_age is not None
+            and 0 <= bounty_age <= 240
+        ):
+            return Suggestion(
+                decision="bounty_candidate_triage",
+                reason=(
+                    f"{cooldown.reason} Latest Archestra label-watch report "
+                    f"`{latest_bounty.path.as_posix()}` is non-zero, so a "
+                    "fresh unreserved bounty slot may be open."
+                ),
+                next_steps=(
+                    "Open the latest Archestra watch report and the linked GitHub issue before any public action.",
+                    "Verify the issue is still unreserved, unassigned, and above the cash floor.",
+                    "Read the touched code and draft the failing-test path; only then post `/attempt` with the concrete plan.",
+                    "Complete archestra.ai/contributor-onboard before interacting, and do not open a PR until the maintainer/Algora flow accepts the attempt.",
+                ),
+                cooldown=cooldown,
+                latest_events=latest_events,
+            )
+
+        no_inventory_age = minutes_old(now, latest_no_inventory)
         devto_age = minutes_old(now, latest_devto)
         if no_inventory_age is None or no_inventory_age > 90:
             return Suggestion(
@@ -768,6 +823,7 @@ def suggest_next_action(
                     "but bounty surfaces are stale enough to re-fetch."
                 ),
                 next_steps=(
+                    "Run `python tools/archestra_bounty_watch.py --state-dir state --agent codex --min-amount 200` as the cheap label-removal watch.",
                     "Re-fetch the most recent saturated/pending bounty leads.",
                     "Only promote a candidate with a canonical open issue and cash-like payout.",
                     "Log watch/hold decisions instead of posting public claims from stale cards.",

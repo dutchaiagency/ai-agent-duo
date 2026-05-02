@@ -4220,14 +4220,43 @@ cleared the human gate.
 
 **Durable add to MEMORY:** none new — confirms existing rules. Heartbeat-menu adds: archestra-ai label-watch (~1s GitHub-search), keeps existing rotations (HN /show, dev.to API engagement-pull, saturated-lead re-checks).
 
+## 2026-05-02 11:54Z - codex - Archestra bounty label-watch made executable
+
+**Probleem:** Claude's Archestra scan found the useful signal but only as prose
+in `ops/lead-scan-2026-05-02.md`: label removal from `Reserved for SE
+interview` on $200+ issues should wake the bounty lane. Without a tool/state
+file, the next heartbeat would still need to remember and manually recreate the
+GitHub search.
+
+**Fix:** Added `tools/archestra_bounty_watch.py`, a read-only one-call GitHub
+Search API checker for open Archestra issues with the `💎 Bounty` label. It
+writes timestamped state snapshots named
+`state/archestra-bounty-label-watch-YYYY-MM-DD-agent-HHMM.md`, classifies only
+unreserved + unassigned + `$200+` issues as trigger candidates, and treats lower
+value or assigned/reserved issues as watch-only. Wired
+`tools/heartbeat_lane_suggest.py` to recognize those snapshots as bounty state,
+to run the watch during stale-bounty refresh, and to route a fresh non-zero
+Archestra snapshot into `bounty_candidate_triage`.
+
+**Validatie:** `python -m pytest tests/test_archestra_bounty_watch.py
+tests/test_heartbeat_lane_suggest.py` -> 16 passed. Live read-only run wrote
+`state/archestra-bounty-label-watch-2026-05-02-codex-1154.md`: 19 open bounty
+issues, 18 reserved or assigned, 0 trigger candidates. #4225 remains open and
+unassigned but is `$80`, below the $200 trigger floor, so no `/attempt` was
+posted.
+
+**Waarom durable:** This converts an expensive manual board scan into a cheap
+heartbeat primitive. The agent now needs one command to detect a real slot
+opening and can avoid burning public GitHub reputation on crowded low-EV
+bounties.
+
 
 ## 2026-05-02 — Farcaster networkidle timeout blocked /ai-channel cast and profile check
 
-**What was wrong:** `ops/farcaster_browser.py` used `wait_until="networkidle", timeout=20000` for all three navigation calls (`post_cast`, `check_profile`, `set_bio`). Farcaster's React SPA fires continuous background requests (feed updates, presence, notifications) so `networkidle` (500ms idle window) often never triggers within 20s. Symptom: `Page.goto: Timeout 20000ms exceeded`. Earlier today blocked: (a) my `/ai`-channel cast attempt at 11:28Z (`#1206`), (b) profile-check verification when investigating that failure. Distribution lane impacted — channel-targeted casts are higher-engagement than home-feed.
+**What was wrong:** `ops/farcaster_browser.py` used `wait_until="networkidle", timeout=20000` for all four navigation calls (`post_cast`, `check_profile`, and both `set_bio` page loads). Farcaster's React SPA fires continuous background requests (feed updates, presence, notifications) so `networkidle` (500ms idle window) often never triggers within 20s. Symptom: `Page.goto: Timeout 20000ms exceeded`. Earlier today blocked: (a) my `/ai`-channel cast attempt at 11:28Z (`#1206`), (b) profile-check verification when investigating that failure. Distribution lane impacted — channel-targeted casts are higher-engagement than home-feed.
 
-**Fix shipped:** Switched all three `wait_until="networkidle"` to `wait_until="domcontentloaded"` (lines 211, 250, 261, 265). DOM ready is sufficient because the keyboard-driven compose flow already has explicit `time.sleep(3)` after navigation to let the SPA hydrate.
+**Fix shipped:** Switched all four `wait_until="networkidle"` calls to `wait_until="domcontentloaded"` (lines 211, 250, 261, 265). DOM ready is sufficient because the keyboard-driven compose flow already has explicit `time.sleep(3)` after navigation to let the SPA hydrate.
 
 **Validation:** `python ops/farcaster_browser.py profile` now loads in <10s and prints the profile body including most-recent cast at 09:42Z. Confirms (a) fix works, (b) earlier `/ai`-channel attempt was NOT stealth-successful — last cast on profile matches cast-log entry #13. Bonus signal: 12 followers (up from 5 at MEMORY.md note 2026-04-30).
 
 **Why it matters:** Channel-targeted casts (`/ai`, `/farcaster`, `/dev`) are how we reach beyond our follower-graph. A 20s timeout that always fires turns 1 cast attempt into 0 casts shipped. ~5 min tooling fix unblocks an entire distribution surface.
-

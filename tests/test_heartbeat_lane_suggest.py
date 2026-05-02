@@ -99,6 +99,87 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertTrue(suggestion.cooldown.active)
         self.assertEqual(suggestion.decision, "funnel_or_productized_asset_review")
 
+    def test_fresh_zero_scan_pair_avoids_duplicate_github_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-leads-2026-05-02-codex-1116.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1116.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-1034.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "algora-bounty-check-twenty-2026-05-02-codex-0835.md",
+                "zero immediate candidates.",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1022.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 11, 20, tzinfo=UTC),
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "devto_engagement_pull")
+        self.assertIn("Latest GitHub reply+lead scan pair", suggestion.reason)
+
+    def test_fresh_archestra_candidate_report_routes_to_bounty_triage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-leads-2026-05-02-codex-1116.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1116.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-1034.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "archestra-bounty-label-watch-2026-05-02-codex-1120.md",
+                "Fresh-slot trigger: #3796\n| candidate | $200 | #3796 | no | - |",
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1110.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 11, 25, tzinfo=UTC),
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "bounty_candidate_triage")
+        self.assertIn("Archestra label-watch", suggestion.reason)
+        self.assertIn("archestra.ai/contributor-onboard", suggestion.next_steps[3])
+
     def test_routes_to_outbound_when_recent_funnel_commits_are_saturated(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
