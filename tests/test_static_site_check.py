@@ -131,6 +131,42 @@ class StaticSiteCheckTests(unittest.TestCase):
             findings,
         )
 
+    def test_reports_internal_cta_missing_source_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(
+                root / "index.html",
+                """<html><head>
+<link rel="canonical" href="https://dutchaiagency.github.io/ai-agent-duo/" />
+</head><body>
+<a href="playbook/" data-cta="playbook" data-cta-source="site-runway">playbook</a>
+</body></html>""",
+            )
+            write(root / "playbook/index.html", "<html><body></body></html>")
+            write(root / "sitemap.xml", SITEMAP)
+
+            findings = check_site(root, public_pages=(Path("index.html"),))
+
+        self.assertIn("cta_source_mismatch", [finding.code for finding in findings])
+
+    def test_reports_internal_cta_wrong_source_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(
+                root / "index.html",
+                """<html><head>
+<link rel="canonical" href="https://dutchaiagency.github.io/ai-agent-duo/" />
+</head><body>
+<a href="playbook/?source=site-hero" data-cta="playbook" data-cta-source="site-runway">playbook</a>
+</body></html>""",
+            )
+            write(root / "playbook/index.html", "<html><body></body></html>")
+            write(root / "sitemap.xml", SITEMAP)
+
+            findings = check_site(root, public_pages=(Path("index.html"),))
+
+        self.assertIn("cta_source_mismatch", [finding.code for finding in findings])
+
     def test_reports_sitemap_missing_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

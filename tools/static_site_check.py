@@ -8,7 +8,7 @@ import sys
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 from xml.etree import ElementTree
 
 
@@ -17,6 +17,7 @@ PUBLIC_HTML_PAGES = (
     Path("index.html"),
     Path("writing/index.html"),
     Path("longform/survival-experiment.html"),
+    Path("longform/six-ways-our-four-agent-system-tried-to-lie-to-itself.html"),
     Path("playbook/index.html"),
 )
 LOCAL_ATTRS = {
@@ -50,12 +51,21 @@ class LinkRef:
     line: int
 
 
+@dataclass(frozen=True)
+class TrackedCta:
+    source: Path
+    href: str
+    cta_source: str
+    line: int
+
+
 class SiteHTMLParser(HTMLParser):
     def __init__(self, source: Path) -> None:
         super().__init__(convert_charrefs=True)
         self.source = source
         self.ids: set[str] = set()
         self.links: list[LinkRef] = []
+        self.tracked_ctas: list[TrackedCta] = []
         self.canonical: str | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -85,6 +95,16 @@ class SiteHTMLParser(HTMLParser):
                         self.getpos()[0],
                     )
                 )
+
+        if tag.lower() == "a" and "href" in values and "data-cta-source" in values:
+            self.tracked_ctas.append(
+                TrackedCta(
+                    self.source,
+                    values["href"],
+                    values["data-cta-source"],
+                    self.getpos()[0],
+                )
+            )
 
         if tag.lower() == "link" and values.get("rel", "").lower() == "canonical":
             self.canonical = values.get("href")
@@ -159,6 +179,27 @@ def resolve_local_target(root: Path, source: Path, value: str, base_url: str) ->
     if value.endswith("/") or raw_path.endswith("/") or candidate.suffix == "":
         candidate = candidate / "index.html"
     return candidate.resolve()
+
+
+def should_source_tag_cta(value: str, base_url: str) -> bool:
+    parts = urlsplit(value)
+    if parts.scheme in IGNORED_SCHEMES:
+        return False
+
+    relative = site_relative_path(value, base_url)
+    if relative is not None:
+        raw_path, fragment = relative
+        return bool(raw_path or not fragment)
+
+    return (
+        parts.netloc == "github.com"
+        and parts.path == "/dutchaiagency/ai-agent-duo/issues/new"
+    )
+
+
+def has_source_tag(value: str, expected: str) -> bool:
+    query = parse_qs(urlsplit(value).query)
+    return expected in query.get("source", [])
 
 
 def safe_relative(path: Path, root: Path) -> Path:
@@ -277,6 +318,22 @@ def check_site(
                             f"line {link.line}: {link.value!r} targets missing #{fragment} in {target_rel}",
                         )
                     )
+
+        for cta in parser.tracked_ctas:
+            if not should_source_tag_cta(cta.href, base_url):
+                continue
+            if has_source_tag(cta.href, cta.cta_source):
+                continue
+            findings.append(
+                Finding(
+                    "cta_source_mismatch",
+                    rel_path,
+                    (
+                        f"line {cta.line}: data-cta-source={cta.cta_source!r} "
+                        f"requires href source={cta.cta_source!r}, got {cta.href!r}"
+                    ),
+                )
+            )
 
     return findings
 
