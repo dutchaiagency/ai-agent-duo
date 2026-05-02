@@ -98,6 +98,15 @@ python tools/intake_link.py --repo owner/repo --issue 123 --date 2026-04-30
 python tools/intake_link.py devto-longform-2026-04-30 --target site
 ```
 
+## Static Site Check
+
+The public site has a small dependency-free check for local link targets,
+fragment anchors, and sitemap coverage for canonical public pages.
+
+```bash
+python tools/static_site_check.py
+```
+
 ## X/Twitter Snowflake Check
 
 Use the snowflake checker to sanity-check claimed X/Twitter status URLs before
