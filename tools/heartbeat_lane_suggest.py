@@ -44,6 +44,7 @@ BOUNTY_ZERO_TERMS = (
     "zero immediate candidates",
     "no immediately executable cash bounty",
     "zero executable candidates",
+    "zero higher-than-low candidates",
     "watch/hold",
 )
 DEVTO_ZERO_TERMS = (
@@ -185,6 +186,7 @@ def event_kind(path: Path) -> str | None:
     if (
         name.startswith("algora-bounty-check-")
         or name.startswith("archestra-bounty-label-watch-")
+        or name.startswith("github-bounty-priority-scan-")
         or name.startswith("opire-featured-bounty-check-")
         or name.startswith("paid-bounty-scout-")
     ):
@@ -837,6 +839,31 @@ def suggest_next_action(
                     "Verify the issue is still unreserved, unassigned, and above the cash floor.",
                     "Read the touched code and draft the failing-test path; only then post `/attempt` with the concrete plan.",
                     "Complete archestra.ai/contributor-onboard before interacting, and do not open a PR until the maintainer/Algora flow accepts the attempt.",
+                ),
+                cooldown=cooldown,
+                latest_events=latest_events,
+            )
+
+        if (
+            latest_bounty is not None
+            and latest_bounty.path.name.startswith("github-bounty-priority-scan-")
+            and not latest_bounty.zero_signal
+            and bounty_age is not None
+            and 0 <= bounty_age <= 240
+        ):
+            return Suggestion(
+                decision="priority_bounty_gate_triage",
+                reason=(
+                    f"{cooldown.reason} Latest GitHub bounty priority scan "
+                    f"`{latest_bounty.path.as_posix()}` found higher-than-low "
+                    "priority candidates, so any new bounty-shopping should "
+                    "triage priority before topic fit."
+                ),
+                next_steps=(
+                    "Open the priority scan and inspect high-priority candidates before medium or low-priority work.",
+                    "Re-verify the selected issue is still open, labeled bounty, and not already in-review/claimed.",
+                    "Check project-specific publication or human-review gates before drafting or posting.",
+                    "Only claim or submit after a manual code/doc read produces a concrete plan and no disqualifying AI-content rule applies.",
                 ),
                 cooldown=cooldown,
                 latest_events=latest_events,

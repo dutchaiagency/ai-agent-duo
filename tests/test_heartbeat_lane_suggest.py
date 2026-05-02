@@ -276,6 +276,64 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertIn("Archestra label-watch", suggestion.reason)
         self.assertIn("archestra.ai/contributor-onboard", suggestion.next_steps[3])
 
+    def test_fresh_github_priority_scan_routes_to_priority_gate_triage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-leads-2026-05-02-codex-1410.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-02-codex-1410.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-02-codex-1350.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "github-bounty-priority-scan-2026-05-02-codex-1412.md",
+                (
+                    "Higher-than-low candidates: 2\n"
+                    "Result: priority candidates present; triage priority before topic fit."
+                ),
+            )
+            write(
+                state / "devto-engagement-2026-05-02-codex-1400.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 14, 15, tzinfo=UTC),
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "priority_bounty_gate_triage")
+        self.assertIn("priority before topic fit", suggestion.reason)
+        self.assertIn("human-review gates", suggestion.next_steps[2])
+
+    def test_low_only_github_priority_scan_is_zero_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "state" / "github-bounty-priority-scan-2026-05-02-codex-1412.md"
+            write(
+                path,
+                "Result: zero higher-than-low candidates; low/unprioritized bounty work is watch/hold.",
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertTrue(event.zero_signal)
+
     def test_routes_to_outbound_when_recent_funnel_commits_are_saturated(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
