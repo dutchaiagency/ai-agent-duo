@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -44,6 +45,15 @@ DEVTO_ZERO_TERMS = (
     "total reactions: 0",
     "total comments: 0",
 )
+FUNNEL_PATH_PREFIXES = ("playbook/", "longform/")
+FUNNEL_SATURATION_COMMITS = 4
+FUNNEL_SATURATION_WINDOW = timedelta(minutes=60)
+
+
+@dataclass(frozen=True)
+class CommitTouch:
+    at: datetime
+    files: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -218,7 +228,106 @@ def minutes_old(now: datetime, event: StateEvent | None) -> float | None:
     return (now - event.at).total_seconds() / 60
 
 
-def suggest_next_action(events: list[StateEvent], ops_dir: Path, now: datetime) -> Suggestion:
+def normalize_commit_path(value: str) -> str:
+    return value.replace("\\", "/").lstrip("./")
+
+
+def parse_git_log(output: str) -> tuple[CommitTouch, ...]:
+    commits: list[CommitTouch] = []
+    current_at: datetime | None = None
+    current_files: list[str] = []
+
+    def flush() -> None:
+        nonlocal current_at, current_files
+        if current_at is not None:
+            commits.append(
+                CommitTouch(
+                    at=current_at,
+                    files=tuple(
+                        path
+                        for path in (normalize_commit_path(item) for item in current_files)
+                        if path
+                    ),
+                )
+            )
+        current_at = None
+        current_files = []
+
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if line.startswith("COMMIT "):
+            flush()
+            try:
+                current_at = datetime.fromtimestamp(int(line.removeprefix("COMMIT ")), UTC)
+            except ValueError:
+                current_at = None
+            continue
+        if current_at is not None and line:
+            current_files.append(line)
+    flush()
+    return tuple(commits)
+
+
+def load_recent_commits(
+    repo_dir: Path,
+    *,
+    count: int = FUNNEL_SATURATION_COMMITS,
+) -> tuple[CommitTouch, ...]:
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_dir),
+                "log",
+                f"-n{count}",
+                "--name-only",
+                "--pretty=format:COMMIT %ct",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return ()
+    return parse_git_log(result.stdout)
+
+
+def funnel_saturation_reason(
+    recent_commits: tuple[CommitTouch, ...],
+    now: datetime,
+    *,
+    count: int = FUNNEL_SATURATION_COMMITS,
+    window: timedelta = FUNNEL_SATURATION_WINDOW,
+) -> str | None:
+    inspected = recent_commits[:count]
+    if len(inspected) < count:
+        return None
+    if any(now - commit.at > window or commit.at > now for commit in inspected):
+        return None
+    if not all(
+        any(path.startswith(FUNNEL_PATH_PREFIXES) for path in commit.files)
+        for commit in inspected
+    ):
+        return None
+
+    oldest = inspected[-1].at
+    minutes = int((now - oldest).total_seconds() // 60)
+    return (
+        f"The last {count} commits inside {minutes} minutes all touched "
+        "playbook/ or longform/, so more funnel polish is saturated until "
+        "fresh traffic or engagement arrives."
+    )
+
+
+def suggest_next_action(
+    events: list[StateEvent],
+    ops_dir: Path,
+    now: datetime,
+    recent_commits: tuple[CommitTouch, ...] = (),
+) -> Suggestion:
     cooldown = github_cooldown_status(events, now)
     latest_lead = latest(events, "github_leads")
     latest_reply = latest(events, "github_replies")
@@ -303,6 +412,19 @@ def suggest_next_action(events: list[StateEvent], ops_dir: Path, now: datetime) 
                 cooldown=cooldown,
                 latest_events=latest_events,
             )
+        saturation_reason = funnel_saturation_reason(recent_commits, now)
+        if saturation_reason:
+            return Suggestion(
+                decision="outbound_traffic_generation",
+                reason=f"{cooldown.reason} {saturation_reason}",
+                next_steps=(
+                    "Run one targeted traffic action before another playbook or longform polish commit.",
+                    "Use a distinct Farcaster, GitHub, dev.to, or HN angle with a source-tagged playbook/longform link.",
+                    "Log the channel, URL, and early engagement signal in ops/ or state/ for the next heartbeat.",
+                ),
+                cooldown=cooldown,
+                latest_events=latest_events,
+            )
         return Suggestion(
             decision="funnel_or_productized_asset_review",
             reason=(
@@ -374,6 +496,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state-dir", type=Path, default=Path("state"))
     parser.add_argument("--ops-dir", type=Path, default=Path("ops"))
+    parser.add_argument("--repo-dir", type=Path, default=Path("."))
     parser.add_argument(
         "--now",
         help="Override current UTC time for tests, for example 2026-05-02T09:17Z.",
@@ -385,7 +508,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     now = normalize_now(args.now)
     events = load_events(args.state_dir)
-    suggestion = suggest_next_action(events, args.ops_dir, now)
+    recent_commits = load_recent_commits(args.repo_dir)
+    suggestion = suggest_next_action(events, args.ops_dir, now, recent_commits)
     print(format_suggestion(suggestion, now), end="")
     return 0
 
