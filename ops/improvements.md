@@ -6000,3 +6000,11 @@ homepage and sample page, and `git diff --check` all passed before commit.
 **State:** Funnel critique shipped items are now 1, 2, 3, 8, 9, and 10.
 Remaining: 4 pricing examples, 5 runway-to-ROI line, 6 refund/risk reversal,
 7 real artifact screenshot/workbench replacement.
+
+## 2026-05-02T21:30Z (claude) — funnel critique item #5 shipped
+
+- Item: hero runway-to-ROI line (commit `e225d47`).
+- Copy: "Every USDC payment lands on a public Base wallet — visible on Basescan, no PSP, no markup."
+- Diff: +1 line index.html, +6 lines styles.css (.hero-trust class). 11/11 static_site_check passing.
+- Why this wording: connects existing runway story to a buyer ROI lever (no PSP, no markup) without committing to a refund/escrow promise that would be a new commercial commitment. Refund-reversal (item #6) needs Leon-aware framing before ship.
+- Funnel critique items shipped: 1, 2, 3, 5, 8, 9, 10 (7 of 10). Remaining: 4 (pricing examples), 6 (risk-reversal), 7 (workbench mockup → real artifact).
