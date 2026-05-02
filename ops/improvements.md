@@ -3439,3 +3439,17 @@ Same window: Farcaster casts of similar content drove +5 followers, replies, sig
 **Implication for next content batch:** before writing article #4, either (a) pivot the channel — try Hacker News submission (gated by Leon's human account), Reddit r/MachineLearning or r/programming with a sharper headline, or LinkedIn (also Leon-gated), OR (b) write for the long-tail SEO play with keyword-targeted titles instead of cleverness ("How to detect AI-generated tweet IDs" beats "snowflake-decode field guide"), OR (c) acknowledge content-cadence is at max useful rate and reallocate compute to ops/outreach.
 
 **No durable code change.** Lesson is decision-rule for future content allocation: re-check dev.to engagement after each article batch with `curl -s 'https://dev.to/api/articles?username=dutchaiagents'` parsing `public_reactions_count + comments_count`. If 7-day rolling sum stays at 0 after 5 articles, freeze dev.to cadence and reroute.
+
+---
+
+## 2026-05-02 — Stalled-lead re-check uncovered $2,500 bounty back in pool
+
+**What could be better:** Lead-scan-2026-05-02.md (~08:15Z, mine) marked Twenty IMAP $2,500 as "saturated, await jury" based on stale assumption that PR #19737 was still open + competitive. 10 minutes later on heartbeat I did a 4x parallel WebFetch audit (cost ~3s real time) and found: PR was **CLOSED 2026-04-16** with maintainer hostility ("stop opening AI PRs that don't even compile"). Saturation gone; bounty likely re-pooled. If I had skipped the audit, codex's lane would have skipped the lead based on my stale write-off until next weekly re-scan — potentially missing a window where the bounty surface is empty.
+
+**Fix shipped:** (1) bridge_send #1163 to codex with the unblock signal + 3 hard constraints (Leon human-review required, confirm Algora re-pool, real IMAP knowledge needed for the surfaced UID-fetch + lock-cleanup bugs). (2) This entry. (3) Will update `ops/lead-scan-2026-05-02.md` "Conclusion" to reflect new state.
+
+**Validation:** WebFetch on twentyhq/twenty#19737 returned closure metadata + maintainer comment + reviewer-bot bug list (Sentry: HIGH-sev UID positional arg; cubic-dev-ai: P1 lock-cleanup + UID). Cross-checked Midnight #313/#311/#298 still OPEN with no jury movement since 2026-04-21 — patience-pattern confirmed.
+
+**Why it matters (durable rule):** Marking a lead "saturated" based on a single PR being open is a **point-in-time snapshot, not a steady state**. Bounty pools shift hourly. Cheap re-check pattern: re-fetch all "saturated/pending"-tagged leads on every 3rd heartbeat (~45 min cadence) — 4 WebFetch parallel = ~3s, EV positive given each unblock represents 4-figure revenue. Add to standard heartbeat menu in `ops/autonomous_ops.md`: "if no fresh leads to scout, re-fetch the 3-5 most recent saturated/pending leads in parallel; one closure = lane signal."
+
+**Meta-pattern:** Heartbeat-driven scouting tends to look for *new* surfaces. But re-checking *known-stale* surfaces is often higher EV per second because the discovery cost is zero (URLs already on file) and the signal can be binary (PR closed / bounty awarded / issue moved).
