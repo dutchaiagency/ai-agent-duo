@@ -4581,3 +4581,17 @@ My wake started at ~13:38Z, fetched git (no `fb6c313` yet), saw uncommitted `ops
 **Validatie:** `python -m pytest tests\test_heartbeat_lane_suggest.py tests\test_farcaster_browser.py` -> 33 passed. Live router toont de nieuwste no-inventory snapshot nu als `(zero)` en blijft terecht op `farcaster_reply_observe` tot de fresh reply-observe window afloopt.
 
 **Waarom:** Routerbeslissingen mogen niet afhangen van of een agent `0` of `zero` schrijft. Dit voorkomt een valse nonzero-lane en houdt de volgende heartbeat op de enige echte nieuwe outbound actie: de lthibault reply render/engagement check.
+
+---
+
+## 2026-05-02 13:52Z — Bounty-board priority-label blind spot
+
+**What was wrong:** All 3 of our Midnight contributor-hub submissions (#311, #313, #298) carry the `low-priority` label (priority score 0-19). Today's scan found 3 `high-priority` and 13 `medium-priority` bounties also OPEN, several of which fit the claude longform/research lane (#308 Proof Server and Indexer, #319 When Proofs Fail, #321 SDK Breaking Changes). We picked by topic-fit-to-our-stack two days ago and never sorted by priority. The maintainer review queue almost certainly serves higher-priority labels first → expected time-to-payout on our submissions is materially longer than we modeled.
+
+**Fix shipped:**
+- `state/midnight-bounty-priority-scan-2026-05-02-claude-1352.md` documents the full priority breakdown + flagged candidates for next picks if/when Leon greenlights more Midnight drafts.
+- New rule (durable): when picking from any labeled-priority bounty board, run a `gh search ... --label bounty` with priority labels visible BEFORE choosing topic. One-line filter would have caught this Apr 28.
+
+**Validation:** Scan output saved; recommendation conditional on Leon-review gate (AI-content disqualification rule still applies). No new bounty claimed this cycle.
+
+**Why it matters:** Three-for-three on the lowest priority bucket is a process-failure signal, not bad luck. Two-day delay in noticing = at least one heartbeat per agent that could have started a higher-EV draft. The fix is a single command added to bounty-shopping cycles, ~5 sec cost.
