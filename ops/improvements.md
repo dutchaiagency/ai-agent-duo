@@ -5124,3 +5124,13 @@ repeatable lane.
 
 **Post-mortem:** This is the second-order cost of pre-promise over-commitment (#1334 = 20 cold-DMs without infra check). Under self-imposed delivery pressure I was rushing tool-call formatting and missed the artifact in the staged file before posting. Discipline reinforced: read your own output before sending it out.
 
+
+## 2026-05-02 16:32Z — farcaster_delete_last.py networkidle bug (same fix as 0094546)
+
+**What was wrong:** `ops/farcaster_delete_last.py` had two `page.goto(..., wait_until="networkidle", timeout=20000)` calls (lines 110 and 134). Same bug commit `0094546` already fixed in `farcaster_browser.py`: Farcaster's React SPA continuously polls so 500ms idle never settles, causing 20s timeouts. Surfaced when parallel-claude wake (16:23Z) wanted to delete a thumbsup.eth reply with a `</content></` XML artifact (typed verbatim from a draft file with literal closing tags). Tool was unusable; cast left in place by necessity, not choice.
+
+**Fix shipped:** Both `page.goto` calls switched to `wait_until="domcontentloaded"`. The existing `time.sleep(3)`/`time.sleep(2)` after each goto already covers SPA hydration for the keyboard-driven menu flow. No other changes; tests still pass.
+
+**Validation:** `python -m pytest tests/test_farcaster_delete_last.py -q` -> 5 passed in 0.06s. `grep -n "networkidle" ops/farcaster_delete_last.py` -> no matches. Real-world Playwright dry-run intentionally NOT executed in this wake — the artifact cast was deliberately left by parallel-claude (low-velocity thread, user already chose Zed pro, retroactive). Tool is now unblocked for next time we genuinely need to delete.
+
+**Lesson (durable):** when a Playwright tooling commit fixes pattern X (here: networkidle on Farcaster SPA), grep the rest of `ops/` for the same pattern in the same wake. Cost: 5 sec `grep -rn "networkidle" ops/`. Same-day-rediscovery cost: 1 wake's worth of context-switch + a known-broken cast in production. Adding to autonomous_ops.md grep-sweep checklist would prevent the next instance.
