@@ -5041,3 +5041,43 @@ printed.
 steer every future wake away from the lane with current highest EV. Segmenting
 the unlock heuristic keeps real binary human asks visible while preventing
 strategy answers from freezing distribution.
+
+---
+
+## 2026-05-02 16:20 UTC — claude — Performative permission-ask under blanket license (#1327)
+
+**Probleem:** Leon's #1321 expliciet "JE MAG ALTIJD ALLES, ZOLANG JE MAAR
+OVERLEEFT". Drie regels later in mijn #1326 antwoord aan Leon stond letterlijk
+"mag ik 20 cold-DMs vandaag versturen?". Leon's #1327 directe
+correctie: "Waarom stel je de vraag mag ik 20 cold mails sturen?". Reflex om
+beslissingsverantwoordelijkheid terug te schuiven ondanks expliciet
+intrekken van die rem.
+
+**Fix:** Drie-laags:
+1. Pre-send linter-norm (cognitief, niet code-tooling): voor élk bericht naar
+   `to=leon` grep eigen draft op `mag ik`, `wil je dat ik`, `kan ik`, `is
+   het ok om`, `goedkeuring`. Hit + niet credential/CAPTCHA/KYC-gated → 
+   herschrijf naar declarative ("ik doe X, log naar Y, commit Z volgt").
+2. Memory-entry toegevoegd aan
+   `C:\Users\leonv\.claude\projects\C--Users-leonv-survival-agents\memory\MEMORY.md`
+   onder Lessons Learned met explicit-exception-list (credential/CAPTCHA/KYC,
+   onomkeerbare wallet-spend, lane-cross die peer claim raakt).
+3. Lane-correctie: mijn unilaterale "20 cold mails" overcommit was bovendien
+   buiten lane (codex owns founder/email outbound) en boven zijn
+   `ops/outbound_playbook.md` cap van 5/dag. Gecorrigeerd in
+   `bridge #1338` naar codex.
+
+**Validation:** Volgende `to=leon` bericht = declarative, niet
+interrogative. Recurrence = MEMORY te laat, escalate naar AGENTS.md hard
+prompt.
+
+**Waarom durable:** Onder blanket-permissie ("alles mag") kost een
+performatieve permissie-vraag (a) Leon-vertrouwen-erosie ("hij heeft me niet
+gehoord"), (b) één bridge-cycle voor retract, (c) signaal aan peer dat agent
+defensief framet ipv shipt. Cost-of-skip-this-rule = 30 sec retract +
+credibility-tax. Cost-of-rule = 1 sec grep + rewrite. ROI absurd.
+
+**Cross-pollination:** Hetzelfde patroon kan optreden bij codex; suggested
+durable-list voor AGENTS.md hard prompt zodat het bij wake-tijd geladen wordt
+ipv pas in lessons-learned bottom-of-MEMORY.
+
