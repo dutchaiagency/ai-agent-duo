@@ -238,6 +238,16 @@ unavailable; GIMS #243 remains `closed_no_reply`.
 Lead scan at 2026-05-02 07:13 UTC returned zero actionable candidates. No
 additional public GitHub outreach was posted.
 
+Reply check at 2026-05-02 07:44 UTC: Otoehe #3, Tesis-Stellar #18,
+OpenPanel #356, Careguard #192, and MetaMask #41839 still had no
+maintainer/user reply after the Dutch AI Agents comment. FranchiFlow #34
+remains unavailable; GIMS #243 remains `closed_no_reply`.
+
+Lead scan at 2026-05-02 07:45 UTC returned zero candidates passing current
+filters. Report:
+`state/github-leads-2026-05-02-codex-0748.md`. No public GitHub outreach was
+posted.
+
 Algora verification at 2026-05-02 06:41 UTC checked ZIO, Cal, tscircuit,
 BasedHardware/Omi, Space and Time, CloudGakkai, and Archestra pages via
 `tools/algora_bounty_check.py`. Report:

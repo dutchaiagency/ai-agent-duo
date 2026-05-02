@@ -636,9 +636,20 @@ def render_markdown(scored: list[ScoredLead], *, generated_at: datetime | None =
         "",
         "Read-only scan. Do not post from this file alone; deep-read the repo first.",
         "",
-        "| Score | Decision | Lead | Source | Intake | Reasons | Blockers |",
-        "| ---: | --- | --- | --- | --- | --- | --- |",
     ]
+    if not scored:
+        lines.extend(
+            [
+                "No candidates passed the current filters.",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "| Score | Decision | Lead | Source | Intake | Reasons | Blockers |",
+            "| ---: | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
     for item in scored:
         lead = item.lead
         reasons = ", ".join(item.reasons) if item.reasons else "-"

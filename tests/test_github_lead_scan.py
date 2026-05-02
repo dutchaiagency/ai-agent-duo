@@ -570,6 +570,15 @@ class GitHubLeadScanTests(unittest.TestCase):
 
         self.assertIn("Fix A \\| B", markdown)
 
+    def test_markdown_empty_scan_is_explicit(self) -> None:
+        markdown = render_markdown([], generated_at=NOW)
+
+        self.assertIn("No candidates passed the current filters.", markdown)
+        self.assertIn(
+            "| Score | Decision | Lead | Source | Intake | Reasons | Blockers |",
+            markdown,
+        )
+
     def test_markdown_includes_source_tagged_intake_link(self) -> None:
         lead = Lead(
             query="q",
