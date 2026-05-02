@@ -966,6 +966,18 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
                     "status: tests passed, no action needed.",
                 ),
             )
+            con.execute(
+                "INSERT INTO messages (ts, from_agent, to_agent, body, read) VALUES (?, ?, ?, ?, 1)",
+                (
+                    (now - timedelta(minutes=5)).isoformat(),
+                    "claude",
+                    "leon",
+                    (
+                        "Payment-rail/KYC gate is a future bottleneck, not a live unlock. "
+                        "Wil je dat ik harder push op outbound, product, of bounty?"
+                    ),
+                ),
+            )
             con.commit()
             con.close()
 
@@ -974,6 +986,21 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(len(asks), 1)
         self.assertEqual(asks[0].from_agent, "claude")
         self.assertIn("Show HN", asks[0].excerpt)
+
+    def test_channel_unlock_ask_requires_direct_request_segment(self) -> None:
+        self.assertTrue(
+            lane.is_channel_unlock_ask(
+                "Wil je 1x Show HN submit doen? HN account unlock is gated."
+            )
+        )
+        self.assertFalse(
+            lane.is_channel_unlock_ask(
+                (
+                    "KYC rails would be negative EV if abused. "
+                    "Wil je dat ik harder push op outbound, product, of bounty?"
+                )
+            )
+        )
 
     def test_routes_to_devto_when_engagement_snapshot_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

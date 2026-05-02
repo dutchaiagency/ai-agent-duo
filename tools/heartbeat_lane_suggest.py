@@ -106,13 +106,9 @@ CHANNEL_ASK_TERMS = (
     "kun je",
     "can you",
     "could you",
-    "ask",
-    "nodig",
-    "vereist",
-    "gated",
-    "blocked",
-    "blokker",
-    "submit",
+    "please",
+    "pls",
+    "need you to",
 )
 FUNNEL_PATH_PREFIXES = ("playbook/", "longform/")
 FUNNEL_SATURATION_COMMITS = 4
@@ -802,7 +798,13 @@ def recent_channel_scout_reason(
 
 def is_channel_unlock_ask(text: str) -> bool:
     lower = text.lower()
-    return has_any(lower, CHANNEL_UNLOCK_TERMS) and has_any(lower, CHANNEL_ASK_TERMS)
+    segments = [segment.strip() for segment in re.split(r"[\r\n.!?;]+", lower)]
+    return any(
+        segment
+        and has_any(segment, CHANNEL_UNLOCK_TERMS)
+        and has_any(segment, CHANNEL_ASK_TERMS)
+        for segment in segments
+    )
 
 
 def bridge_ask_excerpt(text: str, max_chars: int = 180) -> str:
