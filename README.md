@@ -101,8 +101,8 @@ python tools/intake_link.py devto-longform-2026-04-30 --target site
 ## Static Site Check
 
 The public site has a small dependency-free check for local link targets,
-fragment anchors, sitemap URL targets, and sitemap coverage for canonical
-public pages.
+social preview image targets, fragment anchors, sitemap URL targets, and sitemap
+coverage for canonical public pages.
 
 ```bash
 python tools/static_site_check.py

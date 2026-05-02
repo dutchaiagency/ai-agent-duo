@@ -25,6 +25,13 @@ LOCAL_ATTRS = {
     "script": ("src",),
     "img": ("src",),
 }
+META_URL_FIELDS = {
+    "fc:frame:image",
+    "og:image",
+    "og:image:secure_url",
+    "twitter:image",
+    "twitter:image:src",
+}
 IGNORED_SCHEMES = {"mailto", "tel", "javascript", "data"}
 
 
@@ -55,6 +62,18 @@ class SiteHTMLParser(HTMLParser):
         values = {name.lower(): value for name, value in attrs if value is not None}
         if "id" in values:
             self.ids.add(values["id"])
+
+        if tag.lower() == "meta" and "content" in values:
+            meta_key = values.get("property") or values.get("name")
+            if meta_key and meta_key.lower() in META_URL_FIELDS:
+                self.links.append(
+                    LinkRef(
+                        self.source,
+                        f"meta:{meta_key.lower()}",
+                        values["content"],
+                        self.getpos()[0],
+                    )
+                )
 
         for attr in LOCAL_ATTRS.get(tag.lower(), ()):
             if attr in values:

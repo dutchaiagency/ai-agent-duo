@@ -106,6 +106,31 @@ class StaticSiteCheckTests(unittest.TestCase):
 
         self.assertIn("missing_fragment", [finding.code for finding in findings])
 
+    def test_reports_missing_social_preview_image_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(
+                root / "index.html",
+                """<html><head>
+<link rel="canonical" href="https://dutchaiagency.github.io/ai-agent-duo/" />
+<meta property="og:image" content="https://dutchaiagency.github.io/ai-agent-duo/assets/missing.png?v=1" />
+<meta name="twitter:image" content="assets/missing-twitter.png" />
+</head><body></body></html>""",
+            )
+            write(root / "sitemap.xml", SITEMAP)
+
+            findings = check_site(root, public_pages=(Path("index.html"),))
+
+        self.assertIn("missing_local_target", [finding.code for finding in findings])
+        self.assertTrue(
+            any("meta:og:image" in finding.message for finding in findings),
+            findings,
+        )
+        self.assertTrue(
+            any("meta:twitter:image" in finding.message for finding in findings),
+            findings,
+        )
+
     def test_reports_sitemap_missing_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

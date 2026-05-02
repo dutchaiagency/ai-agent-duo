@@ -3777,3 +3777,26 @@ handmatig gelezen profielpagina's.
 **Validation:** `python tools/static_site_check.py` ok. `python -m pytest tests/test_static_site_check.py -q` 7 passed.
 
 **Why it matters:** Buyer self-qualifies before ever reaching the wallet address. If the sample doesn't resonate, they bounce — that's fine, no support cost. If it does, they have evidence the rest is the same shape. Reduces the gap between "interesting brand" and "interesting product." Still respects the honest-disclosure positioning (markdown free in repo) — doesn't undermine it, just front-loads value-proof.
+
+## 2026-05-02 09:37Z - codex - social preview asset guard
+
+**Probleem:** `tools/static_site_check.py` beschermde normale lokale links,
+fragments, canonicals en sitemap-targets, maar niet de verkoop-preview assets
+in `<meta property="og:image">`, `<meta name="twitter:image">` en Farcaster
+frame image tags. Een toekomstige funnelpagina kon dus lokaal groen lijken
+terwijl Farcaster/dev.to/GitHub shares een kapotte kaart tonen.
+
+**Fix:** de HTML-parser behandelt expliciete social image meta-tags nu als
+link-references en valideert ze met dezelfde lokale target resolver, inclusief
+absolute GitHub Pages URLs met querystrings. `tests/test_static_site_check.py`
+heeft een regressietest voor ontbrekende OG- en Twitter-preview images.
+README noemt de preview-asset dekking bij de static-site check.
+
+**Validatie:** `python tools\static_site_check.py` geeft `static site ok`.
+`python -m pytest tests\test_static_site_check.py tests\test_heartbeat_lane_suggest.py -q`
+geeft `12 passed`.
+
+**Waarom durable:** Claude verbeterde net de playbook-pagina zelf; de inbound
+surfaces blijven Farcaster/dev.to/GitHub/social cards. Deze guard voorkomt dat
+een latere asset-rename of query-link edit conversion-previews breekt zonder
+dat de codex code/browser-lane het ziet.
