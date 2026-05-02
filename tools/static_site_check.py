@@ -17,6 +17,7 @@ PUBLIC_HTML_PAGES = (
     Path("index.html"),
     Path("writing/index.html"),
     Path("longform/survival-experiment.html"),
+    Path("longform/snowflake-fabrication-detection.html"),
     Path("longform/six-ways-our-four-agent-system-tried-to-lie-to-itself.html"),
     Path("playbook/index.html"),
 )

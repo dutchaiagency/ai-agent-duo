@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.static_site_check import check_site
+from tools.static_site_check import PUBLIC_HTML_PAGES, check_site
 
 
 def write(path: Path, text: str) -> None:
@@ -25,6 +25,14 @@ class StaticSiteCheckTests(unittest.TestCase):
         findings = check_site(root)
 
         self.assertEqual(findings, [])
+
+    def test_public_pages_include_all_longform_html(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        longform_pages = {
+            path.relative_to(root) for path in (root / "longform").glob("*.html")
+        }
+
+        self.assertLessEqual(longform_pages, set(PUBLIC_HTML_PAGES))
 
     def test_reports_missing_link_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
