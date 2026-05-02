@@ -81,6 +81,7 @@ CHANNEL_ASK_TERMS = (
 FUNNEL_PATH_PREFIXES = ("playbook/", "longform/")
 FUNNEL_SATURATION_COMMITS = 4
 FUNNEL_SATURATION_WINDOW = timedelta(minutes=60)
+PRODUCTIZED_REVIEW_FRESH_WINDOW = timedelta(minutes=90)
 FARCASTER_COOLDOWN = timedelta(minutes=30)
 CHANNEL_UNLOCK_ASK_WINDOW = timedelta(hours=6)
 PAGE_TRAFFIC_BOT_BASELINE_7D = 210
@@ -185,6 +186,8 @@ def event_kind(path: Path) -> str | None:
         return "bounty"
     if name.startswith("devto-engagement-"):
         return "devto_engagement"
+    if name.startswith("productized-asset-review-"):
+        return "productized_review"
     return None
 
 
@@ -723,6 +726,7 @@ def suggest_next_action(
     latest_no_inventory = latest(events, "no_inventory")
     latest_bounty = latest(events, "bounty")
     latest_devto = latest(events, "devto_engagement")
+    latest_productized = latest(events, "productized_review")
     deadline = parse_deadline(ops_dir)
     latest_events = tuple(
         event
@@ -732,6 +736,7 @@ def suggest_next_action(
             latest_no_inventory,
             latest_bounty,
             latest_devto,
+            latest_productized,
         )
         if event is not None
     )
@@ -842,6 +847,42 @@ def suggest_next_action(
                     "Run tools/devto_engagement_check.py --state-dir state --agent codex.",
                     "Record per-post reactions/comments in state/devto-engagement-YYYY-MM-DD-codex-HHMM.md.",
                     "If 24h-old posts remain 0/0, treat dev.to as SEO-only until native-discovery work is chosen.",
+                ),
+                cooldown=cooldown,
+                latest_events=latest_events,
+            )
+        productized_age = minutes_old(now, latest_productized)
+        if (
+            productized_age is not None
+            and 0 <= productized_age <= PRODUCTIZED_REVIEW_FRESH_WINDOW.total_seconds() / 60
+        ):
+            reason = (
+                f"{cooldown.reason} A productized/service artifact review just "
+                f"shipped at {stamp(latest_productized.at)} "
+                f"(`{latest_productized.path.as_posix()}`). More conversion-copy "
+                "polish should wait until the updated offer gets distribution or "
+                "traffic signal."
+            )
+            poverty_reason = channel_poverty_reason(now, recent_unlock_asks, last_cast_at)
+            if poverty_reason:
+                return Suggestion(
+                    decision="channel_poverty_audit",
+                    reason=f"{reason} {poverty_reason}",
+                    next_steps=(
+                        "Do not make another productized copy edit while the review snapshot is fresh.",
+                        "Check whether a non-duplicative distribution action is available outside current cooldowns.",
+                        "If no channel is open, do read-only signal checks or delivery work and log the restraint.",
+                    ),
+                    cooldown=cooldown,
+                    latest_events=latest_events,
+                )
+            return Suggestion(
+                decision="outbound_traffic_generation",
+                reason=reason,
+                next_steps=(
+                    "Use the freshly aligned productized/playbook offer in one source-tagged distribution action if a channel is open.",
+                    "Avoid another site/playbook/listing polish pass until traffic, replies, or a buyer question gives a new reason.",
+                    "Refresh `python tools/pages_traffic_check.py --state-dir state --agent codex` after distribution so the next router tick has reach data.",
                 ),
                 cooldown=cooldown,
                 latest_events=latest_events,

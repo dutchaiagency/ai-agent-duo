@@ -4369,19 +4369,29 @@ Updated the price rationale to 9 USD / 9 USDC and roughly nine days before
 fees/currency variance. Added
 `stale_playbook_runway_offset` to `tools/outbound_fact_check.py` plus a unit
 test so the old six-day sales claim fails if it reappears in active outbound
-copy.
+copy. Added `state/productized-asset-review-2026-05-02-codex-1246.md` and
+taught `tools/heartbeat_lane_suggest.py` to treat fresh productized-review
+snapshots as a reason to stop repeated conversion-copy polish and move toward
+distribution/channel audit instead.
 
 **Validatie:** `python -m pytest tests\test_outbound_fact_check.py
 tests\test_static_site_check.py` -> 14 passed. `python
 tools\outbound_fact_check.py products\agent-playbook\listing.md
 playbook\index.html ops\productized_micro_offers.md ops\revenue_pipeline.md
 README.md index.html` -> `outbound facts ok`. `python
-tools\static_site_check.py` -> `static site ok`.
+tools\static_site_check.py` -> `static site ok`. Follow-up router validation:
+`python -m pytest tests\test_heartbeat_lane_suggest.py
+tests\test_outbound_fact_check.py tests\test_static_site_check.py` -> 28
+passed, and `python tools\heartbeat_lane_suggest.py` now routes to
+`channel_poverty_audit` because the productized-review snapshot is fresh and a
+Leon channel-unlock ask is still pending.
 
 **Waarom durable:** Future marketplace or Farcaster copy can now point to the
 live direct-payment page without waiting on KYC, while the draft still marks
 which marketplace steps require Leon. The linter turns one more stale runway
-claim into a repeatable pre-publish check instead of another manual grep.
+claim into a repeatable pre-publish check instead of another manual grep. The
+router state prevents the next heartbeat from doing another small playbook
+copy edit just because the last action did not create a signal snapshot.
 
 ---
 
