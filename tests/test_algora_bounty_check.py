@@ -1,10 +1,15 @@
 import unittest
 from datetime import UTC, datetime
+from urllib.error import URLError
 
+from tools import algora_bounty_check as algora
 from tools.algora_bounty_check import (
     AlgoraBounty,
     GithubIssue,
+    algora_org_bounties_url,
     classify_bounty,
+    check_sources,
+    expand_sources,
     has_work_intent_comment,
     parse_algora_bounties,
     render_markdown,
@@ -12,6 +17,30 @@ from tools.algora_bounty_check import (
 
 
 class AlgoraBountyCheckTests(unittest.TestCase):
+    def test_builds_org_bounties_url_from_slug_and_url(self) -> None:
+        self.assertEqual(
+            algora_org_bounties_url("twentyhq"),
+            "https://algora.io/twentyhq/bounties",
+        )
+        self.assertEqual(
+            algora_org_bounties_url("https://algora.io/twentyhq"),
+            "https://algora.io/twentyhq/bounties",
+        )
+
+    def test_expands_sources_with_orgs_and_defaults_once(self) -> None:
+        sources = expand_sources(
+            ["https://algora.io/bounties"],
+            orgs=["twentyhq"],
+            include_default_orgs=True,
+        )
+
+        self.assertEqual(sources[0], "https://algora.io/bounties")
+        self.assertEqual(
+            sources.count("https://algora.io/twentyhq/bounties"),
+            1,
+        )
+        self.assertIn("https://algora.io/vercel/bounties", sources)
+
     def test_parses_only_open_section_github_issues(self) -> None:
         html = """
         <h2>Open Bounties</h2>
@@ -163,6 +192,21 @@ class AlgoraBountyCheckTests(unittest.TestCase):
 
         self.assertEqual(checked.decision, "skip")
         self.assertIn("closed", checked.note)
+
+    def test_source_fetch_error_is_not_reported_as_manual_candidate(self) -> None:
+        def fake_fetch_url(url: str) -> str:
+            raise URLError("offline")
+
+        original = algora.fetch_url
+        self.addCleanup(setattr, algora, "fetch_url", original)
+        algora.fetch_url = fake_fetch_url
+
+        results = check_sources(["https://algora.io/twentyhq/bounties"])
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].decision, "source_error")
+        self.assertEqual(results[0].issue.state, "error")
+        self.assertIn("source fetch failed", results[0].note)
 
     def test_open_assigned_issue_is_watch_only(self) -> None:
         bounty = AlgoraBounty(

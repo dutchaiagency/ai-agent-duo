@@ -23,6 +23,17 @@ from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 
+DEFAULT_ALGORA_BASE_URL = "https://algora.io"
+DEFAULT_ALGORA_ORGS = (
+    "twentyhq",
+    "supabase",
+    "vercel",
+    "activepieces",
+    "archestra-ai",
+    "coollabsio",
+    "keephq",
+    "zed-industries",
+)
 GITHUB_ISSUE_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/issues/(\d+)(?:[?#].*)?$")
 GITHUB_PR_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:[?#].*)?$")
 GITHUB_REFERENCE_URL_RE = re.compile(
@@ -118,6 +129,42 @@ def parse_github_pr_url(url: str) -> tuple[str, int] | None:
 def is_algora_bounty_url(url: str) -> bool:
     parsed = urlparse(url)
     return parsed.netloc == "algora.io" and "/bounties/" in parsed.path
+
+
+def algora_org_bounties_url(org: str, *, base_url: str = DEFAULT_ALGORA_BASE_URL) -> str:
+    value = org.strip()
+    if not value:
+        raise ValueError("Algora org slug cannot be empty")
+
+    parsed = urlparse(value)
+    if parsed.scheme and parsed.netloc:
+        parts = [part for part in parsed.path.split("/") if part]
+        if not parts:
+            raise ValueError(f"Algora org URL has no slug: {org}")
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+        slug = parts[0]
+    else:
+        slug = value.strip("/")
+        if "/" in slug:
+            slug = slug.split("/", 1)[0]
+
+    if not slug:
+        raise ValueError("Algora org slug cannot be empty")
+    return urljoin(base_url.rstrip("/") + "/", f"{slug}/bounties")
+
+
+def expand_sources(
+    sources: list[str],
+    *,
+    orgs: list[str] | None = None,
+    include_default_orgs: bool = False,
+) -> list[str]:
+    expanded = list(sources)
+    org_slugs = list(orgs or [])
+    if include_default_orgs:
+        org_slugs.extend(DEFAULT_ALGORA_ORGS)
+    expanded.extend(algora_org_bounties_url(org) for org in org_slugs)
+    return list(dict.fromkeys(expanded))
 
 
 class AlgoraBountyParser(HTMLParser):
@@ -437,6 +484,7 @@ def classify_bounty(bounty: AlgoraBounty, issue: GithubIssue) -> CheckedBounty:
 
 def check_sources(source_urls: list[str], *, limit: int | None = None) -> list[CheckedBounty]:
     bounties: list[AlgoraBounty] = []
+    checked: list[CheckedBounty] = []
     for source_url in source_urls:
         try:
             html = fetch_url(source_url)
@@ -450,14 +498,20 @@ def check_sources(source_urls: list[str], *, limit: int | None = None) -> list[C
                 number=0,
             )
             issue = GithubIssue(repo="", number=0, state="error", error=str(exc))
-            bounties.append(failed)
+            checked.append(
+                CheckedBounty(
+                    failed,
+                    issue,
+                    "source_error",
+                    f"source fetch failed: {exc}",
+                )
+            )
             continue
         bounties.extend(parse_algora_bounties(html, source_url=source_url))
 
     if limit is not None:
         bounties = bounties[:limit]
 
-    checked: list[CheckedBounty] = []
     for bounty in bounties:
         if not bounty.repo:
             issue = GithubIssue(
@@ -523,10 +577,33 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Parse Algora bounty pages and validate linked GitHub issue state."
     )
-    parser.add_argument("sources", nargs="+", help="Algora organization or bounty page URLs.")
+    parser.add_argument("sources", nargs="*", help="Algora listing or individual bounty page URLs.")
+    parser.add_argument(
+        "--org",
+        action="append",
+        default=[],
+        help="Algora org slug to expand to https://algora.io/<org>/bounties; repeatable.",
+    )
+    parser.add_argument(
+        "--default-orgs",
+        action="store_true",
+        help=(
+            "Include the standing active-org scout list: "
+            + ", ".join(DEFAULT_ALGORA_ORGS)
+            + "."
+        ),
+    )
     parser.add_argument("--limit", type=int, help="Validate only the first N parsed bounties.")
     parser.add_argument("--write", type=Path, help="Write markdown report to this path.")
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.sources = expand_sources(
+        args.sources,
+        orgs=args.org,
+        include_default_orgs=args.default_orgs,
+    )
+    if not args.sources:
+        parser.error("at least one source, --org, or --default-orgs is required")
+    return args
 
 
 def main() -> int:

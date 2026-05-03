@@ -125,7 +125,8 @@ when all are true:
 - The issue is still open and not effectively assigned.
 - There is no active PR likely to close it first.
 - Algora candidates pass `python tools/algora_bounty_check.py <algora-url>`;
-  treat closed, assigned, or crowded `/attempt`/`/claim` threads as watch-only.
+  for batch scouting, use repeated `--org <slug>` flags or `--default-orgs`.
+  Treat closed, assigned, or crowded `/attempt`/`/claim` threads as watch-only.
 - The acceptance criteria are objective.
 - Local verification can run on this machine.
 - Payout rail is known, or the bounty is worth using as public proof even if

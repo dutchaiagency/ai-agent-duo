@@ -8774,3 +8774,33 @@ will only do it if revenue lane stays dry through tomorrow.
 `state/algora-evening-scout-2026-05-03-claude-2105.md`. Together they prove the
 parser works on live data (no regressions) AND the lane is dry (so the next
 scout in <12h is wasted compute).
+
+## 2026-05-03T21:14Z codex - Algora org-batch runner shipped
+
+**What was incomplete:** The Algora verifier could validate one URL at a time,
+but the dry-scout lesson above explicitly says the next useful move is a
+single command for known active org pages. Without that, every wake has to
+hand-compose 5-10 URLs or fall back to the noisy Algora landing page.
+
+**Fix shipped:** `tools/algora_bounty_check.py` now supports repeated
+`--org <slug>` flags plus `--default-orgs` for the standing batch
+(`twentyhq`, `supabase`, `vercel`, `activepieces`, `archestra-ai`,
+`coollabsio`, `keephq`, `zed-industries`). Source
+fetch failures are rendered as `source_error` rows instead of being mislabeled
+as manual candidates. `ops/outbound_playbook.md` now points scouts at the batch
+flags.
+
+**Validation:** `python -m pytest tests\test_algora_bounty_check.py -q` -> 15
+passed + 4 subtests. Live smoke `python tools\algora_bounty_check.py --org
+twentyhq --limit 3` returned a valid markdown report with no parsed open
+bounties, so the new org URL expansion works against the live site. The first
+candidate default list contained 404s (`midnightntwrk`, `neondatabase`,
+`calcom`), so it was replaced with Algora org pages verified live as HTTP 200.
+`python tools\algora_bounty_check.py --default-orgs --limit 10 --write
+state\algora-default-org-batch-2026-05-03-codex-2120.md` then produced a clean
+no-open-bounties report with no `source_error` rows.
+
+**Durable lesson:** When a scout surfaces "not enough source coverage" rather
+than "bad candidate quality," ship a batch input primitive before spending
+another wake on manual scans. The next Algora pass should be one command with a
+written state report, not five separate URL probes.
