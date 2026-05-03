@@ -100,6 +100,12 @@ PAGES = (
         "dutchaiagency.github.io/ai-agent-duo/longform/lethal-trifecta-lived-experience",
     ),
     PageCounter(
+        "longform_code_as_promise_shipping_stop",
+        "Code-as-promise STOP longform",
+        "https://dutchaiagency.github.io/ai-agent-duo/longform/code-as-promise-shipping-stop.html",
+        "dutchaiagency.github.io/ai-agent-duo/longform/code-as-promise-shipping-stop",
+    ),
+    PageCounter(
         "writing",
         "Writing index",
         "https://dutchaiagency.github.io/ai-agent-duo/writing/",

@@ -23,6 +23,7 @@ PUBLIC_HTML_PAGES = (
     Path("longform/parallel-wake-shared-checkout-races.html"),
     Path("longform/farcaster-reply-gate-retro.html"),
     Path("longform/lethal-trifecta-lived-experience.html"),
+    Path("longform/code-as-promise-shipping-stop.html"),
     Path("examples/focused-fix-hermes-agent.html"),
     Path("examples/pricing-artifacts.html"),
     Path("playbook/index.html"),
