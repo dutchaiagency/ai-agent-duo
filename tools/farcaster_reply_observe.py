@@ -221,6 +221,11 @@ def unobserved_recent_successful_replies(
     all_replies = dedupe_replies(
         tuple(reply for reply in parse_reply_log(text) if reply.status == "success")
     )
+    latest_verification_by_url: dict[str, FarcasterVerification] = {}
+    for verification in verifications:
+        previous = latest_verification_by_url.get(verification.url)
+        if previous is None or verification.at > previous.at:
+            latest_verification_by_url[verification.url] = verification
     url_counts: dict[str, int] = {}
     for reply in all_replies:
         url_counts[reply.url] = url_counts.get(reply.url, 0) + 1
@@ -239,9 +244,15 @@ def unobserved_recent_successful_replies(
         if (
             stale_after is not None
             and reply.url in watched_urls
-            and now_utc - latest_verification.at >= stale_after
         ):
-            replies.append(reply)
+            latest_url_verification = latest_verification_by_url.get(reply.url)
+            latest_observed_at = (
+                latest_url_verification.at
+                if latest_url_verification is not None
+                else latest_verification.at
+            )
+            if now_utc - latest_observed_at >= stale_after:
+                replies.append(reply)
             continue
     if watched_urls:
         latest_watched_by_url: dict[str, FarcasterReply] = {}

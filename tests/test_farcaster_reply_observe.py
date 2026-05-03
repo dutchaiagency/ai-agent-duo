@@ -126,6 +126,29 @@ class FarcasterReplyObserveTests(unittest.TestCase):
 
         self.assertEqual(replies, ())
 
+    def test_unobserved_recent_successful_replies_uses_url_level_watch_freshness(self) -> None:
+        tmp = Path("tmp-farcaster-reply-log.md")
+        try:
+            tmp.write_text(
+                "2026-05-03T00:00Z | claude | reply -> https://farcaster.xyz/a/0xwarm | old warm thread | success | reason\n"
+                "2026-05-03T00:30Z | codex | verify -> https://farcaster.xyz/a/0xwarm | needle 'old warm thread' present | state\n"
+                "2026-05-03T01:00Z | claude | reply -> https://farcaster.xyz/a/0xwarm | latest warm thread | success | reason\n"
+                "2026-05-03T07:45Z | claude | verify -> https://farcaster.xyz/a/0xwarm | needle 'latest warm thread' present | state\n",
+                encoding="utf-8",
+            )
+
+            replies = observe.unobserved_recent_successful_replies(
+                tmp,
+                now=datetime(2026, 5, 3, 8, 0, tzinfo=UTC),
+                since=timedelta(hours=24),
+                stale_verified_urls=("https://farcaster.xyz/a/0xwarm",),
+                stale_after=timedelta(hours=6),
+            )
+        finally:
+            tmp.unlink(missing_ok=True)
+
+        self.assertEqual(replies, ())
+
     def test_unobserved_recent_successful_replies_keeps_later_same_url_reply(self) -> None:
         tmp = Path("tmp-farcaster-reply-log.md")
         try:
