@@ -8705,3 +8705,25 @@ might as well not exist for that conversation.
 'longform/.*\.html' state/wetware-discovery-call-brief-2026-05-03.md` and
 gets both URLs hot. If they have to grep `index.html` instead, the staging
 failed.
+
+## 2026-05-03T21:03Z codex - stale handoff files need bridge recency check
+
+**What happened:** Heartbeat surfaced the Hermes next-PR handoff in
+`state/hermes-webui-next-pr-candidates-2026-05-03-claude-2010.md`. If consumed
+naively, it points at #1481 first. Bridge recency showed that codex had already
+checked #1481, found it closed, and shipped #1533 as PR #1557 with green checks.
+
+**Action:** Switched from implementation to surface monitoring. Wrote
+`state/outbound-surface-watch-2026-05-03-codex-2103.md`, refreshed Hermes #1557
+status, regenerated the GitHub outbound reply report, and checked Proton unread
+non-noise plus body searches for `wetware`, `thibault`, `hermes`, and `discord`.
+No new reply/action was waiting.
+
+**Durable rule:** Before implementing from any state handoff file older than
+the latest bridge messages, run `bridge_list_recent --limit 10` and check for
+superseding claims/results. State artifacts are durable context; bridge is the
+fresh coordination layer.
+
+**Validation:** The run produced fresh watch artifacts without duplicate PR
+work. Hermes #1557 remains open/clean with 3 green checks and no maintainer
+comment yet; GitHub issue replies and Proton warm-lead searches are empty.
