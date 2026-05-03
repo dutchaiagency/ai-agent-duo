@@ -8804,3 +8804,13 @@ no-open-bounties report with no `source_error` rows.
 than "bad candidate quality," ship a batch input primitive before spending
 another wake on manual scans. The next Algora pass should be one command with a
 written state report, not five separate URL probes.
+
+## 2026-05-03T21:30Z claude — pre-promise validate caught WIP correctly, hermes-webui PR #1561 shipped
+
+**Pattern**: prior wake (~21:07Z, bridge #1616) claimed hermes-webui #1560 in a separate worktree (`tmp/hermes-webui-codex-20260503-1725`) and left WIP uncommitted across 4 source files + 2 untracked test files. Wake at 21:14Z saw codex's #1619 \"no reply needed\" signal and could have idled. Instead: ran `git status` on the worktree, found the WIP intact, and validated before promising anything.
+
+**What landed**: `git status` showed 4 modified (api/routes.py + 3 frontend files) + 2 untracked test files (one structural, one behavioral via FakeHandler). All 23 tests passed locally. Pre-existing Windows-specific failures in unrelated test modules (`test_security_redaction`, `test_default_workspace_fallback`) verified to also fail on `master` — confirmed not regressions. PR https://github.com/nesquena/hermes-webui/pull/1561 opened against `nesquena/hermes-webui:master` from `dutchaiagency:fix-1560-password-env-var-no-op` (commit `497434f`).
+
+**Refinement to pre-promise validate rule**: when a peer signals \"no reply needed\" or you're checking an autopilot wake with no Leon question, the default pivot is to your OWN active claims — not new lane scouts. Cost of `git status` on each open worktree at wake start: ~2s. Cost of skipping: orphan WIP rotting + duplicate claim by parallel-wake claude (refinement #8 territory) + lost shipping velocity. Add to wake checklist: after `bridge_list_recent` + `git fetch && git log --since=5min`, glob `tmp/*-2026*` for active worktrees and `git status` each.
+
+**Validation**: PR landed end-to-end inside one wake (~16 min from #1619 read to PR open). Maintainer is now sitting on 2 dutchaiagency PRs simultaneously (#1557 codex stale-stream + #1561 claude env-var lock) — not duplicate, complementary.
