@@ -18,8 +18,9 @@ Safety:
   (contain "[name]", "[repo]", etc.).
 - Hard fails before any Proton call if the recipient appears in
   ops/email_suppression_list.md.
-- Live sends lock the recipient for 2 minutes before touching Proton.
-  Optional --lock overrides the dedupe topic.
+- Live sends always lock the recipient before touching Proton.
+  Optional --lock adds a second topic lock; it never bypasses recipient or
+  exact-body duplicate protection.
 - Logs every send (and dry-run-with-execute-intended) to
   ops/outbound_cold_dm_2026-05-02.md `Targets` table.
 """
@@ -44,6 +45,8 @@ LOG_FILE = ROOT / "ops" / "outbound_cold_dm_2026-05-02.md"
 SUPPRESSION_FILE = ROOT / "ops" / "email_suppression_list.md"
 LOCKS_DIR = ROOT / "state" / "locks"
 LOCK_TTL_SECONDS = 120
+RECIPIENT_LOCK_TTL_SECONDS = 600
+BODY_DEDUPE_LOCK_TTL_SECONDS = 24 * 60 * 60
 EMAIL_RE = re.compile(r"^[^@\s|]+@[^@\s|]+\.[^@\s|]+$")
 
 PLACEHOLDER_PATTERNS = [
@@ -73,6 +76,15 @@ def get_client():
             return proton
         except Exception:
             pass
+    proton.login(username, password)
+    proton.save_session(str(SESSION_FILE))
+    return proton
+
+
+def get_fresh_client():
+    from protonmail import ProtonMail
+    username, password = get_credentials()
+    proton = ProtonMail()
     proton.login(username, password)
     proton.save_session(str(SESSION_FILE))
     return proton
@@ -125,6 +137,14 @@ def send_lock_path(topic: str) -> Path:
     return LOCKS_DIR / f"{(slug or 'topic')[:80]}-{digest}.lock"
 
 
+def exact_body_dedupe_topic(to_addr: str, subject: str, body: str) -> str:
+    normalized_to = to_addr.strip().lower()
+    body_digest = hashlib.sha256(
+        f"{subject.strip()}\0{body.strip()}".encode("utf-8")
+    ).hexdigest()[:16]
+    return f"dedupe:{normalized_to}:{body_digest}"
+
+
 def acquire_send_lock(topic: str, ttl_seconds: int = LOCK_TTL_SECONDS) -> Path:
     path = send_lock_path(topic)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -155,6 +175,30 @@ def acquire_send_lock(topic: str, ttl_seconds: int = LOCK_TTL_SECONDS) -> Path:
             ts = dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             handle.write(f"topic: {topic}\ncreated_utc: {ts}\npid: {os.getpid()}\n")
         return path
+
+
+def acquire_live_send_locks(
+    *,
+    to_addr: str,
+    subject: str,
+    body: str,
+    extra_topic: str = "",
+) -> list[Path]:
+    normalized_to = to_addr.strip().lower()
+    topics: list[tuple[str, int]] = [
+        (f"recipient:{normalized_to}", RECIPIENT_LOCK_TTL_SECONDS),
+        (
+            exact_body_dedupe_topic(normalized_to, subject, body),
+            BODY_DEDUPE_LOCK_TTL_SECONDS,
+        ),
+    ]
+    if extra_topic:
+        topics.append((f"topic:{extra_topic}", LOCK_TTL_SECONDS))
+
+    acquired: list[Path] = []
+    for topic, ttl_seconds in topics:
+        acquired.append(acquire_send_lock(topic, ttl_seconds=ttl_seconds))
+    return acquired
 
 
 def append_log_row(to_addr: str, subject: str, source: str, personalization: str, status: str):
@@ -199,6 +243,33 @@ def append_log_row(to_addr: str, subject: str, source: str, personalization: str
     LOG_FILE.write_text(new_text, encoding="utf-8")
 
 
+def send_message_with_signature_guard(proton, *, to_addr: str, subject: str, body: str):
+    msg = proton.create_message(
+        recipients=[to_addr],
+        subject=subject,
+        body=body,
+    )
+    try:
+        proton.send_message(msg, is_html=False)
+        return msg
+    except Exception as exc:
+        if "Invalid or missing message signature" not in str(exc):
+            raise
+        print(
+            "[AMBIGUOUS] Proton returned invalid/missing message signature. "
+            "Not retrying automatically because this failure can land duplicate sends."
+        )
+        try:
+            SESSION_FILE.unlink()
+        except FileNotFoundError:
+            pass
+        raise SystemExit(
+            "REFUSE: Proton signature failure leaves send status ambiguous. "
+            "Session cache was cleared; inspect Sent mail before any manual retry. "
+            "The recipient and exact-body locks remain active."
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Send cold outbound email via ProtonMail")
     parser.add_argument("--to", required=True, help="Recipient email address (one)")
@@ -207,7 +278,7 @@ def main():
     parser.add_argument("--source", default="manual", help="Source/UTM tag for log row")
     parser.add_argument("--personalization", default="", help="One-line note for log")
     parser.add_argument("--execute", action="store_true", help="Actually send (default = dry-run)")
-    parser.add_argument("--lock", default="", help="Live-send dedupe topic; defaults to recipient email")
+    parser.add_argument("--lock", default="", help="Optional extra live-send dedupe topic")
     parser.add_argument("--allow-self", action="store_true", help="Allow sending to dutchaiagents@proton.me (self-test)")
     args = parser.parse_args()
 
@@ -266,17 +337,22 @@ def main():
         print("[DRY-RUN] not sending. Pass --execute to send.")
         return
 
-    lock_topic = args.lock or args.to
-    lock_path = acquire_send_lock(lock_topic)
-    print(f"[LOCKED] {lock_path}")
+    lock_paths = acquire_live_send_locks(
+        to_addr=args.to,
+        subject=args.subject,
+        body=body,
+        extra_topic=args.lock,
+    )
+    for lock_path in lock_paths:
+        print(f"[LOCKED] {lock_path}")
 
     proton = get_client()
-    msg = proton.create_message(
-        recipients=[args.to],
+    msg = send_message_with_signature_guard(
+        proton,
+        to_addr=args.to,
         subject=args.subject,
         body=body,
     )
-    proton.send_message(msg, is_html=False)
     print(f"[SENT] message_id={msg.id}")
 
     append_log_row(

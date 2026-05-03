@@ -140,6 +140,26 @@ class GitHubPRWatchTests(unittest.TestCase):
         self.assertEqual(status.latest_signal_author, "maintainer")
         self.assertIn("Looks good", status.latest_signal_excerpt)
 
+    def test_closed_pr_with_ship_comment_is_shipped(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-02T18:00:00Z",
+                "state": "CLOSED",
+                "comments": [
+                    comment("maintainer", "2026-05-02T19:00:00Z", "Shipped in v1.2.3. The fix is now live."),
+                ],
+                "reviews": [],
+                "latestReviews": [],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "shipped")
+        self.assertEqual(status.latest_signal_author, "maintainer")
+        self.assertIn("ship/release signal", status.note)
+
     def test_detects_review_after_latest_agent_activity(self) -> None:
         status = classify_pr(
             PullTarget(repo="owner/repo", number=1),
@@ -172,6 +192,81 @@ class GitHubPRWatchTests(unittest.TestCase):
         )
 
         self.assertEqual(status.state, "closed_no_signal")
+
+    def test_closed_pr_with_release_note_by_agent_is_shipped(self) -> None:
+        def fake_fetch(_target):  # type: ignore[no-untyped-def]
+            return {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-03T16:36:26Z",
+                "state": "CLOSED",
+                "title": "LM Studio config-driven classification",
+                "url": "https://github.com/owner/repo/pull/1536",
+                "comments": [],
+                "reviews": [],
+                "latestReviews": [],
+            }
+
+        releases = [
+            {
+                "tag_name": "v0.50.281",
+                "published_at": "2026-05-03T17:18:00Z",
+                "html_url": "https://github.com/owner/repo/releases/tag/v0.50.281",
+                "body": (
+                    "LM Studio config-driven classification "
+                    "(#1536 by @dutchaiagency)"
+                ),
+            }
+        ]
+
+        with (
+            patch("tools.github_pr_watch.fetch_pr", fake_fetch),
+            patch("tools.github_pr_watch.fetch_recent_releases", return_value=releases),
+        ):
+            statuses = check_targets(
+                [PullTarget("owner/repo", 1536)],
+                agent_login="dutchaiagency",
+            )
+
+        self.assertEqual(statuses[0].state, "shipped")
+        self.assertEqual(statuses[0].latest_signal_author, "github-release")
+        self.assertIn("v0.50.281", statuses[0].latest_signal_excerpt)
+        self.assertIn("#1536 by @dutchaiagency", statuses[0].note)
+
+    def test_release_note_before_agent_activity_does_not_mark_shipped(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1536),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-03T16:36:26Z",
+                "state": "CLOSED",
+                "comments": [
+                    comment("dutchaiagency", "2026-05-03T18:00:00Z", "follow-up")
+                ],
+                "reviews": [],
+                "latestReviews": [],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        with patch(
+            "tools.github_pr_watch.fetch_recent_releases",
+            return_value=[
+                {
+                    "tag_name": "v0.50.281",
+                    "published_at": "2026-05-03T17:18:00Z",
+                    "body": "(#1536 by @dutchaiagency)",
+                }
+            ],
+        ):
+            from tools.github_pr_watch import apply_release_ship_signal
+
+            updated = apply_release_ship_signal(
+                PullTarget("owner/repo", 1536),
+                status,
+                agent_login="dutchaiagency",
+            )
+
+        self.assertEqual(updated.state, "closed_no_signal")
 
     def test_detects_failing_check_after_latest_agent_activity(self) -> None:
         status = classify_pr(

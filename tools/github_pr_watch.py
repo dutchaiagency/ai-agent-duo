@@ -12,7 +12,7 @@ import json
 import re
 import subprocess
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -333,6 +333,15 @@ def is_ignorable_timeline_item(item: dict[str, str]) -> bool:
     return False
 
 
+def is_ship_timeline_item(item: dict[str, str]) -> bool:
+    body = item["body"].lower()
+    return bool(
+        re.search(r"\bshipped\s+in\s+v?\d", body)
+        or re.search(r"\breleased\s+in\s+v?\d", body)
+        or ("now live" in body and ("fix" in body or "change" in body or "patch" in body))
+    )
+
+
 def classify_pr(
     target: PullTarget, payload: dict[str, Any], *, agent_login: str
 ) -> PullStatus:
@@ -369,6 +378,7 @@ def classify_pr(
         and parse_github_time(item["created_at"]) > last_agent_dt
         and not is_ignorable_timeline_item(item)
     ]
+    pr_state = str(payload.get("state") or "").upper()
     base = {
         "repo": target.repo,
         "number": target.number,
@@ -382,17 +392,22 @@ def classify_pr(
     }
     if signals:
         latest = max(signals, key=lambda item: parse_github_time(item["created_at"]))
+        shipped = pr_state in {"CLOSED", "MERGED"} and is_ship_timeline_item(latest)
         return PullStatus(
             **base,
-            state="signal",
+            state="shipped" if shipped else "signal",
             latest_signal_author=latest["author"],
             latest_signal_at=latest["created_at"],
             latest_signal_excerpt=excerpt(
                 f"{latest['kind']}: {latest['body']}".strip()
             ),
+            note=(
+                "Closed PR has maintainer ship/release signal after latest agent activity."
+                if shipped
+                else ""
+            ),
         )
 
-    pr_state = str(payload.get("state") or "").upper()
     if pr_state in {"CLOSED", "MERGED"}:
         return PullStatus(
             **base,
@@ -488,8 +503,140 @@ def check_targets(targets: list[PullTarget], *, agent_login: str) -> list[PullSt
                 )
             )
             continue
-        results.append(classify_pr(target, payload, agent_login=agent_login))
+        status = classify_pr(target, payload, agent_login=agent_login)
+        if status.state == "closed_no_signal":
+            status = apply_release_ship_signal(
+                target,
+                status,
+                agent_login=agent_login,
+            )
+        results.append(status)
     return results
+
+
+def fetch_recent_releases(repo: str, limit: int = 10) -> list[dict[str, Any]]:
+    payload = gh_json(["gh", "api", f"repos/{repo}/releases?per_page={limit}"])
+    if not isinstance(payload, list):
+        return []
+    return [item for item in payload if isinstance(item, dict)]
+
+
+def safe_github_datetime(value: str) -> datetime:
+    try:
+        return parse_github_time(value)
+    except ValueError:
+        return datetime.min.replace(tzinfo=UTC)
+
+
+def release_text(release: dict[str, Any]) -> str:
+    return " ".join(
+        str(release.get(field) or "")
+        for field in ("tag_name", "tagName", "name", "body")
+    )
+
+
+def release_time(release: dict[str, Any]) -> str:
+    return str(
+        release.get("published_at")
+        or release.get("publishedAt")
+        or release.get("created_at")
+        or release.get("createdAt")
+        or ""
+    )
+
+
+def release_tag(release: dict[str, Any]) -> str:
+    return str(release.get("tag_name") or release.get("tagName") or "release")
+
+
+def release_url(release: dict[str, Any]) -> str:
+    return str(release.get("html_url") or release.get("url") or "")
+
+
+def release_mentions_pr_by_agent(
+    release: dict[str, Any],
+    target: PullTarget,
+    *,
+    agent_login: str,
+) -> bool:
+    text = release_text(release)
+    pr_re = re.compile(rf"#\s*{target.number}\b", re.IGNORECASE)
+    agent_re = re.compile(rf"@{re.escape(agent_login)}\b", re.IGNORECASE)
+    for match in pr_re.finditer(text):
+        start = max(0, match.start() - 80)
+        end = min(len(text), match.end() + 120)
+        if agent_re.search(text[start:end]):
+            return True
+    return False
+
+
+def release_ship_signal(
+    target: PullTarget,
+    status: PullStatus,
+    releases: list[dict[str, Any]],
+    *,
+    agent_login: str,
+) -> dict[str, Any] | None:
+    if not status.last_agent_activity_at:
+        return None
+
+    last_agent_dt = parse_github_time(status.last_agent_activity_at)
+    candidates = []
+    for release in releases:
+        published_at = release_time(release)
+        if not published_at:
+            continue
+        if safe_github_datetime(published_at) < last_agent_dt:
+            continue
+        if release_mentions_pr_by_agent(release, target, agent_login=agent_login):
+            candidates.append(release)
+
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: safe_github_datetime(release_time(item)))
+
+
+def apply_release_ship_signal(
+    target: PullTarget,
+    status: PullStatus,
+    *,
+    agent_login: str,
+) -> PullStatus:
+    try:
+        releases = fetch_recent_releases(target.repo)
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+        return replace(
+            status,
+            note=(
+                f"{status.note} Release-note ship check failed: "
+                f"{fetch_error_note(exc)}"
+            ),
+        )
+
+    release = release_ship_signal(
+        target,
+        status,
+        releases,
+        agent_login=agent_login,
+    )
+    if not release:
+        return status
+
+    tag = release_tag(release)
+    published_at = release_time(release)
+    url = release_url(release)
+    url_suffix = f" {url}" if url else ""
+    return replace(
+        status,
+        state="shipped",
+        latest_signal_author="github-release",
+        latest_signal_at=published_at,
+        latest_signal_excerpt=excerpt(f"{tag}: {release_text(release)}"),
+        note=(
+            "Closed PR appears shipped via release notes referencing "
+            f"#{target.number} by @{agent_login}.{url_suffix}"
+        ),
+    )
 
 
 def md_escape(value: str) -> str:

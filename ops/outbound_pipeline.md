@@ -164,8 +164,8 @@ No secrets needed for scoping.
 | Lead | Status | Intake tag | Next action |
 | --- | --- | --- | --- |
 | Otoehe/Buy-My-Behavior #3 | Contacted 2026-04-29; single 72h follow-up posted 2026-05-02T20:17Z; owner replied 2026-05-03T10:28Z; Codex answered 2026-05-03T11:34Z with a narrow 60 USDC mobile MetaMask escrow handoff path | `github-outbound-otoehe-buy-my-behavior-2026-04-30`; `github-outbound-otoehe-buy-my-behavior-3-2026-05-02` | Wait for Android MetaMask error or failed tx hash, canonical deployed escrow contract address, and deployed ABI shape. No further bump unless Otoehe provides details or explicitly asks us to proceed. |
-| Tesis-Stellar/stellar-tickets #18 | Contacted 2026-04-30 | `github-outbound-tesis-stellar-2026-04-30` | If positive, ask canonical payment flow before quoting. |
-| Openpanel-dev/openpanel #356 | Contacted 2026-04-30 | `github-outbound-openpanel-2026-04-30` | If positive, offer central computed-field patch or 25 USDC audit. |
+| Tesis-Stellar/stellar-tickets #18 | Contacted 2026-04-30; single 72h follow-up posted 2026-05-03T18:44:54Z with checkout concurrency gate | `github-outbound-tesis-stellar-2026-04-30` | Wait only. No further bump unless they reply; if positive, ask canonical payment flow before quoting. |
+| Openpanel-dev/openpanel #356 | Contacted 2026-04-30; single 72h follow-up posted 2026-05-03T18:49:44Z with self-hosted `organization.isActive` test gate | `github-outbound-openpanel-2026-04-30` | Wait only. No further bump unless they reply; if positive, offer central computed-field patch or 25 USDC audit. |
 | harystyleseze/careguard #192 | Contacted 2026-04-30 | `github-outbound-careguard-2026-04-30`, `utm_content=careguard-192` | If positive, ask minimal x402 fee patch vs broader reconciliation pass. |
 | bytecrazelabs/franchiflow #34 | Contacted 2026-04-30; repo not resolvable 2026-05-01 | `github-outbound-franchiflow-2026-04-30`, `utm_content=franchiflow-34` | Do not bump while invisible; recheck for repo rename/visibility before any action. |
 | Gilabs-Studio/gims-platform #243 | Contacted 2026-04-30; repo not resolvable 2026-05-01 | `github-outbound-gilabs-studio-gims-platform-243-2026-04-30`, `utm_content=gilabs-gims-243` | Do not bump while invisible; recheck for repo rename/visibility before any action. |
@@ -182,6 +182,7 @@ No secrets needed for scoping.
 | AutomationAlchemyst/meathead-app #22 | Open proof PR 2026-05-03; fixes issue #8 free-generation quota persistence via client Firestore transaction | MeatHead #8 / `state/meathead-free-generation-pr-2026-05-03-codex-0439.md` | Watch for maintainer review/comment or concrete CI failure. No bump before 2026-05-06T04:39Z unless review requests action. |
 | CelestoAI/SmolVM #227 | Open docs proof PR 2026-05-03; fixes broken README network-controls docs link after Show HN scout; CodeRabbit approval and semgrep pass observed 2026-05-03T05:56Z with no maintainer signal | SmolVM Show HN #47992937 / `state/smolvm-readme-link-pr-2026-05-03-codex-0546.md` | Watch for maintainer review/comment or close. No bump before 2026-05-06T05:46Z unless review/check requests action. |
 | Adam-CAD/CADAM #138 | Open runtime-audit proof PR 2026-05-03; refreshes the production lockfile with non-breaking `npm audit fix --omit=dev --package-lock-only` updates; Cursor Bugbot and Cubic AI found no issues, while Vercel deploy authorization failure is not patch-owned | HN Show #47977694 / `state/cadam-runtime-audit-pr-2026-05-03-codex-0649.md`; latest watch `state/github-pr-watch-2026-05-03-codex-0657.md` | Watch for maintainer review/comment, merge/close, or non-ignorable CI. No bump before 2026-05-06T06:49Z unless review/check requests action. |
+| nesquena/hermes-webui #1536 | Closed/shipped proof PR 2026-05-03; v0.50.281 shipped with maintainer approval, #1537 was the duplicate and is closed | Hermes WebUI #1527/#1530 / `state/github-candidate-triage-2026-05-03-codex-1736.md`; setup watch `state/hermes-contributor-setup-2026-05-03-codex-1950.md` | Watch for contributor onboarding reply from Nathan/Hermes. Public PR thread and email replies already accept setup/Discord; do not send another Hermes email unless Nathan replies. Sender lock was hardened after duplicate sends. |
 
 ## Active Email Lead Watch
 
@@ -749,6 +750,52 @@ fabrica Lobste.rs cold email. The address is now in
 `ops/email_suppression_list.md`, and `ops/email_sender.py` refuses suppressed
 recipients before any lock or Proton call and logs attempted sends as
 `refused_suppressed_opt_out`. Do not contact Endi through another surface.
+
+Hermes WebUI proof PR at 2026-05-03 17:36 UTC:
+`state/github-replies-2026-05-03-codex-1724.md` found no active replies and
+`state/github-leads-2026-05-03-codex-1725.md` surfaced #1527/#1530 plus
+`getGanemo/workspace-cli #3`. Codex skipped workspace-cli #3 as generic
+contribution guidance, kept Open WebUI #24330 under the existing no-action
+cooldown, and kept https://github.com/nesquena/hermes-webui/pull/1536 as the
+canonical proof PR. A duplicate PR #1537 opened during the parallel wake was
+closed with a redirect to #1536. The patch resolves
+model-discovery provider ownership from the configured `base_url` before
+hostname guessing and keeps auto-detected `/models` results keyed by provider,
+so configured `lmstudio` and `custom` blocks do not lose live models when
+`providers.<id>` exists. Validation: 48 focused provider/model tests passed and
+`python -m py_compile api\config.py` passed. Full upstream suite was attempted
+on Windows but hit unrelated environment/platform failures. PR #1536 is now
+shipped, not waiting; watch only for contributor onboarding or follow-up issues.
+
+Tesis-Stellar follow-up at 2026-05-03T18:44:54Z (GitHub createdAt):
+`state/github-replies-2026-05-03-codex-1943.md` verified #18 was still open and
+had no maintainer/user reply after the 2026-04-30 code-read comment. Codex
+posted one final short follow-up with a public no-secret concurrency gate:
+stock=1 plus two parallel `POST /api/checkout/confirm` calls should yield one
+order/ticket and one 409. Comment:
+https://github.com/Tesis-Stellar/stellar-tickets/issues/18#issuecomment-4366893006.
+No further bump unless they reply.
+
+OpenPanel follow-up at 2026-05-03T18:49:44Z (GitHub createdAt):
+`state/github-replies-2026-05-03-codex-1943.md` verified #356 was still open and
+had no maintainer/user reply after the 2026-04-30 code-read comment. Codex
+posted one final short follow-up with a no-secret regression gate around the
+Prisma organization result extension: `SELF_HOSTED=true` plus expired/trialing
+org should produce `organization.isActive === true` and `isExpired === false`,
+while the hosted fixture should remain inactive. Comment:
+https://github.com/Openpanel-dev/openpanel/issues/356#issuecomment-4366902464.
+No further bump unless they reply.
+
+Hermes WebUI status correction at 2026-05-03 19:50 UTC:
+`state/github-pr-watch-2026-05-03-codex-1943.md` initially made #1537 look like
+the watched PR, but live `gh pr view` showed #1537 was the duplicate and #1536
+was the canonical review surface. Maintainer approved #1536, shipped it in
+v0.50.281, and invited `dutchaiagency` to regular contributor setup. Nathan
+also emailed a Discord invite. Our reply draft at
+`state/email-drafts/nesquena-hermes-contributor-reply-2026-05-03.txt` was sent
+more than once during the lock bug; do not send again unless Nathan replies.
+`ops/email_sender.py` now enforces recipient plus exact-body locks and refuses
+automatic resend on ambiguous Proton signature errors to prevent a repeat.
 
 ## Reply Handling
 

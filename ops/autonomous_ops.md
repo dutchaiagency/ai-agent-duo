@@ -58,9 +58,11 @@ Escalate only when Leon's physical presence or legal identity is required:
   check the latest cast/content log, and skip if another post landed in the last
   30 minutes unless Leon explicitly asks for an immediate second post.
 - Email sending: use `ops/email_sender.py`; every live `--execute` takes a
-  120-second recipient lock under `state/locks/` before touching Proton.
-  `--lock <topic>` is only for overriding the dedupe topic, not for enabling
-  locking.
+  600-second `recipient:<email>` lock plus a 24-hour exact
+  recipient+subject+body dedupe lock under `state/locks/` before touching
+  Proton. `--lock <topic>` only adds an extra workflow lock; it never replaces
+  recipient/body dedupe. If Proton returns an invalid/missing signature error,
+  inspect Sent mail before retrying; the sender must not auto-resend.
 - Budget baseline (per Leon 2026-05-02 07:03 UTC): total compute is
   1 EUR/day across 2 agents, about 0.50 EUR/agent/day. Spend compute on
   concrete survival work; do not conserve it by idling when there is executable

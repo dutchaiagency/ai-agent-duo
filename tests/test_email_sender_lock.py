@@ -33,6 +33,20 @@ class FakeProtonClient:
         }
 
 
+class FakeSignatureFailureClient:
+    def __init__(self) -> None:
+        self.created_count = 0
+        self.sent_count = 0
+
+    def create_message(self, recipients, subject, body):
+        self.created_count += 1
+        return FakeMessage()
+
+    def send_message(self, msg, is_html=False):
+        self.sent_count += 1
+        raise Exception("Invalid or missing message signature")
+
+
 def write_suppression_file(root: Path, rows: str = "") -> Path:
     path = root / "email_suppression_list.md"
     path.write_text(
@@ -113,11 +127,206 @@ class EmailSenderLockTests(unittest.TestCase):
                 patch.object(sys, "argv", argv),
             ):
                 email_sender.main()
-                self.assertTrue(any(locks_dir.glob("lead@example.dev-*.lock")))
+                self.assertTrue(any(locks_dir.glob("recipient_lead@example.dev-*.lock")))
+                self.assertTrue(any(locks_dir.glob("dedupe_lead@example.dev_*.lock")))
 
         self.assertIsNotNone(fake_client.sent)
         self.assertEqual(fake_client.created["recipients"], ["lead@example.dev"])
         append_log_row.assert_called_once()
+
+    def test_explicit_lock_cannot_bypass_recipient_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            body_path = root / "body.txt"
+            body_path.write_text("One clean response to a warm lead.", encoding="utf-8")
+            locks_dir = root / "locks"
+            suppression_path = write_suppression_file(root)
+            argv = [
+                "email_sender.py",
+                "--to",
+                "Lead@Example.dev",
+                "--subject",
+                "Warm reply",
+                "--body-file",
+                str(body_path),
+                "--execute",
+                "--lock",
+                "custom-thread-lock",
+            ]
+
+            with (
+                patch.object(email_sender, "SUPPRESSION_FILE", suppression_path),
+                patch.object(email_sender, "LOCKS_DIR", locks_dir),
+                patch.object(email_sender, "get_client", return_value=FakeProtonClient()),
+                patch.object(email_sender, "append_log_row"),
+                patch.object(sys, "argv", argv),
+            ):
+                email_sender.main()
+                self.assertTrue(any(locks_dir.glob("recipient_lead@example.dev-*.lock")))
+                self.assertTrue(any(locks_dir.glob("topic_custom-thread-lock-*.lock")))
+
+            retry_argv = [
+                "email_sender.py",
+                "--to",
+                "lead@example.dev",
+                "--subject",
+                "Warm reply",
+                "--body-file",
+                str(body_path),
+                "--execute",
+                "--lock",
+                "different-thread-lock",
+            ]
+
+            with (
+                patch.object(email_sender, "SUPPRESSION_FILE", suppression_path),
+                patch.object(email_sender, "LOCKS_DIR", locks_dir),
+                patch.object(email_sender, "get_client") as get_client,
+                patch.object(email_sender, "append_log_row"),
+                patch.object(sys, "argv", retry_argv),
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    email_sender.main()
+
+        self.assertIn("recipient:lead@example.dev", str(raised.exception))
+        get_client.assert_not_called()
+
+    def test_exact_body_duplicate_blocks_after_recipient_lock_expires(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            locks_dir = root / "locks"
+            with patch.object(email_sender, "LOCKS_DIR", locks_dir):
+                paths = email_sender.acquire_live_send_locks(
+                    to_addr="lead@example.dev",
+                    subject="Warm reply",
+                    body="Same body.",
+                    extra_topic="first-topic",
+                )
+                stale = time.time() - (email_sender.RECIPIENT_LOCK_TTL_SECONDS + 30)
+                for path in paths:
+                    if path.name.startswith("recipient_"):
+                        os.utime(path, (stale, stale))
+
+                with self.assertRaises(SystemExit) as raised:
+                    email_sender.acquire_live_send_locks(
+                        to_addr="lead@example.dev",
+                        subject="Warm reply",
+                        body="Same body.",
+                        extra_topic="second-topic",
+                    )
+
+        self.assertIn("dedupe:lead@example.dev", str(raised.exception))
+
+    def test_explicit_lock_also_keeps_recipient_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            body_path = root / "body.txt"
+            body_path.write_text("Contributor setup reply.", encoding="utf-8")
+            locks_dir = root / "locks"
+            suppression_path = write_suppression_file(root)
+            fake_client = FakeProtonClient()
+            argv = [
+                "email_sender.py",
+                "--to",
+                "lead@example.dev",
+                "--subject",
+                "Contributor setup",
+                "--body-file",
+                str(body_path),
+                "--execute",
+                "--lock",
+                "contributor-setup",
+            ]
+
+            with (
+                patch.object(email_sender, "SUPPRESSION_FILE", suppression_path),
+                patch.object(email_sender, "LOCKS_DIR", locks_dir),
+                patch.object(email_sender, "get_client", return_value=fake_client),
+                patch.object(email_sender, "append_log_row"),
+                patch.object(sys, "argv", argv),
+            ):
+                email_sender.main()
+                self.assertTrue(any(locks_dir.glob("recipient_lead@example.dev-*.lock")))
+                self.assertTrue(any(locks_dir.glob("topic_contributor-setup-*.lock")))
+
+    def test_execute_refuses_different_explicit_lock_when_recipient_is_locked(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            body_path = root / "body.txt"
+            body_path.write_text("Contributor setup reply.", encoding="utf-8")
+            locks_dir = root / "locks"
+            suppression_path = write_suppression_file(root)
+            with patch.object(email_sender, "LOCKS_DIR", locks_dir):
+                email_sender.acquire_send_lock(
+                    "recipient:lead@example.dev",
+                    ttl_seconds=email_sender.RECIPIENT_LOCK_TTL_SECONDS,
+                )
+
+            argv = [
+                "email_sender.py",
+                "--to",
+                "lead@example.dev",
+                "--subject",
+                "Contributor setup",
+                "--body-file",
+                str(body_path),
+                "--execute",
+                "--lock",
+                "different-topic",
+            ]
+
+            with (
+                patch.object(email_sender, "SUPPRESSION_FILE", suppression_path),
+                patch.object(email_sender, "LOCKS_DIR", locks_dir),
+                patch.object(email_sender, "get_client") as get_client,
+                patch.object(sys, "argv", argv),
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    email_sender.main()
+
+        self.assertIn("REFUSE: active send lock", str(raised.exception))
+        self.assertIn("lead@example.dev", str(raised.exception))
+        get_client.assert_not_called()
+
+    def test_signature_failure_does_not_auto_resend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            body_path = root / "body.txt"
+            body_path.write_text("Contributor setup reply.", encoding="utf-8")
+            locks_dir = root / "locks"
+            session_file = root / "proton_session.pickle"
+            session_file.write_text("stale", encoding="utf-8")
+            suppression_path = write_suppression_file(root)
+            fake_client = FakeSignatureFailureClient()
+            argv = [
+                "email_sender.py",
+                "--to",
+                "lead@example.dev",
+                "--subject",
+                "Contributor setup",
+                "--body-file",
+                str(body_path),
+                "--execute",
+            ]
+
+            with (
+                patch.object(email_sender, "SUPPRESSION_FILE", suppression_path),
+                patch.object(email_sender, "LOCKS_DIR", locks_dir),
+                patch.object(email_sender, "SESSION_FILE", session_file),
+                patch.object(email_sender, "get_client", return_value=fake_client),
+                patch.object(email_sender, "get_fresh_client") as get_fresh_client,
+                patch.object(email_sender, "append_log_row") as append_log_row,
+                patch.object(sys, "argv", argv),
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    email_sender.main()
+
+        self.assertIn("send status ambiguous", str(raised.exception))
+        self.assertEqual(fake_client.created_count, 1)
+        self.assertEqual(fake_client.sent_count, 1)
+        self.assertFalse(session_file.exists())
+        get_fresh_client.assert_not_called()
+        append_log_row.assert_not_called()
 
     def test_dry_run_without_explicit_lock_does_not_create_lock(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

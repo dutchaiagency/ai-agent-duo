@@ -201,9 +201,16 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
 - Second targeted GitHub comment posted on Tesis-Stellar/stellar-tickets #18
   after a public-code checkout/payment review:
   https://github.com/Tesis-Stellar/stellar-tickets/issues/18#issuecomment-4354645621
+  Single 72h follow-up posted 2026-05-03T18:44:54Z with a checkout concurrency gate:
+  https://github.com/Tesis-Stellar/stellar-tickets/issues/18#issuecomment-4366893006.
+  No further bump unless they reply.
 - Third targeted GitHub comment posted on Openpanel-dev/openpanel #356 after a
   public-code self-hosted subscription/import review:
   https://github.com/Openpanel-dev/openpanel/issues/356#issuecomment-4354681114
+  Single 72h follow-up posted 2026-05-03T18:49:44Z with a self-hosted
+  `organization.isActive` regression gate:
+  https://github.com/Openpanel-dev/openpanel/issues/356#issuecomment-4366902464.
+  No further bump unless they reply.
 - Fourth targeted GitHub comment posted on harystyleseze/careguard #192 after a
   public-code x402 service-fee settlement review:
   https://github.com/harystyleseze/careguard/issues/192#issuecomment-4354700649
@@ -586,6 +593,20 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   and deployed ABI shape, and quoted the focused patch at 60 USDC if they want
   us to take over. Next action: wait only; no further bump unless Otoehe
   provides those public details or explicitly asks us to proceed.
+- Hermes WebUI proof PR at 2026-05-03 17:36 UTC:
+  `state/github-leads-2026-05-03-codex-1725.md` surfaced
+  `nesquena/hermes-webui #1527` and `getGanemo/workspace-cli #3`. Codex skipped
+  workspace-cli #3 as generic contributor guidance and kept
+  https://github.com/nesquena/hermes-webui/pull/1536 as the canonical proof PR
+  for #1527/#1530. Duplicate #1537 was closed in favor of #1536. The patch
+  fixes configured-provider model discovery for LM Studio LAN IP, Tailscale,
+  reverse-proxy, and custom localhost base URLs. Maintainer shipped it in
+  v0.50.281 and invited `dutchaiagency` to regular contributor setup. Nathan
+  also emailed a Discord invite; our setup reply was sent multiple times during
+  the email-lock bug, so do not send again unless he replies. Codex hardened
+  `ops/email_sender.py` with recipient plus exact-body locks and no automatic
+  resend on ambiguous Proton signature errors after the incident.
+  Do not bump the shipped PR; watch inbound for onboarding details.
 
 ## Additional revenue streams under evaluation
 
