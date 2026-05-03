@@ -48,6 +48,43 @@ GITHUB_REPO_REF_RE = re.compile(
     r"\s+(?:PR\s+)?#\d+",
     re.IGNORECASE,
 )
+GITHUB_BARE_REPO_REF_RE = re.compile(
+    r"(?<![A-Za-z0-9_.:-])"
+    r"(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)"
+    r"(?=$|[\s`),;:\]|<])",
+    re.IGNORECASE,
+)
+LOCAL_PATH_OWNERS = {
+    ".github",
+    "assets",
+    "bounties",
+    "evidence",
+    "longform",
+    "ops",
+    "products",
+    "pull",
+    "research",
+    "issues",
+    "state",
+    "tests",
+    "tmp",
+    "tools",
+    "wallet",
+    "writing",
+}
+LOCAL_PATH_EXTENSIONS = {
+    ".bat",
+    ".css",
+    ".html",
+    ".json",
+    ".md",
+    ".ps1",
+    ".py",
+    ".sh",
+    ".txt",
+    ".xml",
+    ".yml",
+}
 BLOCKED_LOCAL_PARTS = {
     "abuse",
     "donotreply",
@@ -127,6 +164,9 @@ GITHUB_RESERVED_REPOS = {
     "repositories",
     "stars",
     "tab",
+}
+BLOCKED_GITHUB_REPOS = {
+    "dutchaiagency/ai-agent-duo",
 }
 
 
@@ -281,11 +321,25 @@ def parse_github_repo_url(url: str) -> tuple[str, str] | None:
         return None
     if repo.endswith(".git"):
         repo = repo[:-4]
+    if normalize_repo(f"{owner}/{repo}") in BLOCKED_GITHUB_REPOS:
+        return None
     return owner, repo
 
 
 def normalize_repo(value: str) -> str:
     return value.strip().strip("/").lower()
+
+
+def is_probable_github_repo_ref(owner: str, repo: str) -> bool:
+    owner_norm = owner.strip().lower()
+    repo_norm = repo.strip().lower()
+    if owner_norm in LOCAL_PATH_OWNERS:
+        return False
+    if owner_norm in GITHUB_RESERVED_OWNERS or repo_norm in GITHUB_RESERVED_REPOS:
+        return False
+    if any(repo_norm.endswith(extension) for extension in LOCAL_PATH_EXTENSIONS):
+        return False
+    return bool(owner_norm and repo_norm)
 
 
 def extract_github_repo_urls(text: str) -> tuple[str, ...]:
@@ -297,6 +351,36 @@ def extract_github_repo_urls(text: str) -> tuple[str, ...]:
         if parse_github_repo_url(url) and url not in urls:
             urls.append(url)
     return tuple(urls)
+
+
+def normalize_repo_match_text(value: str) -> str:
+    normalized = html.unescape(value or "").lower().replace("_", "-")
+    return re.sub(r"[^a-z0-9./-]+", " ", normalized)
+
+
+def repo_context_score(url: str, context: str) -> int:
+    parsed = parse_github_repo_url(url)
+    if parsed is None:
+        return 0
+    owner, repo = parsed
+    owner_norm = owner.lower().replace("_", "-")
+    repo_norm = repo.lower().replace("_", "-")
+    context_norm = normalize_repo_match_text(context)
+
+    score = 0
+    if f"{owner_norm}/{repo_norm}" in context_norm:
+        score += 8
+    if repo_norm and repo_norm in context_norm:
+        score += 5
+    if owner_norm and owner_norm in context_norm:
+        score += 1
+    return score
+
+
+def best_repo_url(urls: tuple[str, ...], context: str) -> str:
+    if not urls:
+        return ""
+    return max(enumerate(urls), key=lambda item: (repo_context_score(item[1], context), -item[0]))[1]
 
 
 def normalize_story(payload: dict[str, Any]) -> LobstersStory | None:
@@ -427,7 +511,14 @@ def first_repo_url(story: LobstersStory, user_profile: str, launch_page: str) ->
     urls = extract_github_repo_urls(
         " ".join([story.description, user_profile, launch_page])
     )
-    return urls[0] if urls else ""
+    context = " ".join(
+        [
+            story.title,
+            story.description,
+            " ".join(story.tags),
+        ]
+    )
+    return best_repo_url(urls, context)
 
 
 def fit_reasons(
@@ -590,6 +681,11 @@ def load_touched_repos(paths: list[Path]) -> set[str]:
             touched.add(normalize_repo(f"{match.group('owner')}/{match.group('repo')}"))
         for match in GITHUB_REPO_REF_RE.finditer(text):
             touched.add(normalize_repo(f"{match.group('owner')}/{match.group('repo')}"))
+        for match in GITHUB_BARE_REPO_REF_RE.finditer(text):
+            owner = match.group("owner")
+            repo = match.group("repo")
+            if is_probable_github_repo_ref(owner, repo):
+                touched.add(normalize_repo(f"{owner}/{repo}"))
     return touched
 
 

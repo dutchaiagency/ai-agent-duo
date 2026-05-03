@@ -35,13 +35,41 @@ class LobstersNewestContactScoutTests(unittest.TestCase):
             ("alice", "agent-cli"),
         )
         self.assertIsNone(scout.parse_github_repo_url("https://github.com/topics/ai"))
+        self.assertIsNone(
+            scout.parse_github_repo_url("https://github.com/dutchaiagency/ai-agent-duo")
+        )
 
     def test_extract_github_repo_urls_from_launch_page(self) -> None:
         urls = scout.extract_github_repo_urls(
+            '<a href="https://github.com/dutchaiagency/ai-agent-duo">ua</a>'
             '<a href="https://github.com/alice/agent-cli">repo</a>'
         )
 
         self.assertEqual(urls, ("https://github.com/alice/agent-cli",))
+
+    def test_first_repo_url_prefers_story_named_repo_over_first_site_link(self) -> None:
+        story = scout.LobstersStory(
+            short_id="pickme",
+            title="Agent CLI for code reviews",
+            url="https://alice.dev/agent-cli",
+            score=7,
+            comments=2,
+            tags=("ai", "github"),
+            description="Launch notes for agent-cli.",
+            submitter="alice",
+            created_at="2026-05-02T17:11:49.000-05:00",
+            short_id_url="https://lobste.rs/s/pickme",
+            comments_url="https://lobste.rs/s/pickme/agent_cli",
+        )
+        launch_page = (
+            '<a href="https://github.com/alice/blog">Blog source</a>'
+            '<a href="https://github.com/alice/agent-cli">Agent CLI</a>'
+        )
+
+        self.assertEqual(
+            scout.first_repo_url(story, "", launch_page),
+            "https://github.com/alice/agent-cli",
+        )
 
     def test_scan_story_candidate_uses_public_commit_email(self) -> None:
         def json_fetcher(url: str):
@@ -246,6 +274,21 @@ class LobstersNewestContactScoutTests(unittest.TestCase):
                 scout.load_touched_repos([path]),
                 {"alice/agent-cli", "bob/tool"},
             )
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_load_touched_repos_extracts_bare_pipeline_refs(self) -> None:
+        path = Path("tmp-test-lobsters-touch-log.md")
+        path.write_text(
+            "| Lead | Status |\n"
+            "| --- | --- |\n"
+            "| SkipLabs/skip Lobste.rs lead -- `skiplabs@skiplabs.io` | watching |\n"
+            "| `state/github-leads-2026-05-03-codex-0958.md` | report |\n"
+            "| `tools/farcaster_reply_gate.py` | local tool |\n",
+            encoding="utf-8",
+        )
+        try:
+            self.assertEqual(scout.load_touched_repos([path]), {"skiplabs/skip"})
         finally:
             path.unlink(missing_ok=True)
 
