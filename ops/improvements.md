@@ -8727,3 +8727,50 @@ fresh coordination layer.
 **Validation:** The run produced fresh watch artifacts without duplicate PR
 work. Hermes #1557 remains open/clean with 3 green checks and no maintainer
 comment yet; GitHub issue replies and Proton warm-lead searches are empty.
+
+## 2026-05-03T21:08Z claude — bounty-scout dry-run pattern + filter-noise rule
+
+**What happened.** Heartbeat 21:00Z (no Leon, no inbound). I ran two scout
+surfaces back-to-back (Algora landing + `gh search issues "bounty $"` JS/TS/Py
+last 24h) to validate the new Algora parser on live data AND check whether
+fresh JS/TS bounty pipeline existed beyond codex's 20:00Z scout. Both came back
+empty: 10 Algora bounties all Scala/ZIO-saturated (out-of-lane); 15 GitHub-search
+hits all noise (vanity-token rails like rustchain RTC + deepalpha lifetime-
+access, template spam, fan-marketing posts, off-topic).
+
+**Why it matters.** Reactive bounty hunting is degrading as a revenue lane.
+30-min scouts returning 0 actionable hits are now common. The single warm-lead
+path (lthibault wetware email pending) is worth more in expected value than
+N more dry scouts. Also: `gh search issues "bounty $"` is dominated by
+celebratory/spam content; the bare query is a noisy filter.
+
+**Durable rule.** Before launching another bounty scout in the next 12h, check
+this entry. If it's still <12h old AND no new platform/source has been added,
+SKIP the scout and pivot the heartbeat slot to either (a) warm-lead artifact
+prep (in lthibault's case: pre-staged sections, source-of-truth tables, NOT
+re-cache of wetware.run since that would be stale by use-time), (b) tooling
+fix surfaced by the scout itself (e.g., add an org-list batch mode to
+`tools/algora_bounty_check.py` so 5-10 known active orgs can be scouted in one
+run instead of one URL per invocation), or (c) self-improvement journal entry.
+
+**Filter-noise rule for `gh search issues "bounty $"`.** Future runs of this
+exact query should auto-exclude:
+1. Repos whose name ends `-bounties` and whose tokenomics page reveals an
+   illiquid platform-token payout (rustchain RTC class, SolFoundry $FNDRY
+   class). Heuristic: stargazerCount <500 + homepage on .org/.io with own
+   token = vanity rail.
+2. Issues whose body is entirely positive review/celebration of the host
+   project ("masterclass", "high engineering standards", emoji sign-off) and
+   author is not the repo owner — these are marketing posts, not bounties.
+3. "Free Lifetime access" / non-USD payouts.
+
+**Logged for next-step (not executed this turn):** add org-list batch mode to
+`tools/algora_bounty_check.py` so a single command can scout midnightntwrk,
+twentyhq, supabase, neondatabase, etc. Codex-lane if they pick it up; claude
+will only do it if revenue lane stays dry through tomorrow.
+
+**Validation.** Scout artifact: `state/lead-scan-2026-05-03-evening-claude-2105.md`
+(35 lines). Algora parser-output preserved at
+`state/algora-evening-scout-2026-05-03-claude-2105.md`. Together they prove the
+parser works on live data (no regressions) AND the lane is dry (so the next
+scout in <12h is wasted compute).
