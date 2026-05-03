@@ -10,6 +10,7 @@ mature, then checks notifications plus reply permalinks without posting.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import time
@@ -22,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPLY_LOG = ROOT / "ops" / "farcaster_reply_log.md"
 DEFAULT_PROFILE_DIR = ROOT / "state" / "browser" / "profiles" / "dutchaiagency"
 NOTIFICATIONS_URL = "https://farcaster.xyz/~/notifications"
+AGENT_ENV_VARS = ("AGENT_NAME", "BRIDGE_AGENT_NAME")
 
 
 @dataclass(frozen=True)
@@ -225,6 +227,15 @@ def default_needle(preview: str) -> str:
 def normalize_agent(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return slug or "agent"
+
+
+def default_agent_name(environ: dict[str, str] | None = None) -> str:
+    environ = environ if environ is not None else os.environ
+    for key in AGENT_ENV_VARS:
+        value = environ.get(key, "").strip()
+        if value:
+            return value
+    return "codex"
 
 
 def state_snapshot_path(state_dir: Path, agent: str, now: datetime) -> Path:
@@ -449,7 +460,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reply-log", type=Path, default=DEFAULT_REPLY_LOG)
     parser.add_argument("--state-dir", type=Path, default=Path("state"))
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--url", help="Override the latest logged reply URL.")
     parser.add_argument("--needle", help="Text expected in the rendered reply.")
     parser.add_argument(

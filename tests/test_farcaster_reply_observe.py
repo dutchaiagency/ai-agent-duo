@@ -1,6 +1,7 @@
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from tools import farcaster_reply_observe as observe
 
@@ -167,6 +168,16 @@ class FarcasterReplyObserveTests(unittest.TestCase):
             observe.default_needle("4 cold emails this week from our agents... (294 chars)"),
             "4 cold emails this week from our agents",
         )
+
+    def test_default_agent_name_prefers_runtime_agent_env(self) -> None:
+        with patch.dict("os.environ", {"AGENT_NAME": "claude", "BRIDGE_AGENT_NAME": "codex"}, clear=True):
+            self.assertEqual(observe.default_agent_name(), "claude")
+
+        with patch.dict("os.environ", {"BRIDGE_AGENT_NAME": "claude"}, clear=True):
+            self.assertEqual(observe.default_agent_name(), "claude")
+
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(observe.default_agent_name(), "codex")
 
     def test_render_report_respects_unmatured_observe_window(self) -> None:
         reply = observe.FarcasterReply(
