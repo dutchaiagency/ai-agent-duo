@@ -62,6 +62,20 @@ def check(
     }
 
 
+def status_context(
+    context: str,
+    *,
+    state: str = "SUCCESS",
+    started_at: str = "2026-05-02T19:00:00Z",
+) -> dict:
+    return {
+        "__typename": "StatusContext",
+        "context": context,
+        "state": state,
+        "startedAt": started_at,
+    }
+
+
 class GitHubPRWatchTests(unittest.TestCase):
     def test_parse_watch_targets_from_pipeline_section(self) -> None:
         self.assertEqual(
@@ -204,6 +218,50 @@ class GitHubPRWatchTests(unittest.TestCase):
         self.assertEqual(status.state, "waiting")
         self.assertEqual(status.check_summary, "0 failed, 1 pending, 0 passed/skipped")
 
+    def test_status_context_success_counts_as_passed(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-02T18:00:00Z",
+                "state": "OPEN",
+                "comments": [],
+                "reviews": [],
+                "latestReviews": [],
+                "statusCheckRollup": [status_context("CodeRabbit", state="SUCCESS")],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "waiting")
+        self.assertEqual(status.check_summary, "0 failed, 0 pending, 1 passed/skipped")
+
+    def test_status_context_failure_counts_as_check_signal(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-02T18:00:00Z",
+                "state": "OPEN",
+                "comments": [],
+                "reviews": [],
+                "latestReviews": [],
+                "statusCheckRollup": [
+                    status_context(
+                        "legacy-ci",
+                        state="FAILURE",
+                        started_at="2026-05-02T19:00:00Z",
+                    )
+                ],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "check_signal")
+        self.assertEqual(status.latest_signal_author, "github-checks")
+        self.assertIn("legacy-ci", status.latest_signal_excerpt)
+        self.assertEqual(status.check_summary, "1 failed, 0 pending, 0 passed/skipped")
+
     def test_ignores_vercel_deploy_authorization_noise(self) -> None:
         status = classify_pr(
             PullTarget(repo="owner/repo", number=1),
@@ -235,6 +293,98 @@ class GitHubPRWatchTests(unittest.TestCase):
 
         self.assertEqual(status.state, "waiting")
         self.assertEqual(status.check_summary, "none reported")
+
+    def test_ignores_coderabbit_review_in_progress_noise(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-03T05:44:07Z",
+                "state": "OPEN",
+                "comments": [
+                    comment(
+                        "coderabbitai",
+                        "2026-05-03T05:44:20Z",
+                        "<!-- This is an auto-generated comment: review in progress "
+                        "by coderabbit.ai --> Currently processing new changes in "
+                        "this PR. This may take a few minutes, please wait...",
+                    )
+                ],
+                "reviews": [],
+                "latestReviews": [],
+                "statusCheckRollup": [
+                    check("CodeRabbit", status="PENDING"),
+                    check("semgrep-cloud-platform/scan", status="QUEUED"),
+                ],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "waiting")
+        self.assertEqual(status.check_summary, "0 failed, 2 pending, 0 passed/skipped")
+
+    def test_ignores_coderabbit_no_action_summary_and_approval(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-03T05:44:07Z",
+                "state": "OPEN",
+                "comments": [
+                    comment(
+                        "coderabbitai",
+                        "2026-05-03T05:44:20Z",
+                        "<!-- This is an auto-generated comment: summarize by "
+                        "coderabbit.ai --> No actionable comments were generated "
+                        "in the recent review.",
+                    )
+                ],
+                "reviews": [
+                    review(
+                        "coderabbitai",
+                        "2026-05-03T05:46:10Z",
+                        "",
+                        state="APPROVED",
+                    )
+                ],
+                "latestReviews": [],
+                "statusCheckRollup": [
+                    check("CodeRabbit", conclusion="SUCCESS"),
+                    check("semgrep-cloud-platform/scan", conclusion="SUCCESS"),
+                ],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "waiting")
+        self.assertEqual(status.check_summary, "0 failed, 0 pending, 2 passed/skipped")
+
+    def test_ignores_cubic_no_issues_review(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-03T06:49:20Z",
+                "state": "OPEN",
+                "comments": [],
+                "reviews": [
+                    review(
+                        "cubic-dev-ai",
+                        "2026-05-03T06:51:27Z",
+                        "**No issues found** across 1 file",
+                    )
+                ],
+                "latestReviews": [],
+                "statusCheckRollup": [
+                    check("Cursor Bugbot", conclusion="SUCCESS"),
+                    check("Cubic", conclusion="SUCCESS"),
+                ],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "waiting")
+        self.assertEqual(status.check_summary, "0 failed, 0 pending, 2 passed/skipped")
 
     def test_render_markdown_escapes_signal_tables(self) -> None:
         status = classify_pr(

@@ -88,6 +88,12 @@ PAGES = (
         "dutchaiagency.github.io/ai-agent-duo/longform/parallel-wake-shared-checkout-races",
     ),
     PageCounter(
+        "longform_farcaster_reply_gate_retro",
+        "Farcaster reply-gate retro",
+        "https://dutchaiagency.github.io/ai-agent-duo/longform/farcaster-reply-gate-retro.html",
+        "dutchaiagency.github.io/ai-agent-duo/longform/farcaster-reply-gate-retro",
+    ),
+    PageCounter(
         "writing",
         "Writing index",
         "https://dutchaiagency.github.io/ai-agent-duo/writing/",

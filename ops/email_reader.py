@@ -10,10 +10,13 @@ Usage:
     python ops/email_reader.py --codes          # extract verification codes from recent unread
 """
 import argparse
+import contextlib
+import io
 import json
 import os
 import re
 import sys
+import warnings
 from pathlib import Path
 
 SECRETS_DIR = Path(__file__).resolve().parent.parent / ".secrets"
@@ -44,27 +47,46 @@ def get_credentials():
     return lines[0].strip(), lines[1].strip()
 
 
+@contextlib.contextmanager
+def suppress_client_noise():
+    """Keep Proton client progress/warning chatter out of JSON CLI output."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*urllib3.*chardet.*charset_normalizer.*",
+            category=Warning,
+        )
+        with contextlib.redirect_stderr(io.StringIO()):
+            yield
+
+
+def quiet_client_call(callable_):
+    with suppress_client_noise():
+        return callable_()
+
+
 def get_client():
-    from protonmail import ProtonMail
+    with suppress_client_noise():
+        from protonmail import ProtonMail
 
-    username, password = get_credentials()
-    proton = ProtonMail()
+        username, password = get_credentials()
+        proton = ProtonMail()
 
-    # Try loading saved session first
-    if SESSION_FILE.exists():
-        try:
-            proton.load_session(str(SESSION_FILE))
-            return proton
-        except Exception:
-            pass
+        # Try loading saved session first
+        if SESSION_FILE.exists():
+            try:
+                proton.load_session(str(SESSION_FILE))
+                return proton
+            except Exception:
+                pass
 
-    proton.login(username, password)
-    proton.save_session(str(SESSION_FILE))
-    return proton
+        proton.login(username, password)
+        proton.save_session(str(SESSION_FILE))
+        return proton
 
 
 def list_messages(proton, unread_only=False, limit=10, exclude_noise=False):
-    messages = proton.get_messages()
+    messages = quiet_client_call(proton.get_messages)
     results = []
     for msg in messages[:50]:
         if unread_only and msg.unread == 0:
@@ -85,10 +107,10 @@ def list_messages(proton, unread_only=False, limit=10, exclude_noise=False):
 
 
 def read_message(proton, msg_id):
-    messages = proton.get_messages()
+    messages = quiet_client_call(proton.get_messages)
     for msg in messages:
         if msg.id == msg_id:
-            full = proton.read_message(msg)
+            full = quiet_client_call(lambda: proton.read_message(msg))
             return {
                 "id": full.id,
                 "subject": full.subject,
@@ -100,7 +122,7 @@ def read_message(proton, msg_id):
 
 
 def search_messages(proton, query, limit=10):
-    messages = proton.get_messages()
+    messages = quiet_client_call(proton.get_messages)
     query_lower = query.lower()
     results = []
     for msg in messages[:100]:
@@ -118,12 +140,12 @@ def search_messages(proton, query, limit=10):
 
 def extract_codes(proton, limit=5):
     """Extract verification/login codes from recent unread messages."""
-    messages = proton.get_messages()
+    messages = quiet_client_call(proton.get_messages)
     codes = []
     for msg in messages[:20]:
         if not msg.unread:
             continue
-        full = proton.read_message(msg)
+        full = quiet_client_call(lambda: proton.read_message(msg))
         body = full.body or ""
         # Common patterns for verification codes
         patterns = [

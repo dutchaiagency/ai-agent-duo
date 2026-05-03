@@ -276,6 +276,17 @@ AMBIGUOUS_BOUNTY_TERMS = (
     "bounty hunt",
     "bounty hunter",
 )
+NON_PAYING_BOUNTY_TERMS = (
+    "not paid work",
+    "not a paid work",
+    "not a paid work request",
+    "not paid request",
+    "practice prompt",
+    "practice bounty",
+    "fun prompt",
+    "recognition item",
+    "recognition-only",
+)
 BOUNTY_PAYOUT_CONTEXT_TERMS = (
     "$",
     " usd",
@@ -358,6 +369,8 @@ def has_any(text: str, terms: tuple[str, ...]) -> bool:
 
 
 def has_payment_signal(text: str, label_text: str) -> bool:
+    if has_nonpaying_bounty_context(text):
+        return False
     if has_any(label_text, ("bounty",)):
         return True
     if has_any(text, PAY_TERMS_EXCEPT_BOUNTY):
@@ -371,6 +384,14 @@ def has_payment_signal(text: str, label_text: str) -> bool:
 
 def has_cash_floor(text: str) -> bool:
     return bool(CASH_FLOOR_RE.search(text))
+
+
+def has_nonpaying_bounty_context(text: str) -> bool:
+    return (
+        "bounty" in text.lower()
+        and has_any(text, NON_PAYING_BOUNTY_TERMS)
+        and not has_cash_floor(text)
+    )
 
 
 def is_external_reporter_without_payment(lead: Lead, has_explicit_pay: bool) -> bool:
@@ -491,6 +512,9 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     if any(term in lowered for term in HARD_BLOCKER_TERMS[2:]):
         score -= 40
         blockers.append("assigned/gated bounty")
+    if has_nonpaying_bounty_context(text):
+        score -= 45
+        blockers.append("practice/not-paid bounty wording")
     if has_any(text, AMBIGUOUS_BOUNTY_TERMS) and not has_explicit_pay:
         score -= 20
         blockers.append("ambiguous bounty wording")

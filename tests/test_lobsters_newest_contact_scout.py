@@ -24,7 +24,7 @@ class LobstersNewestContactScoutTests(unittest.TestCase):
     def test_extract_emails_filters_placeholders_and_noreply(self) -> None:
         emails = scout.extract_emails(
             "Email Alice@Example.dev, noreply@github.com, "
-            "123+alice@users.noreply.github.com, and test@example.com."
+            "123+alice@users.noreply.github.com, ihate@spam.com, and test@example.com."
         )
 
         self.assertEqual(emails, ("alice@example.dev",))
@@ -85,6 +85,96 @@ class LobstersNewestContactScoutTests(unittest.TestCase):
         self.assertIn("github repo", lead.reasons)
         self.assertIn("explicit public email", lead.reasons)
 
+    def test_scan_story_keeps_large_org_repo_watch_only(self) -> None:
+        def json_fetcher(url: str):
+            if url.endswith("/repos/bigorg/platform"):
+                return {
+                    "full_name": "bigorg/platform",
+                    "html_url": "https://github.com/bigorg/platform",
+                    "description": "Large AI platform",
+                    "stargazers_count": 50_000,
+                    "pushed_at": "2026-05-02T12:00:00Z",
+                    "owner": {"login": "bigorg", "type": "Organization"},
+                }
+            if url.endswith("/users/bigorg"):
+                return {
+                    "login": "bigorg",
+                    "type": "Organization",
+                    "email": "contact@bigorg.dev",
+                    "html_url": "https://github.com/bigorg",
+                }
+            if url.endswith("/repos/bigorg/platform/commits?per_page=5"):
+                return []
+            raise AssertionError(url)
+
+        lead = scout.scan_story(
+            scout.LobstersStory(
+                short_id="org123",
+                title="Large platform release notes",
+                url="https://github.com/bigorg/platform",
+                score=10,
+                comments=3,
+                tags=("release",),
+                description="AI platform release.",
+                submitter="alice",
+                created_at="2026-05-02T17:11:49.000-05:00",
+                short_id_url="https://lobste.rs/s/org123",
+                comments_url="https://lobste.rs/s/org123/large_platform_release",
+            ),
+            json_fetcher=json_fetcher,
+            text_fetcher=lambda url: "",
+            fetch_launch_pages=False,
+            fetch_user_profiles=False,
+        )
+
+        self.assertEqual(lead.decision, "watch_large_org_repo")
+        self.assertIn("large org repo; needs specific issue before outreach", lead.reasons)
+
+    def test_scan_story_keeps_massive_user_repo_watch_only(self) -> None:
+        def json_fetcher(url: str):
+            if url.endswith("/repos/alice/kernel"):
+                return {
+                    "full_name": "alice/kernel",
+                    "html_url": "https://github.com/alice/kernel",
+                    "description": "Large kernel",
+                    "stargazers_count": 100_000,
+                    "pushed_at": "2026-05-02T12:00:00Z",
+                    "owner": {"login": "alice", "type": "User"},
+                }
+            if url.endswith("/users/alice"):
+                return {
+                    "login": "alice",
+                    "type": "User",
+                    "email": "alice@example.dev",
+                    "html_url": "https://github.com/alice",
+                }
+            if url.endswith("/repos/alice/kernel/commits?per_page=5"):
+                return []
+            raise AssertionError(url)
+
+        lead = scout.scan_story(
+            scout.LobstersStory(
+                short_id="big123",
+                title="Kernel release",
+                url="https://github.com/alice/kernel",
+                score=10,
+                comments=3,
+                tags=("release",),
+                description="Kernel release.",
+                submitter="alice",
+                created_at="2026-05-02T17:11:49.000-05:00",
+                short_id_url="https://lobste.rs/s/big123",
+                comments_url="https://lobste.rs/s/big123/kernel_release",
+            ),
+            json_fetcher=json_fetcher,
+            text_fetcher=lambda url: "",
+            fetch_launch_pages=False,
+            fetch_user_profiles=False,
+        )
+
+        self.assertEqual(lead.decision, "watch_large_repo")
+        self.assertIn("large repo; needs specific issue before outreach", lead.reasons)
+
     def test_scan_story_marks_contact_log_email_as_already_contacted(self) -> None:
         lead = scout.scan_story(
             scout.LobstersStory(
@@ -107,6 +197,57 @@ class LobstersNewestContactScoutTests(unittest.TestCase):
         )
 
         self.assertEqual(lead.decision, "watch_already_contacted")
+
+    def test_scan_story_marks_active_touch_repo_as_already_contacted(self) -> None:
+        def json_fetcher(url: str):
+            if url.endswith("/repos/alice/agent-cli"):
+                return {
+                    "full_name": "alice/agent-cli",
+                    "html_url": "https://github.com/alice/agent-cli",
+                    "description": "AI code review CLI",
+                    "stargazers_count": 12,
+                    "pushed_at": "2026-05-02T12:00:00Z",
+                    "owner": {"login": "alice", "type": "User"},
+                }
+            if url.endswith("/users/alice"):
+                return {
+                    "login": "alice",
+                    "type": "User",
+                    "email": "alice@example.dev",
+                    "html_url": "https://github.com/alice",
+                }
+            if url.endswith("/repos/alice/agent-cli/commits?per_page=5"):
+                return []
+            raise AssertionError(url)
+
+        lead = scout.scan_story(
+            self.story(),
+            touched_repos={"alice/agent-cli"},
+            json_fetcher=json_fetcher,
+            text_fetcher=lambda url: "",
+            fetch_launch_pages=False,
+            fetch_user_profiles=False,
+        )
+
+        self.assertEqual(lead.decision, "watch_already_contacted")
+        self.assertIn("repo already in active touch log", lead.reasons)
+
+    def test_load_touched_repos_extracts_pr_watch_refs(self) -> None:
+        path = Path("tmp-test-lobsters-touch-log.md")
+        path.write_text(
+            "| PR | Status |\n"
+            "| --- | --- |\n"
+            "| [Alice/Agent-CLI #227](https://github.com/Alice/Agent-CLI/pull/227) | open |\n"
+            "| bob/tool PR #3 | watch |\n",
+            encoding="utf-8",
+        )
+        try:
+            self.assertEqual(
+                scout.load_touched_repos([path]),
+                {"alice/agent-cli", "bob/tool"},
+            )
+        finally:
+            path.unlink(missing_ok=True)
 
     def test_render_markdown_escapes_story_title(self) -> None:
         lead = scout.ContactLead(

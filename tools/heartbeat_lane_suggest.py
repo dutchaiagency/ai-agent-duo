@@ -49,6 +49,12 @@ NO_INVENTORY_ZERO_TERMS = (
     "0 unread emails",
     "0 matching reservation emails",
     "0 matching bridge kit emails",
+    "github reservation issues: `[]`",
+    "github reservation issues: []",
+    "proton unread non-noise messages: `[]`",
+    "proton unread non-noise messages: []",
+    "bridge kit reservation` search: `[]`",
+    "bridge kit reservation search: []",
     "zero reservation issues",
     "zero bridge kit reservations",
     "zero unread emails",
@@ -64,9 +70,12 @@ BOUNTY_ZERO_TERMS = (
     "zero executable candidates",
     "zero higher-than-low candidates",
     "all reviewed priority candidates are saturated",
+    "do not submit additional midnight bounties",
     "deferred-pipeline",
+    "low-priority without in-review",
     "no compete-bump comment",
     "no maintainer review",
+    "passive monitoring",
     "publish/claim hold",
     "watch/hold",
 )
@@ -88,6 +97,12 @@ CHANNEL_SCOUT_ZERO_TERMS = (
     "zero actionable",
     "no non-duplicative public action",
     "distribution hold",
+)
+FARCASTER_OBSERVE_ZERO_TERMS = (
+    "30-min observe window now closed flat",
+    "keep farcaster in watch-only mode",
+    "no visible notification signal",
+    "reply appears rendered",
 )
 PROTON_INBOX_ZERO_TERMS = (
     "zero unread",
@@ -137,6 +152,7 @@ FARCASTER_REPLY_OBSERVE_WINDOW = timedelta(minutes=60)
 GITHUB_FOLLOW_UP_WINDOW = timedelta(hours=72)
 GITHUB_REPLY_CHECK_FRESH_WINDOW = timedelta(minutes=30)
 CHANNEL_SCOUT_FRESH_WINDOW = timedelta(minutes=90)
+GITHUB_OUTBOUND_OBSERVE_WINDOW = timedelta(minutes=90)
 DEVTO_ZERO_ARCHIVE_MIN_POST_AGE = timedelta(hours=24)
 DEVTO_ZERO_ARCHIVE_POLL_COOLDOWN = timedelta(hours=6)
 CHANNEL_UNLOCK_ASK_WINDOW = timedelta(hours=6)
@@ -242,6 +258,8 @@ def event_kind(path: Path) -> str | None:
         return "github_replies"
     if name.startswith("github-candidate-triage-"):
         return "github_candidate_triage"
+    if name.startswith("github-outbound-"):
+        return "github_outbound"
     if name.startswith("no-inventory-bridge-kit-signal-check-"):
         return "no_inventory"
     if (
@@ -250,6 +268,7 @@ def event_kind(path: Path) -> str | None:
         or name.startswith("github-bounty-priority-scan-")
         or name.startswith("github-bounty-priority-triage-")
         or name.startswith("midnight-bounty-followup-")
+        or name.startswith("midnight-bounty-status-")
         or name.startswith("opire-featured-bounty-check-")
         or name.startswith("paid-bounty-scout-")
     ):
@@ -267,6 +286,8 @@ def event_kind(path: Path) -> str | None:
         or name.startswith("founders-engagement-scout-")
     ):
         return "channel_scout"
+    if name.startswith("farcaster-reply-observe-"):
+        return "farcaster_reply_observe"
     return None
 
 
@@ -349,6 +370,8 @@ def classify_event(path: Path) -> StateEvent | None:
         zero_signal = has_any(lower, DEVTO_ZERO_TERMS)
     elif kind == "channel_scout":
         zero_signal = has_any(lower, CHANNEL_SCOUT_ZERO_TERMS)
+    elif kind == "farcaster_reply_observe":
+        zero_signal = has_any(lower, FARCASTER_OBSERVE_ZERO_TERMS)
     elif kind == "proton_inbox":
         zero_signal = has_any(lower, PROTON_INBOX_ZERO_TERMS)
 
@@ -495,7 +518,7 @@ def github_cooldown_status(
         event
         for event in events
         if event.kind == "github_replies"
-        and latest_lead.at - timedelta(minutes=5)
+        and latest_lead.at - GITHUB_REPLY_CHECK_FRESH_WINDOW
         <= event.at
         <= latest_lead.at + timedelta(minutes=5)
     ]
@@ -921,15 +944,33 @@ def farcaster_cooldown_reason(last_cast_at: datetime | None, now: datetime) -> s
     )
 
 
+def farcaster_observe_closes_reply(
+    observe: StateEvent | None,
+    last_reply_at: datetime | None,
+    *,
+    min_observe_age: timedelta = FARCASTER_COOLDOWN,
+) -> bool:
+    if observe is None or last_reply_at is None:
+        return False
+    if observe.kind != "farcaster_reply_observe" or not observe.zero_signal:
+        return False
+    if observe.at < last_reply_at:
+        return False
+    return observe.at - last_reply_at >= min_observe_age
+
+
 def recent_farcaster_reply_reason(
     last_reply_at: datetime | None,
     now: datetime,
     *,
+    latest_observe: StateEvent | None = None,
     window: timedelta = FARCASTER_REPLY_OBSERVE_WINDOW,
 ) -> str | None:
     if last_reply_at is None:
         return None
     if last_reply_at > now:
+        return None
+    if farcaster_observe_closes_reply(latest_observe, last_reply_at):
         return None
     if now - last_reply_at > window:
         return None
@@ -965,6 +1006,45 @@ def recent_channel_scout_reason(
         f"at {stamp(event.at)} (`{event.path.as_posix()}`). Treat the "
         "channel-poverty check as fresh until a new inbound, target, or "
         "unlock signal appears."
+    )
+
+
+def recent_github_outbound_reason(
+    event: StateEvent | None,
+    now: datetime,
+    *,
+    window: timedelta = GITHUB_OUTBOUND_OBSERVE_WINDOW,
+) -> str | None:
+    if event is None:
+        return None
+    if event.at > now:
+        return None
+    if now - event.at > window:
+        return None
+    return (
+        "A GitHub outbound artifact/comment was logged at "
+        f"{stamp(event.at)} (`{event.path.as_posix()}`). Treat this as the "
+        "current public GitHub distribution action and watch replies/traffic "
+        "before posting another public outbound."
+    )
+
+
+def github_outbound_observe_suggestion(
+    base_reason: str,
+    github_reason: str,
+    cooldown: CooldownStatus,
+    latest_events: tuple[StateEvent, ...],
+) -> Suggestion:
+    return Suggestion(
+        decision="github_outbound_observe",
+        reason=f"{base_reason} {github_reason}",
+        next_steps=(
+            "Do not post another public GitHub outbound comment while the fresh comment is in the observe window.",
+            "Use `python tools/github_reply_check.py --state-dir state --agent codex` for reply watch and keep the lead in ops/outbound_pipeline.md.",
+            "Refresh `python tools/pages_traffic_check.py --state-dir state --agent codex` after a short interval, then switch to nonpublic delivery or a different signal source if there is no response.",
+        ),
+        cooldown=cooldown,
+        latest_events=latest_events,
     )
 
 
@@ -1097,6 +1177,8 @@ def suggest_next_action(
     latest_devto = latest(events, "devto_engagement")
     latest_productized = latest(events, "productized_review")
     latest_channel_scout = latest(events, "channel_scout")
+    latest_farcaster_observe = latest(events, "farcaster_reply_observe")
+    latest_github_outbound = latest(events, "github_outbound")
     latest_proton_inbox = latest(events, "proton_inbox")
     latest_candidate_triage = latest(events, "github_candidate_triage")
     latest_pages_traffic = pages_traffic_event(pages_traffic)
@@ -1112,6 +1194,8 @@ def suggest_next_action(
             latest_devto,
             latest_productized,
             latest_channel_scout,
+            latest_farcaster_observe,
+            latest_github_outbound,
             latest_proton_inbox,
             latest_pages_traffic,
         )
@@ -1301,7 +1385,12 @@ def suggest_next_action(
                 "traffic signal."
             )
             poverty_reason = channel_poverty_reason(now, recent_unlock_asks, last_cast_at)
-            reply_reason = recent_farcaster_reply_reason(last_farcaster_reply_at, now)
+            reply_reason = recent_farcaster_reply_reason(
+                last_farcaster_reply_at,
+                now,
+                latest_observe=latest_farcaster_observe,
+            )
+            github_outbound_reason = recent_github_outbound_reason(latest_github_outbound, now)
             scout_reason = recent_channel_scout_reason(latest_channel_scout, now)
             if reply_reason:
                 return Suggestion(
@@ -1315,10 +1404,29 @@ def suggest_next_action(
                     cooldown=cooldown,
                     latest_events=latest_events,
                 )
+            if github_outbound_reason:
+                return github_outbound_observe_suggestion(
+                    reason,
+                    github_outbound_reason,
+                    cooldown,
+                    latest_events,
+                )
             if poverty_reason and scout_reason:
                 return Suggestion(
                     decision="nonpublic_delivery_or_signal_work",
                     reason=f"{reason} {poverty_reason} {scout_reason}",
+                    next_steps=(
+                        "Do not repeat the channel-poverty audit or Farcaster scout while the channel state is fresh.",
+                        "Spend this slot on nonpublic code, reply, delivery, or a new signal source that is not already in cooldown.",
+                        "Log the artifact and the restraint in ops/improvements.md so the next heartbeat has durable input.",
+                    ),
+                    cooldown=cooldown,
+                    latest_events=latest_events,
+                )
+            if scout_reason:
+                return Suggestion(
+                    decision="nonpublic_delivery_or_signal_work",
+                    reason=f"{reason} {scout_reason}",
                     next_steps=(
                         "Do not repeat the channel-poverty audit or Farcaster scout while the channel state is fresh.",
                         "Spend this slot on nonpublic code, reply, delivery, or a new signal source that is not already in cooldown.",
@@ -1357,7 +1465,12 @@ def suggest_next_action(
         )
         if outbound_reason:
             poverty_reason = channel_poverty_reason(now, recent_unlock_asks, last_cast_at)
-            reply_reason = recent_farcaster_reply_reason(last_farcaster_reply_at, now)
+            reply_reason = recent_farcaster_reply_reason(
+                last_farcaster_reply_at,
+                now,
+                latest_observe=latest_farcaster_observe,
+            )
+            github_outbound_reason = recent_github_outbound_reason(latest_github_outbound, now)
             scout_reason = recent_channel_scout_reason(latest_channel_scout, now)
             if reply_reason:
                 return Suggestion(
@@ -1371,10 +1484,29 @@ def suggest_next_action(
                     cooldown=cooldown,
                     latest_events=latest_events,
                 )
+            if github_outbound_reason:
+                return github_outbound_observe_suggestion(
+                    f"{cooldown.reason} {outbound_reason}",
+                    github_outbound_reason,
+                    cooldown,
+                    latest_events,
+                )
             if poverty_reason and scout_reason:
                 return Suggestion(
                     decision="nonpublic_delivery_or_signal_work",
                     reason=f"{cooldown.reason} {outbound_reason} {poverty_reason} {scout_reason}",
+                    next_steps=(
+                        "Do not repeat the channel-poverty audit or Farcaster scout while the channel state is fresh.",
+                        "Spend this slot on nonpublic code, reply, delivery, or a new signal source that is not already in cooldown.",
+                        "Log the artifact and the restraint in ops/improvements.md so the next heartbeat has durable input.",
+                    ),
+                    cooldown=cooldown,
+                    latest_events=latest_events,
+                )
+            if scout_reason:
+                return Suggestion(
+                    decision="nonpublic_delivery_or_signal_work",
+                    reason=f"{cooldown.reason} {outbound_reason} {scout_reason}",
                     next_steps=(
                         "Do not repeat the channel-poverty audit or Farcaster scout while the channel state is fresh.",
                         "Spend this slot on nonpublic code, reply, delivery, or a new signal source that is not already in cooldown.",

@@ -53,6 +53,18 @@ IGNORABLE_DEPLOY_AUTH_PHRASES = (
     "first needs to",
     "authorize it",
 )
+IGNORABLE_CODERABBIT_PROGRESS_PHRASES = (
+    "auto-generated comment",
+    "review in progress",
+    "currently processing new changes",
+)
+IGNORABLE_CODERABBIT_SUMMARY_PHRASES = (
+    "auto-generated comment: summarize",
+    "no actionable comments were generated",
+)
+IGNORABLE_CUBIC_NO_ISSUES_PHRASES = (
+    "no issues found",
+)
 
 
 @dataclass(frozen=True)
@@ -206,6 +218,10 @@ def failing_checks(payload: dict[str, Any]) -> list[dict[str, Any]]:
         item
         for item in check_rollup_items(payload)
         if check_conclusion(item) in CHECK_FAILURE_CONCLUSIONS
+        or (
+            not check_conclusion(item)
+            and check_status(item) in CHECK_FAILURE_CONCLUSIONS
+        )
     ]
 
 
@@ -224,6 +240,10 @@ def check_rollup_summary(payload: dict[str, Any]) -> str:
         item
         for item in items
         if check_conclusion(item) in CHECK_SUCCESS_CONCLUSIONS
+        or (
+            not check_conclusion(item)
+            and check_status(item) in CHECK_SUCCESS_CONCLUSIONS
+        )
     ]
     other = len(items) - len(failed) - len(pending) - len(passed)
     parts = [
@@ -295,6 +315,20 @@ def is_ignorable_timeline_item(item: dict[str, str]) -> bool:
     author = item["author"].lower()
     body = item["body"].lower()
     if author == "vercel" and all(phrase in body for phrase in IGNORABLE_DEPLOY_AUTH_PHRASES):
+        return True
+    if author == "coderabbitai" and all(
+        phrase in body for phrase in IGNORABLE_CODERABBIT_PROGRESS_PHRASES
+    ):
+        return True
+    if author == "coderabbitai" and all(
+        phrase in body for phrase in IGNORABLE_CODERABBIT_SUMMARY_PHRASES
+    ):
+        return True
+    if author == "coderabbitai" and item["kind"] == "review" and body == "approved":
+        return True
+    if author in {"cubic-dev-ai", "cubic"} and item["kind"] == "review" and all(
+        phrase in body for phrase in IGNORABLE_CUBIC_NO_ISSUES_PHRASES
+    ):
         return True
     return False
 

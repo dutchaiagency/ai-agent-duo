@@ -10,8 +10,8 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
-from urllib.parse import urlencode
+from typing import Any, Sequence
+from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 
@@ -51,26 +51,114 @@ def build_url(api_url: str, username: str, per_page: int) -> str:
     return f"{api_url}{separator}{urlencode({'username': username, 'per_page': per_page})}"
 
 
-def fetch_articles(
-    username: str,
-    *,
-    per_page: int = 100,
-    api_url: str = DEFAULT_API_URL,
-    user_agent: str = DEFAULT_USER_AGENT,
-) -> list[DevtoArticle]:
+def normalize_slug(value: str) -> str:
+    cleaned = value.strip()
+    parsed = urlparse(cleaned)
+    if parsed.scheme and parsed.netloc:
+        cleaned = parsed.path
+    cleaned = cleaned.strip("/")
+    if "/" in cleaned:
+        cleaned = cleaned.split("/")[-1]
+    if not cleaned:
+        raise ValueError("dev.to article slug must not be empty")
+    return cleaned
+
+
+def build_article_url(api_url: str, username: str, slug: str) -> str:
+    return (
+        f"{api_url.rstrip('/')}/"
+        f"{quote(username, safe='')}/"
+        f"{quote(normalize_slug(slug), safe='')}"
+    )
+
+
+def read_json_api(url: str, *, user_agent: str) -> Any:
     request = Request(
-        build_url(api_url, username, per_page),
+        url,
         headers={
             "Accept": "application/json",
             "User-Agent": user_agent,
         },
     )
     with urlopen(request, timeout=20) as response:
-        payload = json.loads(response.read().decode("utf-8"))
+        return json.loads(response.read().decode("utf-8"))
+
+
+def article_key(article: DevtoArticle) -> tuple[str, ...]:
+    if article.url:
+        return ("url", article.url)
+    return ("title-published", article.title, article.published_at)
+
+
+def published_sort_key(article: DevtoArticle) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(article.published_at.replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.min.replace(tzinfo=UTC)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def merge_articles(
+    username_articles: Sequence[DevtoArticle],
+    fallback_articles: Sequence[DevtoArticle],
+) -> list[DevtoArticle]:
+    merged: list[DevtoArticle] = []
+    seen: set[tuple[str, ...]] = set()
+    for article in [*username_articles, *fallback_articles]:
+        key = article_key(article)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(article)
+    if fallback_articles:
+        merged.sort(key=published_sort_key, reverse=True)
+    return merged
+
+
+def fetch_article_by_slug(
+    username: str,
+    slug: str,
+    *,
+    api_url: str = DEFAULT_API_URL,
+    user_agent: str = DEFAULT_USER_AGENT,
+) -> DevtoArticle:
+    payload = read_json_api(
+        build_article_url(api_url, username, slug),
+        user_agent=user_agent,
+    )
+    if not isinstance(payload, dict):
+        raise ValueError("dev.to article response was not an object")
+    return normalize_article(payload)
+
+
+def fetch_articles(
+    username: str,
+    *,
+    per_page: int = 100,
+    api_url: str = DEFAULT_API_URL,
+    user_agent: str = DEFAULT_USER_AGENT,
+    slugs: Sequence[str] | None = None,
+) -> list[DevtoArticle]:
+    payload = read_json_api(
+        build_url(api_url, username, per_page),
+        user_agent=user_agent,
+    )
 
     if not isinstance(payload, list):
         raise ValueError("dev.to API response was not a list")
-    return [normalize_article(item) for item in payload if isinstance(item, dict)]
+    username_articles = [normalize_article(item) for item in payload if isinstance(item, dict)]
+    fallback_articles = [
+        fetch_article_by_slug(
+            username,
+            slug,
+            api_url=api_url,
+            user_agent=user_agent,
+        )
+        for slug in (slugs or [])
+    ]
+    return merge_articles(username_articles, fallback_articles)
 
 
 def render_markdown(
@@ -78,6 +166,7 @@ def render_markdown(
     *,
     username: str,
     per_page: int,
+    slugs: Sequence[str] | None = None,
     generated_at: datetime | None = None,
 ) -> str:
     generated_at = generated_at or datetime.now(UTC)
@@ -87,18 +176,27 @@ def render_markdown(
         f"# Dev.to engagement - {generated_at.strftime('%Y-%m-%d %H:%M UTC')}",
         "",
         f"Endpoint: `https://dev.to/api/articles?username={username}&per_page={per_page}`",
-        "",
-        "Headers: normal heartbeat User-Agent, no auth.",
-        "",
-        "## Result",
-        "",
-        f"Total visible posts: {len(articles)}",
-        f"Total reactions: {total_reactions}",
-        f"Total comments: {total_comments}",
-        "",
-        "| Post | Published | Reactions | Comments | URL |",
-        "|---|---:|---:|---:|---|",
     ]
+    if slugs:
+        rendered_slugs = ", ".join(f"`{normalize_slug(slug)}`" for slug in slugs)
+        lines.append(
+            f"Fresh-publish fallback: `/api/articles/{username}/<slug>` for {rendered_slugs}"
+        )
+    lines.extend(
+        [
+            "",
+            "Headers: normal heartbeat User-Agent, no auth.",
+            "",
+            "## Result",
+            "",
+            f"Total visible posts: {len(articles)}",
+            f"Total reactions: {total_reactions}",
+            f"Total comments: {total_comments}",
+            "",
+            "| Post | Published | Reactions | Comments | URL |",
+            "|---|---:|---:|---:|---|",
+        ]
+    )
     for article in articles:
         title = article.title.replace("|", "\\|")
         lines.append(
@@ -140,6 +238,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--per-page", type=int, default=100)
     parser.add_argument("--api-url", default=DEFAULT_API_URL)
     parser.add_argument("--user-agent", default=DEFAULT_USER_AGENT)
+    parser.add_argument(
+        "--slug",
+        action="append",
+        default=[],
+        help=(
+            "Also fetch /api/articles/{username}/{slug}; useful when the "
+            "username article list lags behind a fresh publish. May be repeated."
+        ),
+    )
     parser.add_argument("--write", type=Path)
     parser.add_argument(
         "--state-dir",
@@ -162,11 +269,13 @@ def main(argv: list[str] | None = None) -> int:
         per_page=args.per_page,
         api_url=args.api_url,
         user_agent=args.user_agent,
+        slugs=args.slug,
     )
     output = render_markdown(
         articles,
         username=args.username,
         per_page=args.per_page,
+        slugs=args.slug,
         generated_at=generated_at,
     )
     write_path = args.write

@@ -29,6 +29,12 @@ class _FakeProton:
         return self._messages
 
 
+class _NoisyFakeProton(_FakeProton):
+    def get_messages(self):
+        print("_async_get_messages: 100%", file=sys.stderr)
+        return self._messages
+
+
 def test_is_noise_sender_matches_known_substrings():
     assert email_reader.is_noise_sender("<UserMail [no-reply@notify.proton.me]>")
     assert email_reader.is_noise_sender("<UserMail [noreply@gumroad.com]>")
@@ -91,3 +97,14 @@ def test_list_messages_limit_respected_after_filter():
     results = email_reader.list_messages(proton, exclude_noise=True, limit=3)
     assert len(results) == 3
     assert all(r["id"].startswith("real-") for r in results)
+
+
+def test_list_messages_suppresses_client_progress_noise(capsys):
+    proton = _NoisyFakeProton([
+        _msg("real", "scope question", "<UserMail [joe@example.com]>"),
+    ])
+
+    results = email_reader.list_messages(proton)
+
+    assert results[0]["id"] == "real"
+    assert "_async_get_messages" not in capsys.readouterr().err

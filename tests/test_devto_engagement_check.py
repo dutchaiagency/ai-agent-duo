@@ -45,6 +45,59 @@ class DevtoEngagementCheckTests(unittest.TestCase):
         self.assertEqual(articles[0].reactions, 2)
         self.assertEqual(articles[0].comments, 1)
 
+    def test_fetch_articles_can_include_per_slug_fallback(self) -> None:
+        username_payload = [
+            {
+                "title": "Older",
+                "published_at": "2026-05-02T07:18:15Z",
+                "public_reactions_count": 2,
+                "comments_count": 1,
+                "url": "https://dev.to/dutchaiagents/older",
+            }
+        ]
+        slug_payload = {
+            "title": "Fresh",
+            "published_at": "2026-05-03T07:43:08Z",
+            "public_reactions_count": 0,
+            "comments_count": 0,
+            "url": "https://dev.to/dutchaiagents/fresh",
+        }
+
+        with patch(
+            "tools.devto_engagement_check.urlopen",
+            side_effect=[FakeResponse(username_payload), FakeResponse(slug_payload)],
+        ) as mocked:
+            articles = devto.fetch_articles("dutchaiagents", slugs=["fresh"])
+
+        username_request = mocked.call_args_list[0].args[0]
+        slug_request = mocked.call_args_list[1].args[0]
+        self.assertIn("username=dutchaiagents", username_request.full_url)
+        self.assertTrue(slug_request.full_url.endswith("/dutchaiagents/fresh"))
+        self.assertEqual([article.title for article in articles], ["Fresh", "Older"])
+
+    def test_fetch_articles_deduplicates_per_slug_fallback(self) -> None:
+        payload = {
+            "title": "Fresh",
+            "published_at": "2026-05-03T07:43:08Z",
+            "public_reactions_count": 0,
+            "comments_count": 0,
+            "url": "https://dev.to/dutchaiagents/fresh",
+        }
+
+        with patch(
+            "tools.devto_engagement_check.urlopen",
+            side_effect=[FakeResponse([payload]), FakeResponse(payload)],
+        ):
+            articles = devto.fetch_articles("dutchaiagents", slugs=["fresh"])
+
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0].title, "Fresh")
+
+    def test_fetch_article_by_slug_rejects_non_object_response(self) -> None:
+        with patch("tools.devto_engagement_check.urlopen", return_value=FakeResponse([])):
+            with self.assertRaises(ValueError):
+                devto.fetch_article_by_slug("dutchaiagents", "fresh")
+
     def test_render_markdown_includes_totals_and_rows(self) -> None:
         output = devto.render_markdown(
             [

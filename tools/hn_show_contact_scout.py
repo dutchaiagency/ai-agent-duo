@@ -43,6 +43,12 @@ GITHUB_URL_RE = re.compile(
     r"(?:[/?#\"'<>\\\s]|$)",
     re.IGNORECASE,
 )
+GITHUB_REPO_REF_RE = re.compile(
+    r"(?<![A-Za-z0-9_.-])"
+    r"(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)"
+    r"\s+(?:PR\s+)?#\d+",
+    re.IGNORECASE,
+)
 BLOCKED_LOCAL_PARTS = {
     "abuse",
     "donotreply",
@@ -63,8 +69,11 @@ BLOCKED_DOMAINS = {
     "github.com",
     "hackernews.com",
     "news.ycombinator.com",
+    "spam.com",
     "yourdomain.com",
 }
+LARGE_ORG_STAR_THRESHOLD = 10_000
+MASSIVE_REPO_STAR_THRESHOLD = 25_000
 DEV_FIT_TERMS = (
     "agent",
     "ai",
@@ -225,6 +234,18 @@ def is_usable_email(email: str) -> bool:
     return True
 
 
+def is_large_org_repo(repo: GithubRepo | None) -> bool:
+    if repo is None:
+        return False
+    return repo.owner_type.lower() == "organization" and repo.stars >= LARGE_ORG_STAR_THRESHOLD
+
+
+def is_massive_repo(repo: GithubRepo | None) -> bool:
+    if repo is None:
+        return False
+    return repo.stars >= MASSIVE_REPO_STAR_THRESHOLD
+
+
 def extract_emails(text: str) -> tuple[str, ...]:
     emails: list[str] = []
     for match in EMAIL_RE.finditer(html.unescape(text or "")):
@@ -250,6 +271,10 @@ def parse_github_repo_url(url: str) -> tuple[str, str] | None:
     if repo.endswith(".git"):
         repo = repo[:-4]
     return owner, repo
+
+
+def normalize_repo(value: str) -> str:
+    return value.strip().strip("/").lower()
 
 
 def extract_github_repo_urls(text: str) -> tuple[str, ...]:
@@ -389,12 +414,14 @@ def scan_story(
     story: HNStory,
     *,
     contacted_emails: set[str] | None = None,
+    touched_repos: set[str] | None = None,
     fetch_launch_pages: bool = True,
     json_fetcher: JsonFetcher = request_json,
     text_fetcher: TextFetcher = request_text,
     github_api_url: str = DEFAULT_GITHUB_API_URL,
 ) -> ContactLead:
     contacted_emails = contacted_emails or set()
+    touched_repos = touched_repos or set()
     evidence_urls: list[str] = []
     emails: list[str] = []
 
@@ -433,9 +460,18 @@ def scan_story(
     elif any(email in contacted_emails for email in emails):
         decision = "watch_already_contacted"
         reasons.append("email already in contact log")
+    elif repo is not None and normalize_repo(repo.full_name) in touched_repos:
+        decision = "watch_already_contacted"
+        reasons.append("repo already in active touch log")
     elif repo is None:
         decision = "watch_public_email_no_repo"
         reasons.append("public email but no GitHub repo found")
+    elif is_large_org_repo(repo):
+        decision = "watch_large_org_repo"
+        reasons.append("large org repo; needs specific issue before outreach")
+    elif is_massive_repo(repo):
+        decision = "watch_large_repo"
+        reasons.append("large repo; needs specific issue before outreach")
     elif not reasons:
         decision = "watch_low_fit"
         reasons.append("low service-fit signal")
@@ -457,6 +493,7 @@ def scan_stories(
     stories: list[HNStory],
     *,
     contacted_emails: set[str] | None = None,
+    touched_repos: set[str] | None = None,
     fetch_launch_pages: bool = True,
     json_fetcher: JsonFetcher = request_json,
     text_fetcher: TextFetcher = request_text,
@@ -466,6 +503,7 @@ def scan_stories(
         scan_story(
             story,
             contacted_emails=contacted_emails,
+            touched_repos=touched_repos,
             fetch_launch_pages=fetch_launch_pages,
             json_fetcher=json_fetcher,
             text_fetcher=text_fetcher,
@@ -482,6 +520,19 @@ def load_contacted_emails(paths: list[Path]) -> set[str]:
             continue
         contacted.update(extract_emails(path.read_text(encoding="utf-8", errors="replace")))
     return contacted
+
+
+def load_touched_repos(paths: list[Path]) -> set[str]:
+    touched: set[str] = set()
+    for path in paths:
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for match in GITHUB_URL_RE.finditer(text):
+            touched.add(normalize_repo(f"{match.group('owner')}/{match.group('repo')}"))
+        for match in GITHUB_REPO_REF_RE.finditer(text):
+            touched.add(normalize_repo(f"{match.group('owner')}/{match.group('repo')}"))
+    return touched
 
 
 def table_escape(value: str) -> str:
@@ -513,7 +564,7 @@ def render_markdown(
         "",
         f"- Show HN stories scanned: {len(leads)} (limit {limit})",
         f"- Candidate leads needing deep read: {len(candidates)}",
-        f"- Already-contacted public emails: {len(already_contacted)}",
+        f"- Already-contacted or active-touch leads: {len(already_contacted)}",
     ]
     if candidates:
         labels = ", ".join(f"HN #{lead.story.item_id}" for lead in candidates[:10])
@@ -559,6 +610,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Markdown/text file whose public emails should be treated as already contacted.",
     )
+    parser.add_argument(
+        "--touched-repo-log",
+        action="append",
+        type=Path,
+        default=[Path("ops/outbound_pipeline.md")],
+        help="Markdown/text file whose GitHub repo refs should be treated as already touched.",
+    )
     parser.add_argument("--write", type=Path)
     parser.add_argument(
         "--state-dir",
@@ -584,6 +642,7 @@ def main(argv: list[str] | None = None) -> int:
     leads = scan_stories(
         stories,
         contacted_emails=load_contacted_emails(args.contact_log),
+        touched_repos=load_touched_repos(args.touched_repo_log),
         fetch_launch_pages=not args.skip_launch_page_fetch,
         github_api_url=args.github_api_url,
     )

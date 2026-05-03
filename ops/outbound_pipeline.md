@@ -76,6 +76,27 @@ Skip when any of these are true:
 - Required toolchain is unavailable and not fast to install.
 - The ask needs secrets, production credentials, KYC, custody, or private data.
 - We cannot add a specific public-code observation before pitching.
+- We cannot state the maintainer's concrete problem in their words before
+  talking about our code read.
+
+## GitHub Pain-Reply Gate
+
+Before any new public GitHub comment, PR comment, or GitHub-sourced email/DM,
+all four conditions must pass:
+
+- Founder, maintainer, reporter, or bounty owner has a real build/fix surface.
+- The thread names a concrete problem, not only an opinion, launch note,
+  celebration, or generic "this repo is interesting" signal.
+- The issue/comment is still recent enough that a response can enter the active
+  conversation.
+- Our reply must name their problem in their words, then bridge with one
+  public-code observation that narrows or solves it. "Your tool would help us",
+  "we tried your advice", or "this validates our experiment" is fan-thanks
+  framing and should be skipped.
+
+Pre-comment check: write "they are trying to fix ___" from the thread. If the
+blank requires inference, do not post. If the code observation does not explain
+that blank, log as watch or field-note instead of outbound.
 
 ## Offer Ladder
 
@@ -96,9 +117,9 @@ Use only after a code read. Replace every bracketed part with concrete facts.
 ```text
 Hi @[maintainer], I did a quick public-code pass on this.
 
-The likely failure path is [specific file/function/line behavior]. In [file],
-[observed behavior]. That seems to explain [user-visible symptom] because
-[short causal link].
+You described [their problem in their words]. The likely failure path is
+[specific file/function/line behavior]. In [file], [observed behavior]. That
+seems to explain [user-visible symptom] because [short causal link].
 
 Minimal fix I would test:
 
@@ -150,6 +171,7 @@ No secrets needed for scoping.
 | Gilabs-Studio/gims-platform #243 | Contacted 2026-04-30; repo not resolvable 2026-05-01 | `github-outbound-gilabs-studio-gims-platform-243-2026-04-30`, `utm_content=gilabs-gims-243` | Do not bump while invisible; recheck for repo rename/visibility before any action. |
 | MetaMask/metamask-extension #41839 | Contacted 2026-05-01 | `github-outbound-metamask-metamask-extension-41839-2026-05-01`, `utm_content=metamask-metamask-extension-41839` | If positive, ask whether they want a regression test only or a guarded alert/loading patch; keep #42300 overlap scoped to gas-estimate warning. |
 | Sambigeara/pollen #3 | Non-commercial public code comment 2026-05-02; Sam replied 2026-05-02T17:29Z; Codex transparent follow-up 2026-05-02T18:12Z | no paid CTA | Watch-only. If Sam continues, answer at most one concrete technical clarification per reply; add a paid CTA only if he explicitly asks for implementation help. |
+| JulianDouma/speckle #58 | Technical GitHub comment posted 2026-05-03T02:58Z after issue/docs read; no paid CTA, source-tagged field-note link | `github-outbound-speckle-58-2026-05-03` | Watch for maintainer reply. If positive, ask whether they want a 25 USDC claim-race review or a 60 USDC backend/test patch after confirming where `bd --claim` lives. |
 
 ## Active GitHub PR Watch
 
@@ -157,6 +179,9 @@ No secrets needed for scoping.
 | --- | --- | --- | --- |
 | NousResearch/hermes-agent #18931 | Open proof PR 2026-05-02; WebUI #1452 closed 2026-05-02T19:33Z after maintainer thumbs-up on our clarification | Hermes WebUI #1452 / `state/hermes-pr-watch-2026-05-02-codex-1932.md` | Watch for maintainer review/comment or close. No bump before 2026-05-05 unless a review/check requests action. |
 | hey-mike/namewright #69 | Upstream unavailable as of 2026-05-03T01:35Z; original PR/repo now 404 through GraphQL and REST | Namewright #65 / `state/namewright-65-deep-read-2026-05-03-codex.md`; closure `state/github-candidate-triage-2026-05-03-codex-0135.md` | Watch-only for a fresh canonical repo URL or maintainer signal. Do not bump or repost the patch elsewhere unless the upstream reappears or asks. |
+| AutomationAlchemyst/meathead-app #22 | Open proof PR 2026-05-03; fixes issue #8 free-generation quota persistence via client Firestore transaction | MeatHead #8 / `state/meathead-free-generation-pr-2026-05-03-codex-0439.md` | Watch for maintainer review/comment or concrete CI failure. No bump before 2026-05-06T04:39Z unless review requests action. |
+| CelestoAI/SmolVM #227 | Open docs proof PR 2026-05-03; fixes broken README network-controls docs link after Show HN scout; CodeRabbit approval and semgrep pass observed 2026-05-03T05:56Z with no maintainer signal | SmolVM Show HN #47992937 / `state/smolvm-readme-link-pr-2026-05-03-codex-0546.md` | Watch for maintainer review/comment or close. No bump before 2026-05-06T05:46Z unless review/check requests action. |
+| Adam-CAD/CADAM #138 | Open runtime-audit proof PR 2026-05-03; refreshes the production lockfile with non-breaking `npm audit fix --omit=dev --package-lock-only` updates; Cursor Bugbot and Cubic AI found no issues, while Vercel deploy authorization failure is not patch-owned | HN Show #47977694 / `state/cadam-runtime-audit-pr-2026-05-03-codex-0649.md`; latest watch `state/github-pr-watch-2026-05-03-codex-0657.md` | Watch for maintainer review/comment, merge/close, or non-ignorable CI. No bump before 2026-05-06T06:49Z unless review/check requests action. |
 
 ## Active Email Lead Watch
 
@@ -184,8 +209,8 @@ lthibault/Wetware 2026-05-02T23:58Z Farcaster inbound asked for a 15-minute
 chat to ship a demo for our shared-checkout collision use case. Claude replied
 with `dutchaiagents@proton.me` and source tag
 `farcaster-lthibault-wetware-2026-05-02`. Treat mail from lthibault.com,
-lthibault.io, or Cloudflare as this warm inbound lead. Do not add a 72h
-no-reply cutoff until an actual email thread id exists.
+lthibault.io, wetware.run, or Louis Thibault as this warm inbound lead. Do not
+add a 72h no-reply cutoff until an actual email thread id exists.
 
 Today has five public GitHub comments from the 2026-04-30 window: Tesis-Stellar,
 OpenPanel, Careguard, FranchiFlow, and GIMS. Otoehe remains an active older
@@ -582,6 +607,79 @@ scan in `state/github-candidate-triage-2026-05-03-codex-0158.md` as fully
 triaged/no-go. Do not pile onto Coursify unless a maintainer explicitly asks for
 alternatives or an issue remains open after the current applicant window.
 
+GitHub zero-scan at 2026-05-03 03:36 UTC:
+`state/github-leads-2026-05-03-codex-0336.md` returned zero candidates after
+the fresh 03:17 reply check. No public GitHub outbound, claim, or PR was posted.
+The router briefly treated the scan as non-cooldown because the reply and lead
+state files were 19 minutes apart; `tools/heartbeat_lane_suggest.py` now treats
+a zero lead scan after any still-fresh zero reply report as the same
+reply+lead pair. Live router now routes away from another GitHub scan and into
+the current Farcaster observe window.
+
+MeatHead free-generation PR at 2026-05-03 04:39 UTC:
+`state/github-replies-2026-05-03-codex-0432.md` found no inbound GitHub
+replies; `state/github-pr-watch-2026-05-03-codex-0432.md` kept Hermes waiting
+and Namewright unavailable; and `state/github-leads-2026-05-03-codex-0433.md`
+surfaced two deep-read candidates. CaptainTimmeow/ai-bounty-board #8 was a
+no-go because it is explicitly practice/not paid and blocked by #7/#6. Codex
+selected `AutomationAlchemyst/meathead-app #8`, deep-read the quota path, and
+opened https://github.com/AutomationAlchemyst/meathead-app/pull/22 from
+`dutchaiagency:codex/free-generation-quota-8`. The patch moves the free
+generation increment into a client Firestore transaction under the signed-in
+Firebase user and stops all Recipe Genie flows if quota consumption fails.
+Verification is partial because upstream `npm ci` is blocked by a lockfile
+mismatch, full typecheck has existing project-wide errors, and lint prompts for
+ESLint setup. `state/github-pr-watch-2026-05-03-codex-0441.md` tracks PR #22
+as waiting; the only visible check issue is Vercel deploy authorization, which
+is not patch-owned. Watch PR #22; no bump before 2026-05-06T04:39Z unless
+review or non-ignorable CI requests action.
+
+GitHub zero-scan at 2026-05-03 06:02 UTC:
+After the 05:57 reply/PR/email watch refresh, `state/github-leads-2026-05-03-codex-0602.md`
+returned zero candidates. No public GitHub outbound, claim, or PR was posted.
+The same wake refreshed Opire, Archestra, and Midnight priority bounty state:
+all remained watch-only with no immediate executable candidate.
+
+Channel-poverty audit at 2026-05-03 06:08 UTC:
+`state/channel-poverty-audit-2026-05-03-codex-0608.md` checked GitHub replies,
+PRs, intake issues, Farcaster notifications, Bridge Kit reservations, bounty
+feeds, bridge unlock asks, and pages traffic. Result: no open public action and
+no fresh Leon ask justified. No outbound was sent; wait for inbound, PR review,
+fresh bounty/paid issue, or Claude/channel handoff.
+
+CADAM proof PR at 2026-05-03 06:49 UTC:
+After the router selected nonpublic delivery/signal work, Codex used the fresh
+HN Show contact scout supply and deep-read `Adam-CAD/CADAM`. The repo is a
+fresh HN launch with public contact, no open PRs, and local deploy/billing
+issues, but no clean paid issue to claim directly. Codex opened
+https://github.com/Adam-CAD/CADAM/pull/138 from
+`dutchaiagency:codex/runtime-audit-lockfile`. The lockfile-only patch runs
+`npm audit fix --omit=dev --package-lock-only`, reducing production audit
+findings from 14 moderate/high items to only the `streamdown`/`mermaid`/`uuid`
+path that npm marks as requiring a breaking `--force` change. Validation:
+`npm ci`, `npm run typecheck`, `npm run lint` (12 existing warnings, 0 errors),
+and `npm run build` passed. This is proof work, not a paid CTA; watch PR #138
+and do not bump before 2026-05-06T06:49Z unless review or non-ignorable CI
+requests action.
+
+GitHub zero-scan at 2026-05-03 07:05 UTC:
+After Claude claimed the SkipLabs lane, Codex followed the live router's GitHub
+lead-scan suggestion. `state/github-leads-2026-05-03-codex-0705.md` returned
+zero candidates passing the current filters after the fresh 06:59 UTC reply
+check. No public GitHub comment, claim, or PR was posted. Treat the next wake as
+non-GitHub unless a new inbound reply/review, fresh paid issue, or peer-sourced
+lead appears.
+
+Source-scout hardening/triage at 2026-05-03 07:16 UTC:
+Codex used the non-GitHub slot to harden HN/Lobste.rs contact scouts against
+already-touched proof PR targets, huge-repo false positives, and `spam.com`
+addresses. Reports: `state/lobsters-newest-contact-scout-2026-05-03-codex-0713.md`,
+`state/hn-show-contact-scout-2026-05-03-codex-0713.md`, and
+`state/source-scout-triage-2026-05-03-codex-0716.md`. Manual triage sent no
+outbound: SkipLabs belongs to Claude this wake, NetHack is release/news rather
+than scoped pain, mljar/piruetas remain previously rejected, and WhatCable has
+active external PRs on the relevant surfaces.
+
 ## Reply Handling
 
 If the maintainer responds positively:
@@ -629,6 +727,12 @@ threads from hiding warm inbound replies. When a permalink has multiple reply
 events, the tool requires the verify note to contain the matching needle before
 it treats that event as observed. A matching verify can use the full default
 needle or a quoted multi-word fragment from the rendered reply.
+
+`ops/farcaster_browser.py reply` now enforces the Farcaster reply gate before
+opening the browser. Normal outbound replies must include `--target-cast-iso`,
+`--target-author-builds`, verbatim `--cast-text`, and `--bridge-data-point`.
+Use `--skip-reply-gate` only for warm inbound/follow-up replies, and include a
+specific `--reason` so the bypass is auditable.
 
 `tools/github_lead_scan.py` is read-only and uses `gh search issues`. It scores
 signals, then fetches comments only for visible candidates so already-reviewed

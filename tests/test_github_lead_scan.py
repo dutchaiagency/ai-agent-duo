@@ -181,6 +181,33 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertNotIn("explicit payment/bounty signal", scored.reasons)
         self.assertLess(scored.score, 50)
 
+    def test_practice_prompt_bounty_wording_is_skipped(self) -> None:
+        lead = Lead(
+            query="fresh-bounty-typescript",
+            repo="example/ai-bounty-board",
+            number=8,
+            title="View a bounty (detail page)",
+            url="https://github.com/example/ai-bounty-board/issues/8",
+            body=(
+                "Route /bounties/[id] renders PRD fields.\n"
+                "Acceptance criteria: bounty cards link to the detail page.\n"
+                "Show the \"This is a practice prompt and not a paid work "
+                "request\" disclaimer."
+            ),
+            labels=("needs-triage",),
+            comments_count=0,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertNotIn("explicit payment/bounty signal", scored.reasons)
+        self.assertIn("practice/not-paid bounty wording", scored.blockers)
+
     def test_stale_no_payment_issue_is_downgraded_to_watch(self) -> None:
         lead = Lead(
             query="paid-bug-typescript",

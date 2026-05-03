@@ -21,6 +21,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
 
@@ -34,9 +35,28 @@ DEFAULT_CAST_LIMIT = 15
 
 
 def target_url(target: str) -> str:
-    target = (target or DEFAULT_TARGET).strip().strip("/")
-    if target in {"home", "feed"}:
+    raw_target = (target or DEFAULT_TARGET).strip() or DEFAULT_TARGET
+    parsed = urlparse(raw_target)
+
+    if parsed.scheme in {"http", "https"}:
+        host = parsed.netloc.lower()
+        if host not in {"farcaster.xyz", "www.farcaster.xyz"}:
+            raise ValueError(f"target URL must be on farcaster.xyz, got {parsed.netloc!r}")
+        target = parsed.path.strip("/")
+    else:
+        target = raw_target.strip().strip("/")
+
+    normalized = target.lower()
+    if normalized in {"home", "feed", "~/feed"}:
         return f"{BASE_URL}/~/feed"
+
+    channel_prefix = "~/channel/"
+    if normalized.startswith(channel_prefix):
+        target = target[len(channel_prefix) :].strip("/")
+
+    if not target:
+        target = DEFAULT_TARGET
+
     return f"{BASE_URL}/~/channel/{target}"
 
 
@@ -124,7 +144,10 @@ def main() -> int:
     parser.add_argument("--no-body", action="store_true", help="Print only target hashes/permalinks, not body text.")
     args = parser.parse_args()
 
-    url = target_url(args.target)
+    try:
+        url = target_url(args.target)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     with sync_playwright() as p:
         ctx = p.chromium.launch_persistent_context(
@@ -138,6 +161,8 @@ def main() -> int:
         targets = extract_cast_targets(page, args.cast_limit)
         body = page.inner_text("body")[: args.max_chars]
         print(f"# Farcaster feed read: {url}")
+        if page.url.rstrip("/") != url.rstrip("/"):
+            print(f"# Final browser URL: {page.url}")
         print(f"# (top {args.max_chars} chars of inner_text, {time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime())})")
         print()
         print_cast_targets(targets)

@@ -183,6 +183,51 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(suggestion.decision, "devto_engagement_pull")
         self.assertIn("Latest GitHub reply+lead scan pair", suggestion.reason)
 
+    def test_zero_lead_scan_after_fresh_reply_check_counts_as_pair(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-replies-2026-05-03-codex-0317.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "github-leads-2026-05-03-codex-0336.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-03-codex-0233.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "github-bounty-priority-triage-2026-05-03-codex-0259.md",
+                "Result: no executable bounty candidate; publish/claim hold.",
+            )
+            write(
+                state / "devto-engagement-2026-05-03-codex-0212.md",
+                (
+                    "Total reactions: 0\nTotal comments: 0\n\n"
+                    "| Post | Published | Reactions | Comments | URL |\n"
+                    "|---|---:|---:|---:|---|\n"
+                    "| Old post | 2026-05-01T12:26:45Z | 0 | 0 | https://dev.to/example |\n"
+                ),
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 3, 3, 37, tzinfo=UTC),
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertNotEqual(suggestion.decision, "github_lead_scan")
+        self.assertIn("Latest GitHub reply+lead scan pair", suggestion.reason)
+
     def test_due_github_followup_overrides_plain_lead_scan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -462,6 +507,30 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(event.kind, "bounty")
         self.assertTrue(event.zero_signal)
 
+    def test_midnight_status_snapshot_is_classified_as_zero_bounty_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = (
+                Path(tmp)
+                / "state"
+                / "midnight-bounty-status-2026-05-03-claude-0254.md"
+            )
+            write(
+                path,
+                (
+                    "# Midnight contributor-hub bounty status snapshot\n\n"
+                    "Do NOT submit additional Midnight bounties this cycle.\n"
+                    "All three of our submissions remain low-priority without in-review.\n"
+                    "Do continue passive monitoring.\n"
+                ),
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertEqual(event.kind, "bounty")
+        self.assertTrue(event.zero_signal)
+
     def test_midnight_followup_delays_stale_bounty_refetch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -680,6 +749,120 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(suggestion.decision, "outbound_traffic_generation")
         self.assertIn("bot baseline", suggestion.reason)
 
+    def test_recent_channel_poverty_audit_suppresses_outbound_traffic_loop(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            now = datetime(2026, 5, 3, 6, 9, tzinfo=UTC)
+            write(
+                state / "github-leads-2026-05-03-codex-0602.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-03-codex-0557.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-03-codex-0559.md",
+                "GitHub reservation issues: `[]`\nProton unread non-noise messages: `[]`\n",
+            )
+            write(
+                state / "opire-featured-bounty-check-2026-05-03-codex-0558.md",
+                "zero immediate candidates.",
+            )
+            write(
+                state / "devto-engagement-2026-05-03-codex-0603.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                state / "channel-poverty-audit-2026-05-03-codex-0608.md",
+                "No public outbound, Farcaster cast/reply, Leon ping, checkout action, or account action was sent.\n",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+            snapshot = lane.PageTrafficSnapshot(
+                state / "pages-traffic-2026-05-03-codex-0604.md",
+                now - timedelta(minutes=5),
+                7,
+                210,
+                (
+                    lane.PageTraffic("home", "Home", 6, "ok"),
+                    lane.PageTraffic("parallel", "Parallel-wake races", 10, "ok"),
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                now,
+                pages_traffic=snapshot,
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "nonpublic_delivery_or_signal_work")
+        self.assertIn("channel-poverty audit already refreshed channel state", suggestion.reason)
+        self.assertIn("Do not repeat the channel-poverty", suggestion.next_steps[0])
+
+    def test_recent_github_outbound_routes_to_observe_before_more_public_posts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            now = datetime(2026, 5, 3, 3, 0, tzinfo=UTC)
+            write(
+                state / "github-leads-2026-05-03-codex-0232.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-03-codex-0232.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-03-codex-0233.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "archestra-bounty-label-watch-2026-05-03-codex-0212.md",
+                "watch/hold: 0 trigger candidates.",
+            )
+            write(
+                state / "devto-engagement-2026-05-03-codex-0255.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                state / "github-outbound-speckle-58-2026-05-03-codex-0258.md",
+                "Posted public GitHub comment: https://github.com/example/repo/issues/58#issuecomment-1",
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+            snapshot = lane.PageTrafficSnapshot(
+                state / "pages-traffic-2026-05-03-codex-0256.md",
+                now - timedelta(minutes=4),
+                7,
+                210,
+                (
+                    lane.PageTraffic("home", "Home", 5, "ok"),
+                    lane.PageTraffic("parallel", "Parallel-wake races", 1, "ok"),
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                now,
+                pages_traffic=snapshot,
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "github_outbound_observe")
+        self.assertIn("GitHub outbound artifact/comment was logged", suggestion.reason)
+        self.assertIn("Do not post another public GitHub", suggestion.next_steps[0])
+
     def test_load_latest_pages_traffic_reads_machine_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp) / "state"
@@ -743,6 +926,44 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertIsNotNone(event)
         assert event is not None
         self.assertEqual(event.kind, "channel_scout")
+        self.assertTrue(event.zero_signal)
+
+    def test_github_outbound_artifact_is_classified_as_nonzero_event(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = (
+                Path(tmp)
+                / "state"
+                / "github-outbound-speckle-58-2026-05-03-codex-0258.md"
+            )
+            write(path, "Posted public GitHub comment with source-tagged field-note link.")
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertEqual(event.kind, "github_outbound")
+        self.assertFalse(event.zero_signal)
+
+    def test_farcaster_observe_closure_is_classified_as_zero_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = (
+                Path(tmp)
+                / "state"
+                / "farcaster-reply-observe-2026-05-03-claude-0340.md"
+            )
+            write(
+                path,
+                (
+                    "Reply appears rendered, with no visible notification signal. "
+                    "Keep Farcaster in watch-only mode."
+                ),
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertEqual(event.kind, "farcaster_reply_observe")
         self.assertTrue(event.zero_signal)
 
     def test_channel_poverty_audit_no_public_outbound_is_zero_signal_channel_scout(self) -> None:
@@ -1018,6 +1239,64 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(suggestion.decision, "farcaster_reply_observe")
         self.assertIn("Farcaster outbound reply was logged", suggestion.reason)
         self.assertIn("Do not post another Farcaster reply", suggestion.next_steps[0])
+
+    def test_farcaster_observe_closure_suppresses_duplicate_observe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            now = datetime(2026, 5, 3, 3, 56, tzinfo=UTC)
+            write(
+                state / "github-leads-2026-05-03-codex-0336.md",
+                "No candidates passed the current filters.",
+            )
+            write(
+                state / "github-replies-2026-05-03-codex-0317.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "no-inventory-bridge-kit-signal-check-2026-05-03-codex-0338.md",
+                "0 reservation issues, 0 unread emails, 0 matching reservation emails.",
+            )
+            write(
+                state / "archestra-bounty-label-watch-2026-05-03-codex-0212.md",
+                "watch/hold: zero immediate candidates.",
+            )
+            write(
+                state / "devto-engagement-2026-05-03-codex-0336.md",
+                "Total reactions: 0\nTotal comments: 0\n",
+            )
+            write(
+                state / "productized-asset-review-2026-05-03-codex-0330.md",
+                "Result: productized review shipped; next useful move is distribution.",
+            )
+            write(
+                state / "github-outbound-speckle-58-2026-05-03-codex-0258.md",
+                "Posted public GitHub comment with source-tagged field-note link.",
+            )
+            write(
+                state / "farcaster-reply-observe-2026-05-03-claude-0340.md",
+                (
+                    "Reply appears rendered, with no visible notification signal. "
+                    "Keep Farcaster in watch-only mode. "
+                    "30-min observe window now closed flat."
+                ),
+            )
+            write(
+                ops / "no_inventory_validation_lane.md",
+                "Kill or park by `2026-05-03T21:36Z`.",
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                now,
+                last_farcaster_reply_at=datetime(2026, 5, 3, 3, 5, tzinfo=UTC),
+            )
+
+        self.assertTrue(suggestion.cooldown.active)
+        self.assertEqual(suggestion.decision, "github_outbound_observe")
+        self.assertNotIn("Farcaster outbound reply was logged", suggestion.reason)
 
     def test_last_successful_farcaster_reply_time_reads_reply_log(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1394,6 +1673,27 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
                     "GitHub reservation issues: []\n"
                     "Zero Bridge Kit reservations.\n"
                     "0 matching Bridge Kit emails.\n"
+                    "Keep the Bridge Kit on distribution hold.\n"
+                ),
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        self.assertTrue(event.zero_signal)
+
+    def test_no_inventory_backtick_empty_lists_are_zero_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = (
+                Path(tmp)
+                / "no-inventory-bridge-kit-signal-check-2026-05-03-codex-0559.md"
+            )
+            write(
+                path,
+                (
+                    "GitHub reservation issues: `[]`\n"
+                    "Proton unread non-noise messages: `[]`\n"
+                    "Proton `Bridge Kit reservation` search: `[]`\n"
                     "Keep the Bridge Kit on distribution hold.\n"
                 ),
             )
