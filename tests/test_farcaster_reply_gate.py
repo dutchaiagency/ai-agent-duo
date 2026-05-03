@@ -62,7 +62,19 @@ class HelperTests(unittest.TestCase):
     def test_problem_vocab_detection(self) -> None:
         self.assertTrue(contains_problem_vocab("our gateway is too slow"))
         self.assertTrue(contains_problem_vocab("we can't ship without this"))
+        self.assertTrue(
+            contains_problem_vocab("how do you run untrusted code safely")
+        )
+        self.assertTrue(contains_problem_vocab("anyone know a safe sandbox path"))
+        self.assertTrue(contains_problem_vocab("anyone tried isolating plugins"))
+        self.assertTrue(contains_problem_vocab("anyone solve runtime isolation"))
+        self.assertTrue(contains_problem_vocab("is there a way to isolate plugins"))
+        self.assertTrue(contains_problem_vocab("is there any way around this"))
+        self.assertTrue(
+            contains_problem_vocab("sandboxing alone isn't enough for agents")
+        )
         self.assertFalse(contains_problem_vocab("love this approach, agreed"))
+        self.assertFalse(contains_problem_vocab("what editor are you using?"))
 
     def test_only_opinion_detection(self) -> None:
         self.assertTrue(contains_only_opinion("congrats on the launch, amazing work"))
@@ -178,6 +190,50 @@ class GateEvaluationTests(unittest.TestCase):
                 "ops/email_sender.py but cross-agent claim is still manual."
             ),
             bridge_data_point="120s file lock in ops/email_sender.py, commit ec57e9f",
+            now=NOW,
+        )
+        self.assertTrue(result.passed, msg=f"expected pass, got {result.failures}")
+
+    def test_lthibault_second_person_question_problem_passes(self) -> None:
+        result = evaluate_gate(
+            target_url="https://farcaster.xyz/lthibault.eth/0x044b22b9",
+            target_cast_iso=ISO_2H_AGO,
+            target_author_builds="Wetware: capability-based p2p runtime for autonomous agents",
+            target_problem="how do you run untrusted code safely",
+            reply_text=(
+                "the untrusted code safely problem is exactly where our agents hit "
+                "friction. our current guard is a 120s file lock plus manual review, "
+                "which still leaves runtime isolation unresolved."
+            ),
+            bridge_data_point="120s file lock in ops/email_sender.py, commit ec57e9f",
+            now=NOW,
+        )
+        self.assertTrue(result.passed, msg=f"expected pass, got {result.failures}")
+
+    def test_lthibault_19_33Z_pattern_passes(self) -> None:
+        """Regression: retro-validation 2026-05-03 found gate would have BLOCKED
+        the actual conversion (lthibault 2026-05-02T19:33Z). The problem text
+        used 'is hard - sandboxing alone isn't enough' — none of the original
+        vocab tokens. The targeted 'is hard' / 'isn't enough' forms now
+        trigger (b) without letting any bare question mark through.
+        """
+        result = evaluate_gate(
+            target_url="https://farcaster.xyz/lthibault/0x180793f2",
+            target_cast_iso=ISO_2H_AGO,
+            target_author_builds=(
+                "Wetware: capability-based agent runtime (sandboxed WASM, Cap'n Proto RPC)"
+            ),
+            target_problem=(
+                "running untrusted code safely is hard - sandboxing alone "
+                "isn't enough for shared-state coordination"
+            ),
+            reply_text=(
+                "Running 2 autonomous agents in a shared checkout -- the "
+                "\"run untrusted code safely\" problem we hit isn't sandboxing, "
+                "it's lock semantics across two wakes. Email send completes "
+                "5-30s before the commit lands. 7 races in 48h."
+            ),
+            bridge_data_point="7 races in 48h shared-checkout field data",
             now=NOW,
         )
         self.assertTrue(result.passed, msg=f"expected pass, got {result.failures}")

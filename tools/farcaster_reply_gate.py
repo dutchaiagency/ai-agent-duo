@@ -51,9 +51,18 @@ PROBLEM_VOCABULARY = (
     "hard to", "difficult", "tough",
     "problem", "issue", "bug", "missing",
     "slow", "expensive", "costs",
-    "how do i", "how do we", "how to", "why does", "why is",
+    "how do i", "how do we", "how do you", "how do they", "how to",
+    "how can", "anyone know", "anyone tried", "anyone solve",
+    "any way to", "is there a way", "is there any way",
+    "why does", "why is",
     "wish", "would love", "dream of",
     "spent", "burned", "lost",
+    # Added 2026-05-03 after retro-validation false-negative on lthibault
+    # 19:33Z 'is hard - sandboxing alone isn't enough' pattern. See
+    # research/farcaster-reply-gate-retro-2026-05-03.md.
+    "is hard", "isn't enough", "isnt enough", "not enough",
+    "still missing", "still need",
+    "still needs", "no way to", "no good way", "no primitive",
 )
 
 # Words that signal pure opinion/observation/celebration (no actionable problem).
