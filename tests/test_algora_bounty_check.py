@@ -47,6 +47,106 @@ class AlgoraBountyCheckTests(unittest.TestCase):
         self.assertEqual(bounties[0].repo, "")
         self.assertEqual(bounties[0].github_url, "https://algora.io/example/bounties/abc123")
 
+    def test_parses_algora_main_page_inline_amount_links(self) -> None:
+        html = """
+        <h1>Bounties</h1>
+        <p>Open bounties for you</p>
+        <a href="https://github.com/zio/zio/issues/519">
+          ZI ZIO #519 $4,000 Schema Migration System for ZIO Schema 2
+        </a>
+        <a href="https://github.com/zio/zio/issues/9878">
+          ZI ZIO #9878 $850 ZScheduler parks workers too frequently
+        </a>
+        <h2>Fund GitHub issues</h2>
+        <a href="https://github.com/noise/repo/issues/1">View issue</a>
+        """
+
+        bounties = parse_algora_bounties(html, source_url="https://algora.io/bounties")
+
+        self.assertEqual(len(bounties), 2)
+        self.assertEqual(bounties[0].amount, "$4,000")
+        self.assertEqual(bounties[0].repo, "zio/zio")
+        self.assertEqual(bounties[0].number, 519)
+        self.assertEqual(
+            bounties[0].title,
+            "ZI ZIO #519 Schema Migration System for ZIO Schema 2",
+        )
+        self.assertEqual(bounties[1].amount, "$850")
+        self.assertEqual(bounties[1].repo, "zio/zio")
+        self.assertEqual(bounties[1].number, 9878)
+
+    def test_derives_issue_from_individual_bounty_pr_reference(self) -> None:
+        html = """
+        <html>
+          <head><meta property="og:title" content="IMAP"></head>
+          <body>
+            <div>$2,500</div>
+            <p>Solution submitted for #19494. Pull Request:
+            https://github.com/twentyhq/twenty/pull/19737</p>
+          </body>
+        </html>
+        """
+
+        bounties = parse_algora_bounties(
+            html,
+            source_url="https://algora.io/twentyhq/bounties/g6i2c8YSNV9nHogT",
+        )
+
+        self.assertEqual(len(bounties), 1)
+        self.assertEqual(bounties[0].amount, "$2,500")
+        self.assertEqual(bounties[0].title, "IMAP")
+        self.assertEqual(bounties[0].repo, "twentyhq/twenty")
+        self.assertEqual(bounties[0].number, 19494)
+        self.assertEqual(
+            bounties[0].github_url,
+            "https://github.com/twentyhq/twenty/issues/19494",
+        )
+
+    def test_keeps_pr_link_when_individual_bounty_has_no_issue_reference(self) -> None:
+        html = """
+        <html>
+          <head><meta property="og:title" content="IMAP"></head>
+          <body>
+            <div>$2,500</div>
+            <p>Pull Request: https://github.com/twentyhq/twenty/pull/19737</p>
+          </body>
+        </html>
+        """
+
+        bounties = parse_algora_bounties(
+            html,
+            source_url="https://algora.io/twentyhq/bounties/g6i2c8YSNV9nHogT",
+        )
+
+        self.assertEqual(len(bounties), 1)
+        self.assertEqual(bounties[0].repo, "")
+        self.assertEqual(
+            bounties[0].github_url,
+            "https://github.com/twentyhq/twenty/pull/19737",
+        )
+
+    def test_parses_individual_bounty_page_github_issue(self) -> None:
+        html = """
+        <html>
+          <head><title>Fix sync | Algora</title></head>
+          <body>
+            <div>$750</div>
+            <a href="https://github.com/org/repo/issues/44">Issue</a>
+          </body>
+        </html>
+        """
+
+        bounties = parse_algora_bounties(
+            html,
+            source_url="https://algora.io/org/bounties/issue44",
+        )
+
+        self.assertEqual(len(bounties), 1)
+        self.assertEqual(bounties[0].amount, "$750")
+        self.assertEqual(bounties[0].title, "Fix sync")
+        self.assertEqual(bounties[0].repo, "org/repo")
+        self.assertEqual(bounties[0].number, 44)
+
     def test_closed_github_issue_is_skipped(self) -> None:
         bounty = AlgoraBounty(
             source_url="https://algora.io/example",

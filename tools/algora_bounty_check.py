@@ -24,7 +24,16 @@ from urllib.request import Request, urlopen
 
 
 GITHUB_ISSUE_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/issues/(\d+)(?:[?#].*)?$")
+GITHUB_PR_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:[?#].*)?$")
+GITHUB_REFERENCE_URL_RE = re.compile(
+    r"https://github\.com/[^\s\"'<>]+/[^\s\"'<>]+/(?:issues|pull)/\d+(?:[?#][^\s\"'<>]*)?"
+)
+ISSUE_REFERENCE_TEXT_RE = re.compile(
+    r"(?:issue|for|fix(?:es)?|close[sd]?)\s+#(?P<number>\d{2,})",
+    re.IGNORECASE,
+)
 AMOUNT_RE = re.compile(r"\$[\d][\d,]*(?:\.\d+)?")
+OPEN_BOUNTIES_SECTION_RE = re.compile(r"^open bounties\b", re.IGNORECASE)
 WORK_INTENT_RE = re.compile(
     r"("
     r"/attempt\b|/claim\b|pull/\d+|pr\s*#\d+|"
@@ -98,6 +107,14 @@ def parse_github_issue_url(url: str) -> tuple[str, int] | None:
     return f"{owner}/{repo}", int(number)
 
 
+def parse_github_pr_url(url: str) -> tuple[str, int] | None:
+    match = GITHUB_PR_RE.match(url)
+    if not match:
+        return None
+    owner, repo, number = match.groups()
+    return f"{owner}/{repo}", int(number)
+
+
 def is_algora_bounty_url(url: str) -> bool:
     parsed = urlparse(url)
     return parsed.netloc == "algora.io" and "/bounties/" in parsed.path
@@ -130,10 +147,10 @@ class AlgoraBountyParser(HTMLParser):
         if not text:
             return
 
-        if text.startswith("Completed Bounties"):
+        if text.startswith(("Completed Bounties", "Fund GitHub issues")):
             self.in_open_section = False
             return
-        if text.startswith("Open Bounties"):
+        if OPEN_BOUNTIES_SECTION_RE.match(text):
             self.in_open_section = True
             return
 
@@ -147,9 +164,17 @@ class AlgoraBountyParser(HTMLParser):
 
         if not self.current_href:
             return
+        inline_amount_match = AMOUNT_RE.search(text)
+        amount = self.current_amount or (inline_amount_match.group(0) if inline_amount_match else "")
+        title = (
+            compact_text(AMOUNT_RE.sub("", text, count=1))
+            if inline_amount_match
+            else text
+        )
+
         parsed = parse_github_issue_url(self.current_href)
         if parsed is None and not (
-            self.current_amount and is_algora_bounty_url(self.current_href)
+            amount and is_algora_bounty_url(self.current_href)
         ):
             return
         if parsed is None:
@@ -159,8 +184,8 @@ class AlgoraBountyParser(HTMLParser):
             self.bounties.append(
                 AlgoraBounty(
                     source_url=self.source_url,
-                    amount=self.current_amount,
-                    title=text,
+                    amount=amount,
+                    title=title,
                     github_url=self.current_href,
                     repo="",
                     number=0,
@@ -174,20 +199,129 @@ class AlgoraBountyParser(HTMLParser):
             return
         self._seen.add(key)
         self.bounties.append(
-            AlgoraBounty(
-                source_url=self.source_url,
-                amount=self.current_amount,
-                title=text,
-                github_url=self.current_href,
-                repo=repo,
-                number=number,
+                AlgoraBounty(
+                    source_url=self.source_url,
+                    amount=amount,
+                    title=title,
+                    github_url=self.current_href,
+                    repo=repo,
+                    number=number,
             )
         )
+
+
+class IndividualAlgoraBountyParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.in_title = False
+        self.title_parts: list[str] = []
+        self.text_parts: list[str] = []
+        self.meta_title = ""
+        self.amount = ""
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attr_map = {name: value for name, value in attrs}
+        if tag == "title":
+            self.in_title = True
+            return
+        if tag != "meta":
+            return
+        prop = attr_map.get("property") or attr_map.get("name") or ""
+        if prop in {"og:title", "twitter:title"} and attr_map.get("content"):
+            self.meta_title = compact_text(str(attr_map["content"]))
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "title":
+            self.in_title = False
+
+    def handle_data(self, data: str) -> None:
+        text = compact_text(data)
+        if not text:
+            return
+        self.text_parts.append(text)
+        if self.in_title:
+            self.title_parts.append(text)
+        if not self.amount and AMOUNT_RE.fullmatch(text):
+            self.amount = text
+
+    @property
+    def title(self) -> str:
+        if self.meta_title:
+            return self.meta_title
+        title = compact_text(" ".join(self.title_parts))
+        return title.removesuffix("| Algora").strip()
+
+    @property
+    def text(self) -> str:
+        return compact_text(" ".join(self.text_parts))
+
+
+def parse_individual_algora_bounty(html: str, *, source_url: str) -> AlgoraBounty | None:
+    if not is_algora_bounty_url(source_url):
+        return None
+
+    parser = IndividualAlgoraBountyParser()
+    parser.feed(html)
+    if not parser.title and not parser.amount:
+        return None
+
+    github_urls = [
+        match.group(0).rstrip(".,)")
+        for match in GITHUB_REFERENCE_URL_RE.finditer(html)
+    ]
+    for github_url in github_urls:
+        parsed = parse_github_issue_url(github_url)
+        if parsed is None:
+            continue
+        repo, number = parsed
+        return AlgoraBounty(
+            source_url=source_url,
+            amount=parser.amount,
+            title=parser.title,
+            github_url=github_url,
+            repo=repo,
+            number=number,
+        )
+
+    pr_repos = []
+    for github_url in github_urls:
+        parsed_pr = parse_github_pr_url(github_url)
+        if parsed_pr is not None:
+            pr_repos.append((parsed_pr[0], github_url))
+    issue_numbers = {
+        int(match.group("number"))
+        for match in ISSUE_REFERENCE_TEXT_RE.finditer(parser.text)
+    }
+    unique_pr_repos = {repo for repo, _github_url in pr_repos}
+    if len(unique_pr_repos) == 1 and len(issue_numbers) == 1:
+        repo = next(iter(unique_pr_repos))
+        number = next(iter(issue_numbers))
+        return AlgoraBounty(
+            source_url=source_url,
+            amount=parser.amount,
+            title=parser.title,
+            github_url=f"https://github.com/{repo}/issues/{number}",
+            repo=repo,
+            number=number,
+        )
+
+    return AlgoraBounty(
+        source_url=source_url,
+        amount=parser.amount,
+        title=parser.title,
+        github_url=github_urls[0] if github_urls else source_url,
+        repo="",
+        number=0,
+    )
 
 
 def parse_algora_bounties(html: str, *, source_url: str) -> list[AlgoraBounty]:
     parser = AlgoraBountyParser(source_url)
     parser.feed(html)
+    if not parser.bounties:
+        bounty = parse_individual_algora_bounty(html, source_url=source_url)
+        if bounty is not None:
+            return [bounty]
     return parser.bounties
 
 
