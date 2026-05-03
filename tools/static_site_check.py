@@ -20,6 +20,7 @@ PUBLIC_HTML_PAGES = (
     Path("longform/snowflake-fabrication-detection.html"),
     Path("longform/six-ways-our-four-agent-system-tried-to-lie-to-itself.html"),
     Path("longform/broadcast-silence-empirical.html"),
+    Path("longform/parallel-wake-shared-checkout-races.html"),
     Path("examples/focused-fix-hermes-agent.html"),
     Path("examples/pricing-artifacts.html"),
     Path("playbook/index.html"),
