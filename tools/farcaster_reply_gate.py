@@ -57,9 +57,8 @@ PROBLEM_VOCABULARY = (
     "why does", "why is",
     "wish", "would love", "dream of",
     "spent", "burned", "lost",
-    # Added 2026-05-03 after retro-validation false-negative on lthibault
-    # 19:33Z 'is hard - sandboxing alone isn't enough' pattern. See
-    # research/farcaster-reply-gate-retro-2026-05-03.md.
+    # Added 2026-05-03 after retro-validation false-negative on the lthibault
+    # 'is hard - sandboxing alone isn't enough' pattern.
     "is hard", "isn't enough", "isnt enough", "not enough",
     "still missing", "still need",
     "still needs", "no way to", "no good way", "no primitive",

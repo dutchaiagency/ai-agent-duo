@@ -71,6 +71,14 @@ class HelperTests(unittest.TestCase):
     def test_problem_vocab_detection(self) -> None:
         self.assertTrue(contains_problem_vocab("webhook retries fail"))
         self.assertTrue(contains_problem_vocab("expected behavior says paid"))
+        self.assertTrue(
+            contains_problem_vocab("how do you handle webhook idempotency")
+        )
+        self.assertTrue(contains_problem_vocab("any way to reproduce the race"))
+        self.assertTrue(contains_problem_vocab("anyone tried reproducing the race"))
+        self.assertTrue(contains_problem_vocab("anyone solve flaky retries"))
+        self.assertTrue(contains_problem_vocab("is there a way to avoid deadlocks"))
+        self.assertTrue(contains_problem_vocab("is there any way around the leak"))
         self.assertFalse(contains_problem_vocab("cool repo, excited to watch"))
 
     def test_only_opinion_detection(self) -> None:
@@ -227,6 +235,26 @@ class GateEvaluationTests(unittest.TestCase):
                 "Firestore write confirms persistence"
             ),
             next_step="Patch the quota transaction and add a reload regression test.",
+            now=NOW,
+        )
+        self.assertTrue(result.passed, msg=f"expected pass, got {result.failures}")
+
+    def test_stackoverflow_style_question_problem_passes(self) -> None:
+        result = evaluate_gate(
+            target_url="https://github.com/owner/repo/issues/124",
+            target_thread_iso=ISO_2D_AGO,
+            target_actor_builds="maintainer of a plugin runtime",
+            target_problem="how do you handle untrusted plugin execution safely",
+            reply_text=(
+                "You asked how to handle untrusted plugin execution safely. "
+                "Read-only check: src/runtime/plugins.ts invokes plugin code before "
+                "the permission guard, so a minimal fix is to move execution behind "
+                "the guard and add an untrusted plugin regression test."
+            ),
+            code_observation=(
+                "src/runtime/plugins.ts:54 invokes plugin code before permission guard"
+            ),
+            next_step="Patch the permission guard order and add an untrusted plugin test.",
             now=NOW,
         )
         self.assertTrue(result.passed, msg=f"expected pass, got {result.failures}")
