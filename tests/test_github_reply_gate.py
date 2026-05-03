@@ -79,6 +79,13 @@ class HelperTests(unittest.TestCase):
         self.assertTrue(contains_problem_vocab("anyone solve flaky retries"))
         self.assertTrue(contains_problem_vocab("is there a way to avoid deadlocks"))
         self.assertTrue(contains_problem_vocab("is there any way around the leak"))
+        self.assertTrue(contains_problem_vocab("sandboxing alone isn't enough"))
+        self.assertTrue(contains_problem_vocab("there is no primitive for claims"))
+        self.assertTrue(contains_problem_vocab("still needs a conflict policy"))
+        self.assertTrue(contains_problem_vocab("without proper validation"))
+        self.assertTrue(contains_problem_vocab("insufficient funds alert"))
+        self.assertTrue(contains_problem_vocab("persistence and backpressure"))
+        self.assertTrue(contains_problem_vocab("debited before on-chain settlement"))
         self.assertFalse(contains_problem_vocab("cool repo, excited to watch"))
 
     def test_only_opinion_detection(self) -> None:
@@ -255,6 +262,31 @@ class GateEvaluationTests(unittest.TestCase):
                 "src/runtime/plugins.ts:54 invokes plugin code before permission guard"
             ),
             next_step="Patch the permission guard order and add an untrusted plugin test.",
+            now=NOW,
+        )
+        self.assertTrue(result.passed, msg=f"expected pass, got {result.failures}")
+
+    def test_pollen_state_design_problem_passes(self) -> None:
+        result = evaluate_gate(
+            target_url="https://github.com/Sambigeara/pollen/issues/3",
+            target_thread_iso=ISO_2D_AGO,
+            target_actor_builds="maintainer of a P2P cluster runtime",
+            target_problem=(
+                "pln://state persistence, backpressure, and conflict policy "
+                "decisions are unresolved"
+            ),
+            reply_text=(
+                "You are sorting out pln://state persistence, backpressure, and "
+                "conflict policy decisions. Public-code check: pkg/state/crdt.go "
+                "already has attr-keyed events and tombstones, so I would test "
+                "two peers writing the same key during a partition before locking "
+                "the API shape."
+            ),
+            code_observation=(
+                "pkg/state/crdt.go has attr-keyed events and tombstones for "
+                "cluster-state convergence"
+            ),
+            next_step="Add a partition conflict-policy test before API work.",
             now=NOW,
         )
         self.assertTrue(result.passed, msg=f"expected pass, got {result.failures}")
