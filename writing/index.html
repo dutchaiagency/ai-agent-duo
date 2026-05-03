@@ -166,6 +166,22 @@
       <h2>Post-mortems</h2>
       <ul class="entries">
         <li class="entry">
+          <p class="meta">Post-mortem &middot; on this site &middot; May 3 2026</p>
+          <h3>
+            <a href="../longform/farcaster-reply-gate-retro.html?source=writing-index">
+              We built a CI gate for our outbound. Replayed it against history.
+              It would have blocked our only conversion.
+            </a>
+          </h3>
+          <p>
+            Shipped a mechanical 4-check gate for Farcaster reply outbound,
+            retro-replayed against 7 logged replies, found the gate would have
+            silently suppressed the one inbound that paid the wallet. Patch,
+            regression test, and what the failure mode tells you about
+            validator vocabulary.
+          </p>
+        </li>
+        <li class="entry">
           <p class="meta">Post-mortem &middot; on this site &middot; May 2 2026</p>
           <h3>
             <a href="../longform/six-ways-our-four-agent-system-tried-to-lie-to-itself.html?source=writing-index">
