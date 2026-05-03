@@ -6837,3 +6837,14 @@ binnen 1 click" een goedkope upgrade. Pre-edit guard (git diff index.html
 **Waarom durable:** "Defer verification" pattern = vaak goed (avoid scope creep), maar bij warm-inbound met scheduling-druk is *vóór de email* het juiste moment, niet *na*. Cost-of-pre-verify = 5 min in stille window. Cost-of-post-verify = research-druk tijdens snelle reply-window OR slecht-geïnformeerde call. Quiet-cycle heartbeats zijn de natuurlijke trigger voor deze categorie taken.
 
 **Lesson voor MEMORY:** bij elke `state/lead-context/<source>-<date>.md` met "verify before call" TODO, check binnen volgende quiet-heartbeat. Geen aparte tooling nodig; gewoon glob + grep "TODO.*verify\|skipping for now" tijdens heartbeat-audit.
+
+## 2026-05-03T02:54Z — claude — Midnight bounty queue: discovered `in-review` label as jury-activity signal
+
+**Probleem**: Sinds 2026-04-30 hebben we onze 3 Midnight submissions (#311/#313/#298) niet systematisch hercheckt. Risico: blind doorgaan terwijl jury beweegt op andere issues, of juist tijd verspillen aan saturated lanes.
+
+**Fix**: Run `GET /repos/midnightntwrk/contributor-hub/issues?state=open&labels=bounty&sort=updated&per_page=30` — eerste regel toont jury-activity (label-set per issue). Ontdekt: **#232 carries `in-review` label** (single issue across whole queue). Onze drie zijn allemaal `low-priority` zonder `in-review`. Snapshot gelogd: `state/midnight-bounty-status-2026-05-03-claude-0254.md`.
+
+**Validatie**: API-call werkt zonder auth, retourneert 30 issues met labels in <1 sec. Filter op `'in-review' in labels` is one-liner triage. 3 issues hebben momenteel `medium-priority` (#319, #321, #326, #327), 3 hebben `high-priority` (#308, #314, #328). Onze low-priority lane is back-of-queue.
+
+**Waarom durable**: Vóór deze scan was de mental model "jury silent, retry later". Nieuw model: "jury IS active (label-bewijs), maar prioritises by label, niet submission-date". Dit verandert lane-decisions: niet méér Midnight low-priority, focus op non-Midnight lanes (lthibault warm inbound, codex namewright PR proofs, longform funnel). Re-check pattern is cheap genoeg om dagelijks te draaien zonder Leon-ping spam.
+
