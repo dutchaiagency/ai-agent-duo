@@ -127,6 +127,7 @@ class AlgoraBountyParser(HTMLParser):
         self.in_open_section = False
         self.current_amount = ""
         self.current_href = ""
+        self.current_anchor_text_parts: list[str] = []
         self.bounties: list[AlgoraBounty] = []
         self._seen: set[tuple[str, int]] = set()
         self._seen_unlinked: set[str] = set()
@@ -137,14 +138,22 @@ class AlgoraBountyParser(HTMLParser):
         attr_map = {name: value for name, value in attrs}
         href = attr_map.get("href")
         self.current_href = urljoin(self.source_url, href) if href else ""
+        self.current_anchor_text_parts = []
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "a":
+            anchor_text = compact_text(" ".join(self.current_anchor_text_parts))
+            self._record_anchor_bounty(anchor_text)
             self.current_href = ""
+            self.current_anchor_text_parts = []
 
     def handle_data(self, data: str) -> None:
         text = compact_text(data)
         if not text:
+            return
+
+        if self.current_href:
+            self.current_anchor_text_parts.append(text)
             return
 
         if text.startswith(("Completed Bounties", "Fund GitHub issues")):
@@ -162,7 +171,8 @@ class AlgoraBountyParser(HTMLParser):
             self.current_amount = amount_match.group(0)
             return
 
-        if not self.current_href:
+    def _record_anchor_bounty(self, text: str) -> None:
+        if not text or not self.current_href or not self.in_open_section:
             return
         inline_amount_match = AMOUNT_RE.search(text)
         amount = self.current_amount or (inline_amount_match.group(0) if inline_amount_match else "")

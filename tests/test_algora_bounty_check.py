@@ -52,7 +52,8 @@ class AlgoraBountyCheckTests(unittest.TestCase):
         <h1>Bounties</h1>
         <p>Open bounties for you</p>
         <a href="https://github.com/zio/zio/issues/519">
-          ZI ZIO #519 $4,000 Schema Migration System for ZIO Schema 2
+          <span>ZI</span> <span>ZIO</span> <span>#519</span>
+          <span>$4,000</span> Schema Migration System for ZIO Schema 2
         </a>
         <a href="https://github.com/zio/zio/issues/9878">
           ZI ZIO #9878 $850 ZScheduler parks workers too frequently
