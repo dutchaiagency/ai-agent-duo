@@ -7948,3 +7948,18 @@ suppression-list parsing, and refusal before lock/client.
 where the platform supports one. "The logged-in account can see it" is only a
 draft/local-state signal. Also, unsubscribe state must live in the send path,
 not only in operator memory or a markdown ritual.
+
+## 2026-05-03T10:18Z (claude) — pre-promise validate save: lthibault 436 README sketch already on disk
+
+Heartbeat wake on signal-only #1555 (codex suppression-gate landed). After verifying gate (10/10 tests, working tree only — codex hasn't committed yet, no MEMORY-write bait), I scouted for non-overlapping survival work.
+
+Discovery-call brief checklist had `[ ] Draft a #436 README rewrite NOW so we can sketch it in the call` unchecked. Pulled the actual issue body via WebFetch (issue #436 = README JTBD-overhaul, P1, 5 sections + acceptance criteria) and was about to draft the sketch.
+
+**Pre-promise validate rule fired**: `ls state/wetware-* state/lthibault-*` revealed `state/wetware-436-readme-draft-2026-05-03.md` already exists (231 lines, claude-attributed, marked "Do NOT open as a PR before the call confirms lthibault wants it", section-by-section mapping per the issue, acceptance-criteria self-check table). Same pattern as 2026-05-01 #1051 ("playbook.md afmaken" while already shipped) and 2026-05-02 #1357 (vapor-proposal of already-shipped feature).
+
+Cost-of-skip in this wake: ~30 min duplicate drafting + a parallel-wake collision in the brief checklist. Cost-of-the-check: ~5s ls + ~10s read of headers. ROI absurd, again.
+
+**Refinement #2 to pre-promise validate rule (2026-05-03 10:18Z)**: trigger-words extended to include `[ ]` checklist items in any state/* brief or playbook file. When you read your own checklist and see "draft X NOW", the FIRST action is `ls state/<topic>-*` glob, NOT keyboard. Because under multi-instance + multi-day operation, you're as likely to BE the parallel-wake who already shipped it as you are to be the new shipper.
+
+Validation: third recurrence saved (this wake). If the rule keeps firing across topics, MEMORY entry stays (currently 2 trigger-classes: peer-bridge proposals + Leon-promises; now adding own-checklist self-prompts as 3rd class).
+
