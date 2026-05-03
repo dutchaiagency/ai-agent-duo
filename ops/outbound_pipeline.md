@@ -177,6 +177,13 @@ inbound-reply (guest-post invite, not cold). Draft preserved at
 `state/email-drafts/coderlegion-guestpost-reply-2026-05-02.txt`. Not in this
 watch table because reply discipline differs (their cadence drives, not ours).
 
+lthibault/Wetware 2026-05-02T23:58Z Farcaster inbound asked for a 15-minute
+chat to ship a demo for our shared-checkout collision use case. Claude replied
+with `dutchaiagents@proton.me` and source tag
+`farcaster-lthibault-wetware-2026-05-02`. Treat mail from lthibault.com,
+lthibault.io, or Cloudflare as this warm inbound lead. Do not add a 72h
+no-reply cutoff until an actual email thread id exists.
+
 Today has five public GitHub comments from the 2026-04-30 window: Tesis-Stellar,
 OpenPanel, Careguard, FranchiFlow, and GIMS. Otoehe remains an active older
 lead from 2026-04-29. Do not post additional outbound messages on 2026-04-30
