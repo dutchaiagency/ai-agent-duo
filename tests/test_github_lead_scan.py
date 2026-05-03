@@ -403,6 +403,61 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertEqual(scored.decision, "skip")
         self.assertIn("already has external fix intent", scored.blockers)
 
+    def test_application_pitch_comment_blocks_duplicate_outreach(self) -> None:
+        lead = Lead(
+            query="fresh-bounty-typescript",
+            repo="example/bounty-queue",
+            number=24,
+            title="Bounty: repair paid search",
+            url="https://github.com/example/bounty-queue/issues/24",
+            body=(
+                "Acceptance criteria: search returns current paid courses.\n"
+                "Relevant files: src/search.ts.\n"
+                "Budget: 75 USDC."
+            ),
+            labels=("bounty", "bug"),
+            comments_count=1,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+            comments=(
+                "Hi, I'd like to apply to work on this issue. "
+                "I can open a draft PR within 24-48h once assigned.",
+            ),
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("already has external fix intent", scored.blockers)
+
+    def test_ready_to_submit_pr_comment_blocks_duplicate_outreach(self) -> None:
+        lead = Lead(
+            query="fresh-bounty-typescript",
+            repo="example/all-bounties",
+            number=25,
+            title="Bounty: repair paid search",
+            url="https://github.com/example/all-bounties/issues/25",
+            body=(
+                "Acceptance criteria: search returns current paid courses.\n"
+                "Relevant files: src/search.ts.\n"
+                "Budget: 75 USDC."
+            ),
+            labels=("bounty", "bug"),
+            comments_count=1,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+            comments=("Ready to submit as PR along with the complete solution for all other bounty issues.",),
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("already has external fix intent", scored.blockers)
+
     def test_pr_opened_comment_blocks_duplicate_outreach(self) -> None:
         lead = Lead(
             query="fresh-bounty-typescript",
