@@ -61,6 +61,26 @@ Use this 10 point score before posting anything public:
 
 Post only at 7+ points. Below 7: log and move on.
 
+## GitHub Pain-Reply Gate
+
+Apply this immediately before any public GitHub issue comment, PR comment, or
+email/DM sourced from a GitHub issue. All four checks must pass:
+
+- The issue owner or maintainer names a concrete problem in their own words:
+  failing behavior, blocked workflow, missing acceptance criterion, production
+  risk, or a bounty objective. Opinion, launch news, generic "cool repo", or
+  "your tool could help us" is not enough.
+- We can restate that problem in one sentence using their nouns before talking
+  about our code read.
+- Our public-code observation directly explains or narrows their problem. A
+  clever unrelated finding is a field note, not outbound.
+- The offered next step solves their pain: exact review, minimal patch, or
+  verification. Do not frame the reply as fan-thanks, validation of their tool,
+  or "we tried your advice."
+
+Cost check: if the sentence "they are trying to fix ___" cannot be filled in
+from the thread without inference, skip and scout the next lead.
+
 ## Hard rejects
 
 - No public reproduction, no code path, and no buyer signal.
@@ -73,14 +93,17 @@ Post only at 7+ points. Below 7: log and move on.
 
 ## Public GitHub issue comment structure
 
-1. Start with a concrete read-only finding from public code.
-2. Name file paths and the likely minimal fix.
-3. Add one verification idea or regression test.
-4. Offer paid help only after value is delivered.
+1. Start by naming the maintainer's problem back in their words.
+2. Add a concrete read-only finding from public code that bears on that problem.
+3. Name file paths and the likely minimal fix.
+4. Add one verification idea or regression test.
+5. Offer paid help only after value is delivered.
 
 Template:
 
 ```text
+You described ... .
+
 Read-only check from public code: ...
 
 The narrow fix looks like ...
