@@ -17,6 +17,7 @@ Usage:
 import argparse
 from datetime import datetime, timezone
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -280,6 +281,67 @@ def reply_gate_block_reason(
     return "Farcaster reply gate failed:\n- " + "\n- ".join(result.failures)
 
 
+def extract_verify_needle(text, min_len=20, max_len=60):
+    """Pick a needle substring from `text` for thread verification.
+
+    Strategy: longest run of `[A-Za-z][A-Za-z ]*[A-Za-z]` >= min_len,
+    capped at max_len. Skips URLs, digits, and punctuation that may
+    render differently on Farcaster (links get truncated/styled). If
+    no qualifying run is found, falls back to the first non-empty
+    `min_len` characters of trimmed text (or empty string if text is
+    too short / non-ASCII-friendly).
+    """
+    if not text:
+        return ""
+    candidates = re.findall(rf"[A-Za-z][A-Za-z ]{{{min_len - 2},}}[A-Za-z]", text)
+    if candidates:
+        best = max(candidates, key=len)
+        return best[:max_len].strip()
+    trimmed = text.strip()
+    if len(trimmed) < min_len:
+        return ""
+    return trimmed[:min_len]
+
+
+def count_substring(haystack, needle):
+    """Count non-overlapping(-ish) occurrences of `needle` in `haystack`.
+
+    Uses a sliding window so that overlapping matches still count as
+    distinct (we only care about whether a delta exists, not the exact
+    semantic count).
+    """
+    if not needle or not haystack:
+        return 0
+    count = 0
+    start = 0
+    while True:
+        idx = haystack.find(needle, start)
+        if idx < 0:
+            return count
+        count += 1
+        start = idx + 1
+
+
+def verify_landed(before_count, after_count, needle):
+    """Decide whether a reply landed based on needle delta.
+
+    Returns (landed: bool, reason: str). `reason` is a short human
+    string for stderr/log; empty when `landed` is True.
+    """
+    if not needle:
+        # No verifiable needle (e.g. URL-only or all-digits reply). We
+        # can't distinguish landed-vs-rejected from the DOM, so fall
+        # back to the optimistic path with an explicit caveat. The
+        # composer-clear check upstream is still the only signal.
+        return True, ""
+    if after_count > before_count:
+        return True, ""
+    return False, (
+        f"server-side verify failed (needle '{needle[:30]}...' "
+        f"count {before_count}->{after_count}); spam-dedupe likely"
+    )
+
+
 def post_reply(url, text):
     error = validate_reply_url(url)
     if error:
@@ -316,6 +378,17 @@ def post_reply(url, text):
             ctx.close()
             return False
 
+        # Snapshot thread BEFORE typing so we can detect a landed reply via
+        # a needle-delta after submit (refinement #7, MEMORY.md 2026-05-03):
+        # composer-clear alone is not enough — Farcaster spam-dedupe also
+        # clears the composer on silent rejection, producing false-success
+        # reply-log rows.
+        needle = extract_verify_needle(text)
+        try:
+            before_count = count_substring(page.inner_text("body"), needle) if needle else 0
+        except Exception:
+            before_count = 0
+
         editor.click()
         time.sleep(0.5)
         page.keyboard.type(text, delay=10)
@@ -326,6 +399,30 @@ def post_reply(url, text):
         editor2 = page.query_selector("[contenteditable=true]")
         if editor2 and editor2.inner_text().strip() == text:
             print("WARNING: Reply may not have been submitted (composer still holds the text)", file=sys.stderr)
+            ctx.close()
+            return False
+
+        # Server-side verify: try DOM as-is first (some Farcaster paths use
+        # optimistic insert), then reload once if no delta. If the reload
+        # fails, surface a loud warning but DO NOT log success — that is
+        # the exact failure mode refinement #7 documents.
+        try:
+            after_count = count_substring(page.inner_text("body"), needle) if needle else 1
+        except Exception:
+            after_count = before_count
+        if needle and after_count <= before_count:
+            try:
+                page.reload(wait_until="domcontentloaded", timeout=20000)
+                time.sleep(2)
+                after_count = count_substring(page.inner_text("body"), needle)
+            except Exception as exc:
+                print(
+                    f"WARNING: post-submit reload failed: {exc}; treating as not-landed",
+                    file=sys.stderr,
+                )
+        landed, reason = verify_landed(before_count, after_count, needle)
+        if not landed:
+            print(f"WARNING: {reason}", file=sys.stderr)
             ctx.close()
             return False
 

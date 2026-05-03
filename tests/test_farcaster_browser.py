@@ -7,6 +7,8 @@ from ops.farcaster_browser import (
     append_cast_log,
     append_reply_log,
     cadence_block_reason,
+    count_substring,
+    extract_verify_needle,
     last_successful_cast,
     prepare_cast_text,
     read_cast_text,
@@ -14,6 +16,7 @@ from ops.farcaster_browser import (
     reply_cadence_block_reason,
     validate_cast_text,
     validate_reply_url,
+    verify_landed,
 )
 
 
@@ -217,6 +220,73 @@ class FarcasterReplyTests(unittest.TestCase):
 
         self.assertIn("reply gate failed", reason)
         self.assertIn("cast-text reads as opinion", reason)
+
+
+class FarcasterReplyVerifyTests(unittest.TestCase):
+    """Tests for the post_reply needle-delta verification helpers.
+
+    Documented in MEMORY.md (refinement #7, 2026-05-03 00:30Z): the
+    Farcaster composer clears on Ctrl+Enter even when server-side
+    spam-dedupe silently rejects the submit, producing false-success
+    rows in ops/farcaster_reply_log.md. The verify_landed helper plus
+    a before/after needle count in post_reply close that gap.
+    """
+
+    def test_extract_needle_picks_longest_alpha_run(self) -> None:
+        text = (
+            "the ipfs gateway slow read pain hit us too: 320ms p95 over the "
+            "same endpoint. workaround in commit a45cd99."
+        )
+        needle = extract_verify_needle(text)
+        # Should be a substantive alphabetic phrase, not a digit-heavy or
+        # punctuation-heavy substring.
+        self.assertTrue(needle.replace(" ", "").isalpha(), needle)
+        self.assertGreaterEqual(len(needle), 20)
+
+    def test_extract_needle_falls_back_for_short_punctuation_text(self) -> None:
+        # All-digit + URL reply has no qualifying alpha run, but is long
+        # enough to take a literal first-N fallback.
+        needle = extract_verify_needle("https://x.io/path 12345 67890 abc")
+        self.assertEqual(len(needle), 20)
+
+    def test_extract_needle_returns_empty_for_unverifiable_text(self) -> None:
+        self.assertEqual(extract_verify_needle(""), "")
+        self.assertEqual(extract_verify_needle("hi!"), "")
+
+    def test_count_substring_counts_overlapping_occurrences(self) -> None:
+        self.assertEqual(count_substring("abcabcabc", "abc"), 3)
+        self.assertEqual(count_substring("aaaa", "aa"), 3)
+        self.assertEqual(count_substring("nope", "missing"), 0)
+        self.assertEqual(count_substring("", "needle"), 0)
+        self.assertEqual(count_substring("haystack", ""), 0)
+
+    def test_verify_landed_true_on_positive_delta(self) -> None:
+        landed, reason = verify_landed(0, 1, "ipfs gateway slow read")
+        self.assertTrue(landed)
+        self.assertEqual(reason, "")
+
+    def test_verify_landed_false_on_no_delta(self) -> None:
+        # Server-side rejection: needle was already in the parent cast
+        # (count=1) and stayed at 1 after submit -> no new reply landed.
+        landed, reason = verify_landed(1, 1, "ipfs gateway slow read")
+        self.assertFalse(landed)
+        self.assertIn("server-side verify failed", reason)
+        self.assertIn("1->1", reason)
+
+    def test_verify_landed_false_when_count_drops(self) -> None:
+        # Defensive: count should never drop, but if Farcaster re-renders
+        # and trims something, treat as not-landed rather than
+        # falsely-success.
+        landed, _ = verify_landed(2, 1, "needle phrase here")
+        self.assertFalse(landed)
+
+    def test_verify_landed_optimistic_when_no_needle(self) -> None:
+        # URL-only or digit-only replies have no extractable needle.
+        # Falls back to optimistic success (composer-clear is the only
+        # signal). Documented in extract_verify_needle docstring.
+        landed, reason = verify_landed(0, 0, "")
+        self.assertTrue(landed)
+        self.assertEqual(reason, "")
 
 
 if __name__ == "__main__":

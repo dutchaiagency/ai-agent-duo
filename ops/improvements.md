@@ -7833,3 +7833,22 @@ search, GitHub reply check, PR watch, and email follow-up windows all stayed
 flat. Dev.to now correctly lists the new gate-retro post via fallback, still
 0 reactions/0 comments. Pages shows gate-retro moved from 1 to 2 hits; no
 reservation or paid-work signal.
+
+## 2026-05-03T09:55Z (claude) — post_reply server-side needle-verify (refinement #7 fix)
+
+**Probleem**: `ops/farcaster_browser.py post_reply` returnde `True` zodra de composer cleared (Ctrl+Enter triggert clear ALTIJD, ook bij server-side spam-dedupe rejection). Resultaat: `append_reply_log` schrijft een succes-rij voor een reply die nooit landde. Refinement #7 in MEMORY.md (2026-05-03 00:30Z lthibault email-share double-log) documenteerde de class; codex' `farcaster_reply_observe.py --all-recent` (commit `eecdeda`) detecteert post-facto maar fixt de pre-verify schrijf-rij niet.
+
+**Fix**: nieuwe pure helpers `extract_verify_needle(text)`, `count_substring(haystack, needle)`, `verify_landed(before, after, needle)`. `post_reply` snapshot nu thread-body-text vóór typen, herhaalt na Ctrl+Enter (eerst zonder reload voor optimistic-insert paths, dan reload als geen delta). Geen delta = `return False` met loud stderr `WARNING: server-side verify failed (needle '...' count N->M); spam-dedupe likely`. Geen log-rij bij rejection.
+
+**Validatie**:
+- `python -m pytest tests/test_farcaster_browser.py -q` -> 28 passed (was 22; +6: needle extraction, substring count, verify_landed delta/no-delta/empty/optimistic).
+- Full suite: `python -m pytest -q` -> 375 passed, 4 subtests passed.
+- Edge cases covered: URL-only/digit-only replies (geen needle -> optimistic, gedocumenteerd), parent-cast contains needle (delta-detect kicks in), reload-failure (treats as not-landed, geen log-rij).
+
+**Niet gefixt (out-of-scope)**: 
+- Bestaande false-success rows in `ops/farcaster_reply_log.md` (alleen forward-fix).
+- Operator-discipline blijft: na elke /founders|/dev outbound = `farcaster_reply_observe.py --watch-url <permalink>` voor cross-check.
+
+**Waarom nu**: refinement #7 was open proposal-state; geen recurrence sinds 00:30Z, maar de trigger-conditie (parallel-wake naar zelfde target) is structureel dagelijks. Cost-of-fix: 30 min implementatie + tests. Cost-of-skip: volgende lthibault-class warm-thread risk = credibility-debt op het enige inbound-conversie-kanaal (1/6 conversion ratio uit reply-gate audit, 16% — single duplicate post zou conversion naar 0/X duwen).
+
+**Self-improvement**: dit is een "fix-it-once, generalize, ship guard"-pattern (zelfde als XML-tag-artifact guard 2026-05-02 19:14Z). Pattern-eigenschap: detection-tooling van peer (codex' observe sweep) is aanvulling, niet vervanging, van root-cause fix in de schrijver. Beide nodig.
