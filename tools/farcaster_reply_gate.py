@@ -20,7 +20,7 @@ Usage:
         --target-url https://farcaster.xyz/<user>/<hash> \\
         --target-cast-iso 2026-05-03T00:30:00Z \\
         --target-author-builds "Wetware: capability-based p2p runtime" \\
-        --target-problem "ipfs gateway is too slow for sub-100ms reads" \\
+        --cast-text "ipfs gateway is too slow for sub-100ms reads" \\
         --reply-from-file state/drafts/reply.txt \\
         --bridge-data-point "we hit 320ms p95 on the same gateway in commit a45cd99"
 
@@ -38,6 +38,7 @@ from pathlib import Path
 
 MAX_AGE_HOURS = 6
 MIN_OVERLAP_WORDS = 2
+MIN_BRIDGE_CAST_OVERLAP_WORDS = 1
 MIN_OVERLAP_LEN = 4
 
 # Words that signal a concrete problem in the target's cast.
@@ -148,6 +149,16 @@ def validate_url(url: str) -> str | None:
     return None
 
 
+def problem_evidence_source(
+    target_problem: str,
+    target_cast_text: str,
+) -> tuple[str, str]:
+    cast_text = (target_cast_text or "").strip()
+    if cast_text:
+        return cast_text, "cast-text"
+    return (target_problem or "").strip(), "target-problem"
+
+
 def evaluate_gate(
     *,
     target_url: str,
@@ -156,6 +167,7 @@ def evaluate_gate(
     target_problem: str,
     reply_text: str,
     bridge_data_point: str,
+    target_cast_text: str = "",
     now: datetime | None = None,
 ) -> GateResult:
     failures: list[str] = []
@@ -193,21 +205,27 @@ def evaluate_gate(
                 )
 
     # Condition (b): problem named, not opinion/observation/celebration.
-    problem = (target_problem or "").strip()
+    # Prefer verbatim cast text over operator-supplied problem summaries, so the
+    # gate cannot pass by self-attesting that a cast named a problem.
+    problem, problem_source = problem_evidence_source(
+        target_problem,
+        target_cast_text,
+    )
     if not problem:
         failures.append(
-            "(b) target-problem is empty: name the concrete problem in their cast"
+            "(b) cast-text/target-problem is empty: provide verbatim cast text "
+            "or name the concrete problem in their cast"
         )
     else:
         if contains_only_opinion(problem):
             failures.append(
-                "(b) target-problem reads as opinion/celebration "
+                f"(b) {problem_source} reads as opinion/celebration "
                 "(love this / amazing / congrats / agreed). "
                 "If their cast is fan-thanks framing, skip — not a peer conversation."
             )
         elif not contains_problem_vocab(problem):
             failures.append(
-                "(b) target-problem lacks problem-vocabulary "
+                f"(b) {problem_source} lacks problem-vocabulary "
                 "(broken/stuck/need/can't/fails/missing/slow/...). "
                 "Rephrase in their pain-words or skip."
             )
@@ -222,7 +240,7 @@ def evaluate_gate(
         overlap = problem_words & reply_words
         if len(overlap) < MIN_OVERLAP_WORDS:
             failures.append(
-                f"(d) reply names <{MIN_OVERLAP_WORDS} words from their problem "
+                f"(d) reply names <{MIN_OVERLAP_WORDS} words from {problem_source} "
                 f"(overlap={sorted(overlap)}). "
                 "Restate their pain in their words."
             )
@@ -239,6 +257,16 @@ def evaluate_gate(
             "(no digit/url/hash/file). "
             "'we also struggled' is fan-thanks; '320ms p95 on commit a45cd99' is bridge."
         )
+    elif (target_cast_text or "").strip():
+        cast_words = tokenize_content_words(target_cast_text)
+        bridge_words = tokenize_content_words(bridge)
+        overlap = cast_words & bridge_words
+        if len(overlap) < MIN_BRIDGE_CAST_OVERLAP_WORDS:
+            failures.append(
+                f"(d) bridge-data-point names <{MIN_BRIDGE_CAST_OVERLAP_WORDS} "
+                f"word from cast-text (overlap={sorted(overlap)}). "
+                "Tie the lived-data point to the cast's own words."
+            )
 
     return GateResult(passed=not failures, failures=tuple(failures))
 
@@ -260,8 +288,22 @@ def build_parser() -> argparse.ArgumentParser:
                         help="ISO timestamp of the target cast (UTC)")
     parser.add_argument("--target-author-builds", required=True,
                         help="One-line description: what they are founder/builder of")
-    parser.add_argument("--target-problem", required=True,
-                        help="One sentence: the concrete problem named in their cast")
+    parser.add_argument(
+        "--target-problem",
+        default="",
+        help=(
+            "Compatibility fallback: one sentence naming the concrete problem. "
+            "Prefer --cast-text."
+        ),
+    )
+    parser.add_argument(
+        "--cast-text",
+        default="",
+        help=(
+            "Verbatim target cast snippet. When provided, condition (b) and "
+            "reply/bridge grounding use this instead of --target-problem."
+        ),
+    )
     parser.add_argument("--reply-text",
                         help="Inline reply text")
     parser.add_argument("--reply-from-file",
@@ -281,6 +323,13 @@ def main(argv: list[str] | None = None) -> int:
 
     now = parse_iso(args.now_iso) if args.now_iso else None
 
+    if not args.cast_text:
+        print(
+            "WARN: --cast-text not provided; falling back to --target-problem "
+            "for condition (b)/(d) grounding.",
+            file=sys.stderr,
+        )
+
     result = evaluate_gate(
         target_url=args.target_url,
         target_cast_iso=args.target_cast_iso,
@@ -288,6 +337,7 @@ def main(argv: list[str] | None = None) -> int:
         target_problem=args.target_problem,
         reply_text=reply_text,
         bridge_data_point=args.bridge_data_point,
+        target_cast_text=args.cast_text,
         now=now,
     )
 

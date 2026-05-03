@@ -10,6 +10,7 @@ from ops.farcaster_browser import (
     last_successful_cast,
     prepare_cast_text,
     read_cast_text,
+    reply_gate_block_reason,
     reply_cadence_block_reason,
     validate_cast_text,
     validate_reply_url,
@@ -99,10 +100,10 @@ class FarcasterBrowserTextTests(unittest.TestCase):
 
 
 class FarcasterReplyTests(unittest.TestCase):
+    VALID_URL = "https://farcaster.xyz/lthibault/0xbb649951"
+
     def test_validate_reply_url_accepts_permalink(self) -> None:
-        self.assertIsNone(
-            validate_reply_url("https://farcaster.xyz/lthibault/0xbb649951")
-        )
+        self.assertIsNone(validate_reply_url(self.VALID_URL))
 
     def test_validate_reply_url_rejects_non_farcaster(self) -> None:
         error = validate_reply_url("https://twitter.com/user/status/123")
@@ -155,6 +156,67 @@ class FarcasterReplyTests(unittest.TestCase):
                 now=datetime(2026, 5, 2, 13, 44, tzinfo=timezone.utc),
             )
             self.assertIsNone(reason)
+
+    def test_reply_gate_blocks_missing_metadata_by_default(self) -> None:
+        reason = reply_gate_block_reason(
+            target_url=self.VALID_URL,
+            reply_text="the ipfs gateway slow read pain hit us too",
+        )
+
+        self.assertIn("reply gate missing", reason)
+        self.assertIn("--cast-text", reason)
+
+    def test_reply_gate_allows_warm_followup_bypass_with_reason(self) -> None:
+        reason = reply_gate_block_reason(
+            target_url=self.VALID_URL,
+            reply_text="thanks, happy to send the exact patch scope",
+            skip_reply_gate=True,
+            reason="warm inbound follow-up after maintainer asked for scope",
+        )
+
+        self.assertIsNone(reason)
+
+    def test_reply_gate_bypass_requires_reason(self) -> None:
+        reason = reply_gate_block_reason(
+            target_url=self.VALID_URL,
+            reply_text="thanks, happy to send the exact patch scope",
+            skip_reply_gate=True,
+        )
+
+        self.assertIn("bypass requires --reason", reason)
+
+    def test_reply_gate_passes_with_cast_text_grounding(self) -> None:
+        now = datetime(2026, 5, 3, 10, 0, tzinfo=timezone.utc)
+        reason = reply_gate_block_reason(
+            target_url=self.VALID_URL,
+            target_cast_iso="2026-05-03T08:00:00Z",
+            target_author_builds="Wetware: capability-based p2p runtime",
+            target_problem="",
+            target_cast_text="ipfs gateway is too slow for sub-100ms reads",
+            reply_text=(
+                "the ipfs gateway slow read pain hit us too: 320ms p95 over "
+                "the same endpoint. workaround in commit a45cd99."
+            ),
+            bridge_data_point="gateway 320ms p95 measured in commit a45cd99",
+            now=now,
+        )
+
+        self.assertIsNone(reason)
+
+    def test_reply_gate_blocks_fan_thanks_cast_text(self) -> None:
+        now = datetime(2026, 5, 3, 10, 0, tzinfo=timezone.utc)
+        reason = reply_gate_block_reason(
+            target_url=self.VALID_URL,
+            target_cast_iso="2026-05-03T08:00:00Z",
+            target_author_builds="Vera: founder CRM tool",
+            target_cast_text="congrats on the launch, amazing work",
+            reply_text="love what you are building, happy to compare notes",
+            bridge_data_point="320ms p95 measured in commit a45cd99",
+            now=now,
+        )
+
+        self.assertIn("reply gate failed", reason)
+        self.assertIn("cast-text reads as opinion", reason)
 
 
 if __name__ == "__main__":

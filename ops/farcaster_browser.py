@@ -6,7 +6,11 @@ Uses persistent browser profile with saved login session.
 Usage:
     python ops/farcaster_browser.py cast "Hello world!"
     python ops/farcaster_browser.py cast "Reply text" --channel farcaster
-    python ops/farcaster_browser.py reply <permalink> "Reply text"
+    python ops/farcaster_browser.py reply <permalink> "Reply text" \
+        --target-cast-iso 2026-05-03T00:30:00Z \
+        --target-author-builds "Wetware: p2p runtime" \
+        --cast-text "ipfs gateway reads are slow" \
+        --bridge-data-point "320ms p95 in commit a45cd99"
     python ops/farcaster_browser.py profile              # check profile
     python ops/farcaster_browser.py set-bio "Bio text"
 """
@@ -20,6 +24,11 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.farcaster_reply_gate import evaluate_gate  # noqa: E402
+
 PROFILE_DIR = ROOT / "state" / "browser" / "profiles" / "dutchaiagency"
 BASE_URL = "https://farcaster.xyz"
 MAX_CAST_CHARS = 320
@@ -220,6 +229,55 @@ def validate_reply_url(url):
     if any(c in url for c in ("\n", "\r", " ", "\t")):
         return "Reply URL must not contain whitespace."
     return None
+
+
+def reply_gate_block_reason(
+    *,
+    target_url,
+    reply_text,
+    target_cast_iso="",
+    target_author_builds="",
+    target_problem="",
+    target_cast_text="",
+    bridge_data_point="",
+    skip_reply_gate=False,
+    reason="",
+    now=None,
+):
+    if skip_reply_gate:
+        if not (reason or "").strip():
+            return "Farcaster reply gate bypass requires --reason explaining warm inbound/follow-up context."
+        return None
+
+    missing = []
+    if not (target_cast_iso or "").strip():
+        missing.append("--target-cast-iso")
+    if not (target_author_builds or "").strip():
+        missing.append("--target-author-builds")
+    if not (target_cast_text or "").strip():
+        missing.append("--cast-text")
+    if not (bridge_data_point or "").strip():
+        missing.append("--bridge-data-point")
+    if missing:
+        return (
+            "Farcaster reply gate missing required metadata: "
+            + ", ".join(missing)
+            + ". Use --skip-reply-gate only for warm inbound/follow-up replies with --reason."
+        )
+
+    result = evaluate_gate(
+        target_url=target_url,
+        target_cast_iso=target_cast_iso,
+        target_author_builds=target_author_builds,
+        target_problem=target_problem or "",
+        target_cast_text=target_cast_text,
+        reply_text=reply_text,
+        bridge_data_point=bridge_data_point,
+        now=now,
+    )
+    if result.passed:
+        return None
+    return "Farcaster reply gate failed:\n- " + "\n- ".join(result.failures)
 
 
 def post_reply(url, text):
@@ -428,6 +486,16 @@ def main():
     reply_p.add_argument("--from-file", help="Read reply text from a UTF-8 file")
     reply_p.add_argument("--agent", default=os.environ.get("AGENT_NAME", "unknown"), help="Agent name for the reply log")
     reply_p.add_argument("--reason", default="", help="Reason to write to the reply log")
+    reply_p.add_argument("--target-cast-iso", default="", help="UTC ISO timestamp of the target cast")
+    reply_p.add_argument("--target-author-builds", default="", help="One-line description of what the target author builds")
+    reply_p.add_argument("--target-problem", default="", help="Optional compatibility fallback problem summary")
+    reply_p.add_argument("--cast-text", default="", help="Verbatim target cast text/snippet for the reply gate")
+    reply_p.add_argument("--bridge-data-point", default="", help="Concrete lived-data point tied to the cast")
+    reply_p.add_argument(
+        "--skip-reply-gate",
+        action="store_true",
+        help="Bypass the Farcaster reply gate only for warm inbound/follow-up context; requires --reason",
+    )
     reply_p.add_argument(
         "--force-cadence",
         action="store_true",
@@ -472,6 +540,20 @@ def main():
         if url_error:
             print(f"ERROR: {url_error}", file=sys.stderr)
             sys.exit(2)
+        gate_block_reason = reply_gate_block_reason(
+            target_url=args.url,
+            reply_text=text,
+            target_cast_iso=args.target_cast_iso,
+            target_author_builds=args.target_author_builds,
+            target_problem=args.target_problem,
+            target_cast_text=args.cast_text,
+            bridge_data_point=args.bridge_data_point,
+            skip_reply_gate=args.skip_reply_gate,
+            reason=args.reason,
+        )
+        if gate_block_reason:
+            print(f"ERROR: {gate_block_reason}", file=sys.stderr)
+            sys.exit(5)
         try:
             with CastLock():
                 if not args.force_cadence:

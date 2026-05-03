@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import sys
 import tempfile
 import unittest
@@ -143,6 +145,64 @@ class GateEvaluationTests(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertTrue(any(f.startswith("(b)") for f in result.failures))
 
+    def test_cast_text_overrides_operator_problem_for_condition_b(self) -> None:
+        result = evaluate_gate(
+            **_passing_kwargs(
+                target_cast_text="congrats on the launch, amazing work",
+                bridge_data_point="launch 320ms p95 measured in commit a45cd99",
+            )
+        )
+        self.assertFalse(result.passed)
+        self.assertTrue(
+            any("(b) cast-text reads as opinion" in f for f in result.failures)
+        )
+
+    def test_cast_text_can_pass_when_problem_summary_is_neutral(self) -> None:
+        result = evaluate_gate(
+            **_passing_kwargs(
+                target_problem="ipfs gateway reads",
+                target_cast_text="anyone know why ipfs gateway reads are slow under load",
+                reply_text=(
+                    "ipfs gateway slow reads hit us too: 320ms p95 over the "
+                    "same endpoint. workaround in commit a45cd99."
+                ),
+                bridge_data_point="gateway 320ms p95 measured in commit a45cd99",
+            )
+        )
+        self.assertTrue(result.passed, msg=f"expected pass, got {result.failures}")
+
+    def test_reply_overlap_uses_cast_text_when_provided(self) -> None:
+        result = evaluate_gate(
+            **_passing_kwargs(
+                target_cast_text="wallet sync is broken on mobile",
+                reply_text=(
+                    "the ipfs gateway slow read pain hit us too: 320ms p95 "
+                    "over the same endpoint."
+                ),
+                bridge_data_point="wallet 320ms p95 measured in commit a45cd99",
+            )
+        )
+        self.assertFalse(result.passed)
+        self.assertTrue(
+            any(
+                f.startswith("(d)") and "from cast-text" in f
+                for f in result.failures
+            )
+        )
+
+    def test_bridge_data_point_must_overlap_cast_text_when_provided(self) -> None:
+        result = evaluate_gate(
+            **_passing_kwargs(
+                target_cast_text="ipfs gateway is too slow for sub-100ms reads",
+                bridge_data_point="320ms p95 measured in commit a45cd99",
+            )
+        )
+        self.assertFalse(result.passed)
+        self.assertTrue(
+            any("bridge-data-point names <1 word from cast-text" in f
+                for f in result.failures)
+        )
+
     def test_reply_without_word_overlap_fails_condition_d(self) -> None:
         result = evaluate_gate(
             **_passing_kwargs(
@@ -274,11 +334,30 @@ class CLITests(unittest.TestCase):
                 "--target-cast-iso", ISO_2H_AGO,
                 "--target-author-builds", "Wetware: capability-based p2p runtime",
                 "--target-problem", "ipfs gateway is too slow for sub-100ms reads",
+                "--cast-text", "ipfs gateway is too slow for sub-100ms reads",
                 "--reply-from-file", str(reply),
-                "--bridge-data-point", "320ms p95 measured in commit a45cd99",
+                "--bridge-data-point", "gateway 320ms p95 measured in commit a45cd99",
                 "--now-iso", NOW.isoformat().replace("+00:00", "Z"),
             ]
             self.assertEqual(main(argv), 0)
+
+    def test_cli_without_cast_text_warns_and_falls_back(self) -> None:
+        argv = [
+            "--target-url", VALID_URL,
+            "--target-cast-iso", ISO_2H_AGO,
+            "--target-author-builds", "Wetware: capability-based p2p runtime",
+            "--target-problem", "ipfs gateway is too slow for sub-100ms reads",
+            "--reply-text", (
+                "the ipfs gateway slow read pain hit us too: 320ms p95 over "
+                "the same endpoint. workaround in commit a45cd99."
+            ),
+            "--bridge-data-point", "320ms p95 measured in commit a45cd99",
+            "--now-iso", NOW.isoformat().replace("+00:00", "Z"),
+        ]
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(main(argv), 0)
+        self.assertIn("--cast-text not provided", stderr.getvalue())
 
     def test_cli_fail_returns_nonzero(self) -> None:
         argv = [
