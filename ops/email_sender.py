@@ -16,6 +16,8 @@ Safety:
 - One target per invocation (no --to-file / no list).
 - Hard fails if SUBJECT or BODY look like an unfilled template
   (contain "[name]", "[repo]", etc.).
+- Hard fails before any Proton call if the recipient appears in
+  ops/email_suppression_list.md.
 - Live sends lock the recipient for 2 minutes before touching Proton.
   Optional --lock overrides the dedupe topic.
 - Logs every send (and dry-run-with-execute-intended) to
@@ -39,8 +41,10 @@ ROOT = Path(__file__).resolve().parent.parent
 SECRETS_DIR = ROOT / ".secrets"
 SESSION_FILE = SECRETS_DIR / "proton_session.pickle"
 LOG_FILE = ROOT / "ops" / "outbound_cold_dm_2026-05-02.md"
+SUPPRESSION_FILE = ROOT / "ops" / "email_suppression_list.md"
 LOCKS_DIR = ROOT / "state" / "locks"
 LOCK_TTL_SECONDS = 120
+EMAIL_RE = re.compile(r"^[^@\s|]+@[^@\s|]+\.[^@\s|]+$")
 
 PLACEHOLDER_PATTERNS = [
     r"\[name\]",
@@ -89,6 +93,27 @@ def check_outbound_text(subject: str, body: str) -> list[str]:
         if error:
             errors.append(error)
     return errors
+
+
+def load_suppressed_emails(path: Path | None = None) -> set[str]:
+    path = path or SUPPRESSION_FILE
+    if not path.exists():
+        raise SystemExit(f"REFUSE: suppression list missing: {path}")
+    suppressed: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip().strip("`").lower() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 2 or cells[1] == "email":
+            continue
+        if EMAIL_RE.match(cells[1]):
+            suppressed.add(cells[1])
+    return suppressed
+
+
+def suppressed_recipient(to_addr: str, path: Path | None = None) -> str | None:
+    normalized = to_addr.strip().lower()
+    return normalized if normalized in load_suppressed_emails(path) else None
 
 
 def send_lock_path(topic: str) -> Path:
@@ -209,6 +234,26 @@ def main():
     # Self-send guard
     if args.to.strip().lower() == "dutchaiagents@proton.me" and not args.allow_self:
         raise SystemExit("Refusing to send to self without --allow-self")
+
+    suppressed = suppressed_recipient(args.to)
+    if suppressed:
+        try:
+            append_log_row(
+                to_addr=args.to,
+                subject=args.subject,
+                source=args.source,
+                personalization=args.personalization or args.subject,
+                status="refused_suppressed_opt_out",
+            )
+        except Exception as exc:
+            raise SystemExit(
+                f"REFUSE: {suppressed} is listed in {SUPPRESSION_FILE}; "
+                f"failed to log decline: {exc}"
+            ) from exc
+        raise SystemExit(
+            f"REFUSE: {suppressed} is listed in {SUPPRESSION_FILE}; "
+            "do not email suppressed recipients"
+        )
 
     print(f"TO: {args.to}")
     print(f"SUBJECT: {args.subject}")

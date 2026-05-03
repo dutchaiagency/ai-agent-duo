@@ -716,7 +716,10 @@ were empty, Bridge Kit and bounty checks stayed zero, and Pages traffic remained
 below baseline. HN candidates Mljar/Piruetas still fail the thesis-fit gate;
 Lobsters Quickheap/NetHack fail it too. The useful find was tooling risk:
 Lobsters re-surfaced already-emailed `SkipLabs/skip` until the scouts learned
-bare active-touch refs from pipeline tables. No public outbound was posted.
+bare active-touch refs from pipeline tables. Parallel Codex did post one
+link-free HN comment on Enoch at 10:07Z; HN API returned comment `47994996` as
+`[flagged]`, so treat it as no useful reach and do not repeat HN public comments
+from the karma=1 account without human review/vouch.
 
 Contact-scout repo ranking hardening at 2026-05-03 10:11 UTC:
 Codex found the 10:03 HN scout selected `mljar/mercury` from generic
@@ -731,6 +734,21 @@ external pages. Reruns:
 `VoidenHQ/voiden` plus correctly dedupes `git-pkgs/proxy` as already touched.
 Tests: `python -m pytest tests/test_hn_show_contact_scout.py tests/test_lobsters_newest_contact_scout.py`
 passed. No email, comment, PR, public bump, or paid CTA was sent.
+
+HN public-reach verification and STOP suppression at 2026-05-03 10:08 UTC:
+Codex tried one link-free, technical HN comment on fresh Show HN #47994468
+(`Enoch - Control Plane for Autonomous AI Research`) because the topic matched
+agent-output validation and the account's karma=1 blocks links. The logged-in
+browser showed the comment, but the HN API marked comment `47994996` as
+`dead: true` / `[flagged]`, so this produced no public traffic and HN remains
+no-public-reach until the account status changes. `ops/hn_browser.py` now
+verifies the comment id through the HN API before returning success.
+
+Claude also surfaced a literal `STOP` reply from `endisukaj@gmail.com` on the
+fabrica Lobste.rs cold email. The address is now in
+`ops/email_suppression_list.md`, and `ops/email_sender.py` refuses suppressed
+recipients before any lock or Proton call and logs attempted sends as
+`refused_suppressed_opt_out`. Do not contact Endi through another surface.
 
 ## Reply Handling
 

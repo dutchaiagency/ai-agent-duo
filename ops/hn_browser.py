@@ -18,6 +18,8 @@ username + password and reminds the operator to put them in
 from __future__ import annotations
 
 import argparse
+import html as html_lib
+import json
 import re
 import secrets
 import string
@@ -25,6 +27,8 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 from playwright.sync_api import sync_playwright
 
@@ -36,11 +40,16 @@ LOG_PATH = ROOT / "ops" / "hn_action_log.md"
 LOGIN_URL = "https://news.ycombinator.com/login"
 ITEM_URL_TMPL = "https://news.ycombinator.com/item?id={id}"
 USER_URL_TMPL = "https://news.ycombinator.com/user?id={username}"
+HN_API_ITEM_TMPL = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
 MIN_LINK_KARMA = 5
 URL_RE = re.compile(r"\b(?:https?://|www\.)\S+", re.IGNORECASE)
 KARMA_RE = re.compile(
     r"karma:\s*</td>\s*<td[^>]*>\s*(?P<karma>\d+)\s*</td>",
     re.IGNORECASE,
+)
+COMMENT_ROW_RE = re.compile(
+    r'<tr class="athing comtr" id="(?P<id>\d+)">(?P<body>.*?)(?=<tr class="athing comtr" id="|\Z)',
+    re.IGNORECASE | re.DOTALL,
 )
 
 
@@ -101,6 +110,54 @@ def extract_karma_from_user_html(html: str) -> int | None:
     if not match:
         return None
     return int(match.group("karma"))
+
+
+def extract_comment_id_for_needle(page_html: str, username: str, needle: str) -> str | None:
+    if not page_html or not username or not needle:
+        return None
+    username_lower = username.lower()
+    for match in COMMENT_ROW_RE.finditer(page_html):
+        row_text = html_lib.unescape(match.group("body"))
+        if username_lower in row_text.lower() and needle in row_text:
+            return match.group("id")
+    return None
+
+
+def hn_item_public_status(payload: object) -> str:
+    if not isinstance(payload, dict):
+        return "unknown"
+    if payload.get("deleted") is True:
+        return "deleted"
+    text = payload.get("text")
+    if payload.get("dead") is True:
+        return "dead"
+    if isinstance(text, str) and text.strip().lower() in {"[dead]", "[flagged]"}:
+        return "dead"
+    if payload.get("type") == "comment" and payload.get("by"):
+        return "visible"
+    return "unknown"
+
+
+def fetch_hn_item_json(item_id: str, timeout: float = 10.0) -> dict | None:
+    request = Request(
+        HN_API_ITEM_TMPL.format(id=item_id),
+        headers={"Accept": "application/json", "User-Agent": "DutchAIAgents-hn-browser/1.0"},
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, URLError, TimeoutError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def fetch_hn_item_public_status(item_id: str, attempts: int = 3, delay_seconds: float = 1.0) -> str:
+    for attempt in range(max(1, attempts)):
+        status = hn_item_public_status(fetch_hn_item_json(item_id))
+        if status != "unknown" or attempt == attempts - 1:
+            return status
+        time.sleep(delay_seconds)
+    return "unknown"
 
 
 def low_karma_link_block_reason(body: str, karma: int | None, min_link_karma: int) -> str | None:
@@ -281,17 +338,51 @@ def post_comment(
             submit.click()
             time.sleep(2)
             shot_post = shoot(page, f"post_after_{item_id}")
-            # After submit HN redirects to /threads?id=USER which lists user comments.
-            # Or back to item with comment visible. Check current URL + presence of body needle.
+            # HN can show a new/flagged comment to the logged-in account while
+            # marking it dead in the public API. Treat self-visibility as only
+            # the first step; public API visibility is the real success signal.
             current_url = page.url
             page_html = page.content()
             needle = body[:60].split("\n")[0]
-            success = needle and needle in page_html
-            if success:
-                print(f"SUCCESS: comment landed; current={current_url}", flush=True)
+            self_visible = needle and needle in page_html
+            if self_visible:
+                comment_id = extract_comment_id_for_needle(page_html, me, needle)
+                if not comment_id:
+                    print("UNCERTAIN: self-visible needle found but comment id was not parsed.", flush=True)
+                    append_log(
+                        f"{iso_now()} | post | item={item_id} | UNCERTAIN no-comment-id | "
+                        f"url={current_url} | shot_pre={shot_pre} shot_post={shot_post}"
+                    )
+                    return 5
+                public_status = fetch_hn_item_public_status(comment_id)
+                if public_status in {"dead", "deleted"}:
+                    print(
+                        f"DEAD: comment is self-visible but HN API marks it {public_status}; "
+                        f"comment={comment_id}",
+                        flush=True,
+                    )
+                    append_log(
+                        f"{iso_now()} | post | item={item_id} | DEAD {public_status} | "
+                        f"comment={comment_id} url={current_url} | shot_pre={shot_pre} "
+                        f"shot_post={shot_post} | needle='{needle[:40]}'"
+                    )
+                    return 7
+                if public_status != "visible":
+                    print(
+                        f"UNCERTAIN: self-visible comment {comment_id}, HN API status={public_status}.",
+                        flush=True,
+                    )
+                    append_log(
+                        f"{iso_now()} | post | item={item_id} | UNCERTAIN api-{public_status} | "
+                        f"comment={comment_id} url={current_url} | shot_pre={shot_pre} "
+                        f"shot_post={shot_post}"
+                    )
+                    return 5
+                print(f"SUCCESS: public comment landed; current={current_url} comment={comment_id}", flush=True)
                 append_log(
                     f"{iso_now()} | post | item={item_id} | SUCCESS | url={current_url} | "
-                    f"shot_pre={shot_pre} shot_post={shot_post} | needle='{needle[:40]}'"
+                    f"comment={comment_id} shot_pre={shot_pre} shot_post={shot_post} | "
+                    f"needle='{needle[:40]}'"
                 )
                 return 0
             print(f"UNCERTAIN: needle not found at {current_url}. Check screenshots.", flush=True)

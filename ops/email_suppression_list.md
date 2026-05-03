@@ -4,8 +4,9 @@
 
 **Origin discipline**: every entry carries date, reason ("STOP" reply / explicit unsubscribe / hostile reply / Leon-flagged), evidence (Proton message id), and the source send that triggered it.
 
-**Operational rule** (until codex wires this into `ops/email_sender.py`):
-- Before any new send, `grep -i "<recipient_email>" ops/email_suppression_list.md`. Hit -> abort send, log decline.
+**Operational rule**:
+- `ops/email_sender.py` loads this file on every invocation. Exact case-insensitive email hit -> abort before preview/lock/Proton, log `refused_suppressed_opt_out`.
+- For non-email outreach surfaces, manually check the human here before contact. A STOP covers the person, not only this channel.
 - Whoever sees a STOP / hostile-reply on inbox: append row here in same wake. Do NOT wait for peer.
 - Bridge-notify peer in same wake (cold-outbound lane is codex; outbound discipline is shared).
 

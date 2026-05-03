@@ -33,6 +33,17 @@ class FakeProtonClient:
         }
 
 
+def write_suppression_file(root: Path, rows: str = "") -> Path:
+    path = root / "email_suppression_list.md"
+    path.write_text(
+        "| date | email | reason |\n"
+        "| --- | --- | --- |\n"
+        f"{rows}",
+        encoding="utf-8",
+    )
+    return path
+
+
 class EmailSenderLockTests(unittest.TestCase):
     def test_fresh_lock_refuses_duplicate_send_topic(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -81,6 +92,7 @@ class EmailSenderLockTests(unittest.TestCase):
             body_path = root / "body.txt"
             body_path.write_text("I read the stale PR and can scope it.", encoding="utf-8")
             locks_dir = root / "locks"
+            suppression_path = write_suppression_file(root)
             fake_client = FakeProtonClient()
             argv = [
                 "email_sender.py",
@@ -94,6 +106,7 @@ class EmailSenderLockTests(unittest.TestCase):
             ]
 
             with (
+                patch.object(email_sender, "SUPPRESSION_FILE", suppression_path),
                 patch.object(email_sender, "LOCKS_DIR", locks_dir),
                 patch.object(email_sender, "get_client", return_value=fake_client),
                 patch.object(email_sender, "append_log_row") as append_log_row,
@@ -112,6 +125,7 @@ class EmailSenderLockTests(unittest.TestCase):
             body_path = root / "body.txt"
             body_path.write_text("Dry-run body.", encoding="utf-8")
             locks_dir = root / "locks"
+            suppression_path = write_suppression_file(root)
             argv = [
                 "email_sender.py",
                 "--to",
@@ -123,6 +137,7 @@ class EmailSenderLockTests(unittest.TestCase):
             ]
 
             with (
+                patch.object(email_sender, "SUPPRESSION_FILE", suppression_path),
                 patch.object(email_sender, "LOCKS_DIR", locks_dir),
                 patch.object(email_sender, "get_client") as get_client,
                 patch.object(sys, "argv", argv),
@@ -159,6 +174,77 @@ class EmailSenderLockTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertFalse(locks_dir.exists())
         get_client.assert_not_called()
+
+    def test_suppression_list_parser_reads_exact_email_column(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "email_suppression_list.md"
+            path.write_text(
+                "\n".join(
+                    [
+                        "| date | email | reason |",
+                        "| --- | --- | --- |",
+                        "| 2026-05-03 | EndiSukaj@gmail.com | STOP |",
+                        "| 2026-05-03 | not-an-email | ignored |",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            suppressed = email_sender.load_suppressed_emails(path)
+
+        self.assertEqual(suppressed, {"endisukaj@gmail.com"})
+
+    def test_missing_suppression_list_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "missing_suppression_list.md"
+
+            with self.assertRaises(SystemExit) as raised:
+                email_sender.load_suppressed_emails(path)
+
+        self.assertIn("suppression list missing", str(raised.exception))
+
+    def test_suppressed_recipient_refuses_before_lock_and_proton(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            body_path = root / "body.txt"
+            body_path.write_text("We can scope the review if useful.", encoding="utf-8")
+            suppression_path = root / "email_suppression_list.md"
+            suppression_path.write_text(
+                "| date | email | reason |\n"
+                "| --- | --- | --- |\n"
+                "| 2026-05-03 | endisukaj@gmail.com | STOP |\n",
+                encoding="utf-8",
+            )
+            locks_dir = root / "locks"
+            argv = [
+                "email_sender.py",
+                "--to",
+                "EndiSukaj@gmail.com",
+                "--subject",
+                "Scoped review",
+                "--body-file",
+                str(body_path),
+                "--execute",
+            ]
+
+            with (
+                patch.object(email_sender, "SUPPRESSION_FILE", suppression_path),
+                patch.object(email_sender, "LOCKS_DIR", locks_dir),
+                patch.object(email_sender, "get_client") as get_client,
+                patch.object(email_sender, "append_log_row") as append_log_row,
+                patch.object(sys, "argv", argv),
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    email_sender.main()
+
+        self.assertIn("suppressed recipients", str(raised.exception))
+        self.assertFalse(locks_dir.exists())
+        get_client.assert_not_called()
+        append_log_row.assert_called_once()
+        self.assertEqual(
+            append_log_row.call_args.kwargs["status"],
+            "refused_suppressed_opt_out",
+        )
 
 
 if __name__ == "__main__":
