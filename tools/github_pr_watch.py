@@ -29,7 +29,11 @@ TARGET_CELL_RE = re.compile(
 MARKDOWN_LINK_RE = re.compile(r"^\[(?P<label>[^\]]+)\]\((?P<url>[^)]+)\)$")
 PR_FIELDS = (
     "number,state,title,url,author,createdAt,updatedAt,comments,reviews,"
-    "latestReviews,reviewDecision,mergeStateStatus,statusCheckRollup"
+    "latestReviews,reviewDecision,mergeStateStatus,statusCheckRollup,body,"
+    "mergedAt,mergedBy"
+)
+ISSUE_FIELDS = (
+    "number,state,stateReason,closedAt,title,url,closedByPullRequestsReferences"
 )
 CHECK_FAILURE_CONCLUSIONS = {
     "ACTION_REQUIRED",
@@ -392,7 +396,9 @@ def classify_pr(
     }
     if signals:
         latest = max(signals, key=lambda item: parse_github_time(item["created_at"]))
-        shipped = pr_state in {"CLOSED", "MERGED"} and is_ship_timeline_item(latest)
+        shipped = pr_state == "MERGED" or (
+            pr_state == "CLOSED" and is_ship_timeline_item(latest)
+        )
         return PullStatus(
             **base,
             state="shipped" if shipped else "signal",
@@ -402,10 +408,23 @@ def classify_pr(
                 f"{latest['kind']}: {latest['body']}".strip()
             ),
             note=(
-                "Closed PR has maintainer ship/release signal after latest agent activity."
+                "PR is merged; latest non-agent signal shown."
+                if pr_state == "MERGED"
+                else "Closed PR has maintainer ship/release signal after latest agent activity."
                 if shipped
                 else ""
             ),
+        )
+
+    if pr_state == "MERGED":
+        merged_at = str(payload.get("mergedAt") or payload.get("updatedAt") or "")
+        return PullStatus(
+            **base,
+            state="shipped",
+            latest_signal_author=actor_login(payload, field="mergedBy") or "github-pr",
+            latest_signal_at=merged_at,
+            latest_signal_excerpt="merged",
+            note="PR is merged with no non-agent comment or review after latest agent activity.",
         )
 
     if pr_state in {"CLOSED", "MERGED"}:
@@ -510,8 +529,127 @@ def check_targets(targets: list[PullTarget], *, agent_login: str) -> list[PullSt
                 status,
                 agent_login=agent_login,
             )
+        if status.state == "closed_no_signal":
+            status = apply_linked_issue_closure_signal(target, status, payload)
         results.append(status)
     return results
+
+
+def linked_issue_numbers(target: PullTarget, payload: dict[str, Any]) -> list[int]:
+    text = "\n".join(
+        str(payload.get(field) or "") for field in ("title", "body")
+    )
+    numbers: list[int] = []
+    seen: set[int] = set()
+    for match in re.finditer(r"#\s*(\d+)\b", text):
+        number = int(match.group(1))
+        if number == target.number or number in seen:
+            continue
+        seen.add(number)
+        numbers.append(number)
+    return numbers
+
+
+def fetch_issue(repo: str, number: int) -> dict[str, Any]:
+    return gh_json(
+        [
+            "gh",
+            "issue",
+            "view",
+            str(number),
+            "--repo",
+            repo,
+            "--json",
+            ISSUE_FIELDS,
+        ]
+    )
+
+
+def closing_pr_label(ref: dict[str, Any]) -> str:
+    number = ref.get("number")
+    repo = ref.get("repository") or {}
+    owner = repo.get("owner") or {}
+    repo_name = str(repo.get("name") or "")
+    owner_login = str(owner.get("login") or "")
+    if owner_login and repo_name and number:
+        return f"{owner_login}/{repo_name} #{number}"
+    if number:
+        return f"PR #{number}"
+    return str(ref.get("url") or "another PR")
+
+
+def issue_closed_by_other_pr(
+    target: PullTarget, issue: dict[str, Any]
+) -> dict[str, Any] | None:
+    refs = issue.get("closedByPullRequestsReferences") or []
+    for ref in refs:
+        if not isinstance(ref, dict):
+            continue
+        number = ref.get("number")
+        repo = ref.get("repository") or {}
+        owner = repo.get("owner") or {}
+        repo_name = str(repo.get("name") or "")
+        owner_login = str(owner.get("login") or "")
+        same_repo = f"{owner_login}/{repo_name}".lower() == target.repo.lower()
+        if same_repo and number == target.number:
+            continue
+        return ref
+    return None
+
+
+def apply_linked_issue_closure_signal(
+    target: PullTarget,
+    status: PullStatus,
+    payload: dict[str, Any],
+) -> PullStatus:
+    if not status.last_agent_activity_at:
+        return status
+
+    last_agent_dt = parse_github_time(status.last_agent_activity_at)
+    fetch_errors: list[str] = []
+    for issue_number in linked_issue_numbers(target, payload):
+        try:
+            issue = fetch_issue(target.repo, issue_number)
+        except (subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+            fetch_errors.append(f"#{issue_number}: {fetch_error_note(exc)}")
+            continue
+
+        if str(issue.get("state") or "").upper() != "CLOSED":
+            continue
+        closed_at = str(issue.get("closedAt") or "")
+        if not closed_at or safe_github_datetime(closed_at) < last_agent_dt:
+            continue
+        ref = issue_closed_by_other_pr(target, issue)
+        if not ref:
+            continue
+
+        issue_reason = str(issue.get("stateReason") or "").lower()
+        reason = f" as {issue_reason}" if issue_reason else ""
+        label = closing_pr_label(ref)
+        return replace(
+            status,
+            state="superseded",
+            latest_signal_author="github-issue",
+            latest_signal_at=closed_at,
+            latest_signal_excerpt=excerpt(
+                f"issue #{issue_number} closed{reason} by {label}"
+            ),
+            note=(
+                f"Linked issue #{issue_number} was closed by {label} after this "
+                "PR; treat the PR as superseded unless a maintainer asks for "
+                "follow-up."
+            ),
+        )
+
+    if fetch_errors:
+        return replace(
+            status,
+            note=(
+                f"{status.note} Linked-issue closure check failed for "
+                f"{'; '.join(fetch_errors)}"
+            ),
+        )
+    return status
 
 
 def fetch_recent_releases(repo: str, limit: int = 10) -> list[dict[str, Any]]:

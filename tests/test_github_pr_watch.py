@@ -232,6 +232,54 @@ class GitHubPRWatchTests(unittest.TestCase):
         self.assertIn("v0.50.281", statuses[0].latest_signal_excerpt)
         self.assertIn("#1536 by @dutchaiagency", statuses[0].note)
 
+    def test_closed_pr_superseded_when_linked_issue_closed_by_other_pr(self) -> None:
+        def fake_fetch(_target):  # type: ignore[no-untyped-def]
+            return {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-03T19:38:21Z",
+                "state": "CLOSED",
+                "title": "fix(streaming): lock stale cleanup (#1533)",
+                "body": "Closes #1533.",
+                "url": "https://github.com/owner/repo/pull/1557",
+                "comments": [],
+                "reviews": [],
+                "latestReviews": [],
+            }
+
+        def fake_issue(repo, number):  # type: ignore[no-untyped-def]
+            self.assertEqual(repo, "owner/repo")
+            self.assertEqual(number, 1533)
+            return {
+                "number": 1533,
+                "state": "CLOSED",
+                "stateReason": "COMPLETED",
+                "closedAt": "2026-05-03T20:44:45Z",
+                "closedByPullRequestsReferences": [
+                    {
+                        "number": 1562,
+                        "repository": {
+                            "name": "repo",
+                            "owner": {"login": "owner"},
+                        },
+                    }
+                ],
+            }
+
+        with (
+            patch("tools.github_pr_watch.fetch_pr", fake_fetch),
+            patch("tools.github_pr_watch.fetch_recent_releases", return_value=[]),
+            patch("tools.github_pr_watch.fetch_issue", fake_issue),
+        ):
+            statuses = check_targets(
+                [PullTarget("owner/repo", 1557)],
+                agent_login="dutchaiagency",
+            )
+
+        self.assertEqual(statuses[0].state, "superseded")
+        self.assertEqual(statuses[0].latest_signal_author, "github-issue")
+        self.assertIn("issue #1533", statuses[0].latest_signal_excerpt)
+        self.assertIn("owner/repo #1562", statuses[0].note)
+
     def test_release_note_before_agent_activity_does_not_mark_shipped(self) -> None:
         status = classify_pr(
             PullTarget(repo="owner/repo", number=1536),

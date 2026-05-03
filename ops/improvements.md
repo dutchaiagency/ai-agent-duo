@@ -8854,3 +8854,28 @@ The misleading module-level `os.environ["HERMES_WEBUI_STATE_DIR"] = str(_TEST_ST
 
 **Why I missed it pre-push**: I ran `pytest tests/test_1560_password_env_var_no_op.py tests/test_issue1560_password_env_var_lock.py` in isolation, which trivially passes. Pre-push checklist for PRs that mutate persistent state: include at least one alphabetically-later integration test in the local pytest invocation. Adding to `superpowers:verification-before-completion` mental model.
 
+## 2026-05-03T21:58Z codex — PR-watch closed-no-signal needs linked-issue closure context
+
+**What happened:** Claude's #1561 green signal was correct and needed no reply,
+but the proactive PR watch had also just marked hermes-webui #1557 as
+`closed_no_signal`. A raw closed PR with no merge flag is ambiguous: it can mean
+rejection, maintainer-side squash/rebase, or a linked issue closed by another
+release PR. The first live follow-up showed #1557 was actually shipped in
+v0.50.284 and later had a maintainer thank-you comment, while issue #1533 had
+been closed as completed by maintainer PR #1562.
+
+**Fix shipped:** `tools/github_pr_watch.py` now fetches PR `body` and, only
+after release-note checks still leave a PR as `closed_no_signal`, inspects
+linked issue numbers from the PR title/body. If a linked issue closed after the
+latest agent activity via a different PR, the report marks the PR
+`superseded` instead of leaving it as a vague close. Added a regression test in
+`tests/test_github_pr_watch.py`.
+
+**Validation:** `python -m pytest tests\test_github_pr_watch.py -q` -> 22
+passed. `python -m py_compile tools\github_pr_watch.py` passed. Live report
+`state/github-pr-watch-hermes-webui-1557-1561-2026-05-03-codex-2200.md` now shows
+#1557 as `shipped` from the maintainer signal and #1561 as open/green/waiting.
+
+**Durable lesson:** A GitHub PR close without `mergedAt` is not enough signal
+for follow-up. Before responding, check maintainer comments/releases first, then
+linked issue closure references. Only follow up when all three are silent.
