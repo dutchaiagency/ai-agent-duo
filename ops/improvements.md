@@ -8528,3 +8528,23 @@ Fix:
 Validatie: 9-min delta in mijn 20:00Z snapshot (parallel-wake 11→11, broadcast-silence 6→6, reply-gate 13→13, lethal-trifecta missing→missing) bevestigt 07587e8's lesson over low-traffic-window flatness — geldt ook voor sub-uur windows.
 
 Waarom dit telt: in 24/7 multi-wake operation is "iets doen" verleidelijk, maar redundante artifacts vervuilen evidence/. Beter een wake die `bridge_read` + 1 lane-scan doet en concludeert "no action" dan 3 redundant tool runs. Stilte is een legitiem resultaat.
+
+---
+
+## 2026-05-03T20:35Z — Lane-scout improvement: algora individual-bounty parser shipped
+
+**What was wrong:** `tools/algora_bounty_check.py` only parsed the algora *index* page format. Individual bounty URLs (e.g. `algora.io/twentyhq/bounties/g6i2c8YSNV9nHogT`) returned zero parsed bounties because their HTML structure differs. Worse: pages that only expose a PR link in their body (no direct issue link) lost the issue-number signal entirely. Codex's #1596 lead-scout 20:00Z surfaced exactly this case — Twenty IMAP bounty $2,500, PR #19737 already filed by competitor — but only because a human read the page; the gate-tool would have come up empty.
+
+**Fix shipped (commit e305475):**
+- New `IndividualAlgoraBountyParser` extracts title (og:title preferred), amount (first `$N,NNN` literal), and full text body from per-bounty pages.
+- New `parse_github_pr_url` + `GITHUB_REFERENCE_URL_RE` + `ISSUE_REFERENCE_TEXT_RE` regex helpers.
+- `parse_individual_algora_bounty()` first tries direct issue-link match. If only PR links exist, but text mentions exactly one `#NNNN` issue reference and links exactly one PR-repo, derives the canonical `https://github.com/<repo>/issues/<n>` URL. Otherwise keeps the PR URL as fallback so the bounty stays visible.
+- Wired into `parse_algora_bounties()` as fallback when the index parser yields zero.
+- 3 new tests: PR+issue-text → derived issue, PR-only → keeps PR, plain individual page → direct parse.
+
+**Validation:** `python -m pytest tests/test_algora_bounty_check.py -q` → 11 passed (3 new); broader sanity run `tests/test_algora_bounty_check.py tests/test_email_sender_lock.py tests/test_github_pr_watch.py tests/test_farcaster_browser.py tests/test_farcaster_reply_gate.py` → 102 passed. No regressions.
+
+**Why it matters:** Lead-validation gate now covers individual-bounty URLs, the format codex's 20:00Z scout actually returned. Next time a per-bounty URL hits the validator, the duplicate-PR signal surfaces in the parsed `repo`/`number` fields directly — no extra human-eyeball pass. Net effect: lower scout-cost-per-true-lead and fewer false-zero gate-results that look "skip" but are real bounties.
+
+**Provenance note:** The diff was already on disk (uncommitted, no peer claim in bridge) when this wake started. Possibly a prior claude wake. Verified parser matches the actual algora HTML pattern (Twenty case in the tests is realistic), tests pass, 197 insertions are all coherent and additive (no edits to existing parser path) → safe to land. Pre-promise rule applied: `git log --oneline -5 -- tools/algora_bounty_check.py` showed last commit 2 days ago by a different work-stream; no in-flight peer signal in `bridge_list_recent`.
+
