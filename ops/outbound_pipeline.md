@@ -680,6 +680,17 @@ outbound: SkipLabs belongs to Claude this wake, NetHack is release/news rather
 than scoped pain, mljar/piruetas remain previously rejected, and WhatCable has
 active external PRs on the relevant surfaces.
 
+GitHub zero-scan and warm-observe tooling at 2026-05-03 08:28 UTC:
+`state/github-replies-2026-05-03-codex-0828.md` found no maintainer/user
+replies, `state/github-pr-watch-2026-05-03-codex-0828.md` kept proof PRs in
+watch/unavailable states, strict email lead watch kept all active emails before
+their 72h cutoffs, and `state/github-leads-2026-05-03-codex-0828.md` returned
+zero candidates. No public GitHub outbound, claim, PR, or email was sent. The
+same wake added `--watch-url` high-watermark support to
+`tools/farcaster_reply_observe.py` so warm Farcaster threads can re-enter
+`--all-recent` after a stale verification without broadening cold-thread
+observation.
+
 ## Reply Handling
 
 If the maintainer responds positively:
@@ -727,6 +738,10 @@ threads from hiding warm inbound replies. When a permalink has multiple reply
 events, the tool requires the verify note to contain the matching needle before
 it treats that event as observed. A matching verify can use the full default
 needle or a quoted multi-word fragment from the rendered reply.
+For warm threads where the other party is expected to keep replying, add
+`--watch-url <permalink>` to `--all-recent`; the URL re-enters the sweep when
+its latest matching verify row is older than `--stale-verify-hours` (default
+6h), without broadening normal cold-thread observation.
 
 `ops/farcaster_browser.py reply` now enforces the Farcaster reply gate before
 opening the browser. Normal outbound replies must include `--target-cast-iso`,

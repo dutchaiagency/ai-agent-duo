@@ -176,14 +176,31 @@ def reply_has_later_verification(
     *,
     require_needle: bool = False,
 ) -> bool:
+    return (
+        latest_later_verification(
+            reply,
+            verifications,
+            require_needle=require_needle,
+        )
+        is not None
+    )
+
+
+def latest_later_verification(
+    reply: FarcasterReply,
+    verifications: tuple[FarcasterVerification, ...],
+    *,
+    require_needle: bool = False,
+) -> FarcasterVerification | None:
+    latest: FarcasterVerification | None = None
     for verification in verifications:
         if verification.url != reply.url or verification.at < reply.at:
             continue
-        if not require_needle:
-            return True
-        if verification_note_matches_reply(reply, verification.note):
-            return True
-    return False
+        if require_needle and not verification_note_matches_reply(reply, verification.note):
+            continue
+        if latest is None or verification.at > latest.at:
+            latest = verification
+    return latest
 
 
 def unobserved_recent_successful_replies(
@@ -191,11 +208,15 @@ def unobserved_recent_successful_replies(
     *,
     now: datetime,
     since: timedelta,
+    stale_verified_urls: tuple[str, ...] = (),
+    stale_after: timedelta | None = None,
 ) -> tuple[FarcasterReply, ...]:
     if not log_path.exists():
         return ()
     text = log_path.read_text(encoding="utf-8", errors="replace")
-    cutoff = now.astimezone(UTC) - since
+    now_utc = now.astimezone(UTC)
+    cutoff = now_utc - since
+    watched_urls = set(stale_verified_urls)
     verifications = parse_verification_log(text)
     all_replies = dedupe_replies(
         tuple(reply for reply in parse_reply_log(text) if reply.status == "success")
@@ -207,13 +228,32 @@ def unobserved_recent_successful_replies(
     for reply in all_replies:
         if reply.at < cutoff:
             continue
-        if reply_has_later_verification(
+        latest_verification = latest_later_verification(
             reply,
             verifications,
             require_needle=url_counts.get(reply.url, 0) > 1,
-        ):
+        )
+        if latest_verification is None:
+            replies.append(reply)
             continue
-        replies.append(reply)
+        if (
+            stale_after is not None
+            and reply.url in watched_urls
+            and now_utc - latest_verification.at >= stale_after
+        ):
+            replies.append(reply)
+            continue
+    if watched_urls:
+        latest_watched_by_url: dict[str, FarcasterReply] = {}
+        collapsed: list[FarcasterReply] = []
+        for reply in replies:
+            if reply.url not in watched_urls:
+                collapsed.append(reply)
+                continue
+            previous = latest_watched_by_url.get(reply.url)
+            if previous is None or reply.at > previous.at:
+                latest_watched_by_url[reply.url] = reply
+        replies = collapsed + list(latest_watched_by_url.values())
     return tuple(sorted(replies, key=lambda reply: (reply.at, reply.url)))
 
 
@@ -328,6 +368,17 @@ def render_target_lines(
         )
         return "\n".join(lines) + "\n"
 
+    if notifications_text is None and permalink_text is None:
+        lines.extend(
+            [
+                "",
+                heading(level, "Decision"),
+                "",
+                "Browser collection was skipped. Target selection is recorded, but no render or notification conclusion was made.",
+            ]
+        )
+        return "\n".join(lines) + "\n"
+
     notifications_text = notifications_text or ""
     permalink_text = permalink_text or ""
     needle_present = needle.lower() in permalink_text.lower()
@@ -407,12 +458,20 @@ def render_sweep_report(
     now: datetime,
     min_age: timedelta,
     since: timedelta,
+    watch_urls: tuple[str, ...] = (),
+    stale_verify_after: timedelta | None = None,
 ) -> str:
     mature_count = sum(1 for reply, _, _, _ in observations if now - reply.at >= min_age)
+    scope = (
+        "recent successful Farcaster replies that either lack a later `verify ->` row, "
+        "or are warm-watch URLs whose latest verification is stale."
+        if watch_urls
+        else "recent successful Farcaster replies that do not have a later `verify ->` row in `ops/farcaster_reply_log.md`."
+    )
     lines = [
         f"# Farcaster Reply Observe Sweep - {now.astimezone(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
-        "Read-only sweep across recent successful Farcaster replies that do not have a later `verify ->` row in `ops/farcaster_reply_log.md`.",
+        f"Read-only sweep across {scope}",
         "No casts, replies, deletes, or profile edits were performed.",
         "",
         "## Summary",
@@ -422,6 +481,12 @@ def render_sweep_report(
         f"- Mature targets checked: {mature_count}",
         f"- Deferred targets: {len(observations) - mature_count}",
     ]
+    if watch_urls:
+        lines.append(f"- Warm-watch URLs: {len(watch_urls)}")
+        if stale_verify_after is not None:
+            lines.append(
+                f"- Stale verify threshold: {stale_verify_after.total_seconds() / 3600:.1f} hours"
+            )
     if not observations:
         lines.extend(
             [
@@ -468,7 +533,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Observe every recent successful reply without a later verify row.",
     )
+    parser.add_argument(
+        "--watch-url",
+        action="append",
+        default=[],
+        help=(
+            "With --all-recent, also include this warm thread when its latest "
+            "matching verify row is older than --stale-verify-hours. Can be repeated."
+        ),
+    )
     parser.add_argument("--since-hours", type=float, default=24.0)
+    parser.add_argument(
+        "--stale-verify-hours",
+        type=float,
+        default=6.0,
+        help="High-watermark threshold for --watch-url in --all-recent mode.",
+    )
     parser.add_argument("--now", help="UTC timestamp override for tests.")
     parser.add_argument("--min-age-minutes", type=float, default=30.0)
     parser.add_argument("--wait-seconds", type=float, default=4.0)
@@ -493,6 +573,8 @@ def main(argv: list[str] | None = None) -> int:
             args.reply_log,
             now=now,
             since=since,
+            stale_verified_urls=tuple(args.watch_url),
+            stale_after=timedelta(hours=args.stale_verify_hours) if args.watch_url else None,
         )
         observations: list[tuple[FarcasterReply, str, str | None, str | None]] = []
         for reply in replies:
@@ -513,6 +595,10 @@ def main(argv: list[str] | None = None) -> int:
             now=now,
             min_age=min_age,
             since=since,
+            watch_urls=tuple(args.watch_url),
+            stale_verify_after=(
+                timedelta(hours=args.stale_verify_hours) if args.watch_url else None
+            ),
         )
         args.state_dir.mkdir(parents=True, exist_ok=True)
         path = sweep_state_snapshot_path(args.state_dir, args.agent, now)

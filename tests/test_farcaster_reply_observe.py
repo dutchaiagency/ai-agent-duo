@@ -78,6 +78,54 @@ class FarcasterReplyObserveTests(unittest.TestCase):
         self.assertEqual(replies[0].url, "https://farcaster.xyz/a/0xdup")
         self.assertEqual(replies[0].preview, "longer preview")
 
+    def test_unobserved_recent_successful_replies_includes_stale_watched_verify(self) -> None:
+        tmp = Path("tmp-farcaster-reply-log.md")
+        try:
+            tmp.write_text(
+                "2026-05-03T00:00Z | claude | reply -> https://farcaster.xyz/a/0xwarm | warm thread | success | reason\n"
+                "2026-05-03T00:30Z | codex | verify -> https://farcaster.xyz/a/0xwarm | needle 'warm thread' present | state\n"
+                "2026-05-03T01:00Z | claude | reply -> https://farcaster.xyz/a/0xwarm | latest warm thread | success | reason\n"
+                "2026-05-03T01:30Z | codex | verify -> https://farcaster.xyz/a/0xwarm | needle 'latest warm thread' present | state\n"
+                "2026-05-03T00:00Z | claude | reply -> https://farcaster.xyz/a/0xcold | cold thread | success | reason\n"
+                "2026-05-03T00:30Z | codex | verify -> https://farcaster.xyz/a/0xcold | needle present | state\n",
+                encoding="utf-8",
+            )
+
+            replies = observe.unobserved_recent_successful_replies(
+                tmp,
+                now=datetime(2026, 5, 3, 7, 31, tzinfo=UTC),
+                since=timedelta(hours=24),
+                stale_verified_urls=("https://farcaster.xyz/a/0xwarm",),
+                stale_after=timedelta(hours=6),
+            )
+        finally:
+            tmp.unlink(missing_ok=True)
+
+        self.assertEqual(len(replies), 1)
+        self.assertEqual(replies[0].url, "https://farcaster.xyz/a/0xwarm")
+        self.assertEqual(replies[0].preview, "latest warm thread")
+
+    def test_unobserved_recent_successful_replies_skips_fresh_watched_verify(self) -> None:
+        tmp = Path("tmp-farcaster-reply-log.md")
+        try:
+            tmp.write_text(
+                "2026-05-03T00:00Z | claude | reply -> https://farcaster.xyz/a/0xwarm | warm thread | success | reason\n"
+                "2026-05-03T00:30Z | codex | verify -> https://farcaster.xyz/a/0xwarm | needle present | state\n",
+                encoding="utf-8",
+            )
+
+            replies = observe.unobserved_recent_successful_replies(
+                tmp,
+                now=datetime(2026, 5, 3, 5, 0, tzinfo=UTC),
+                since=timedelta(hours=24),
+                stale_verified_urls=("https://farcaster.xyz/a/0xwarm",),
+                stale_after=timedelta(hours=6),
+            )
+        finally:
+            tmp.unlink(missing_ok=True)
+
+        self.assertEqual(replies, ())
+
     def test_unobserved_recent_successful_replies_keeps_later_same_url_reply(self) -> None:
         tmp = Path("tmp-farcaster-reply-log.md")
         try:
@@ -224,6 +272,28 @@ class FarcasterReplyObserveTests(unittest.TestCase):
         self.assertIn("| Reply needle | present |", report)
         self.assertIn("| Account marker | present |", report)
         self.assertIn("watch-only mode", report)
+
+    def test_render_report_marks_mature_skip_browser_without_false_negative(self) -> None:
+        reply = observe.FarcasterReply(
+            at=datetime(2026, 5, 2, 23, 3, tzinfo=UTC),
+            agent="claude",
+            url="https://farcaster.xyz/a/0xabc",
+            preview="preview",
+            status="success",
+            reason="reason",
+        )
+
+        report = observe.render_report(
+            reply,
+            now=datetime(2026, 5, 3, 7, 3, tzinfo=UTC),
+            min_age=timedelta(minutes=30),
+            needle="preview",
+            notifications_text=None,
+            permalink_text=None,
+        )
+
+        self.assertIn("Browser collection was skipped.", report)
+        self.assertNotIn("not found", report)
 
     def test_state_snapshot_path_uses_agent_and_minute(self) -> None:
         path = observe.state_snapshot_path(
