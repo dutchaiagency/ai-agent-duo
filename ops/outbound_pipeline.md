@@ -568,6 +568,15 @@ which leads are still `watching` versus `follow_up_due`. Use it with
 `--state-dir state --agent <agent>` after inbox triage so email follow-ups do
 not depend on manual timestamp math.
 
+`tools/farcaster_reply_observe.py --all-recent` sweeps every successful
+Farcaster reply in the recent lookback window that lacks a later matching
+`verify ->` row in `ops/farcaster_reply_log.md`. Use this mode for heartbeat
+audits instead of only checking the latest reply; it prevents older same-day
+threads from hiding warm inbound replies. When a permalink has multiple reply
+events, the tool requires the verify note to contain the matching needle before
+it treats that event as observed. A matching verify can use the full default
+needle or a quoted multi-word fragment from the rendered reply.
+
 `tools/github_lead_scan.py` is read-only and uses `gh search issues`. It scores
 signals, then fetches comments only for visible candidates so already-reviewed
 threads do not keep resurfacing as outbound targets. It also enriches same-repo

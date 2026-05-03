@@ -2,9 +2,9 @@
 """Read-only Farcaster reply render/notification observer.
 
 The heartbeat router can select `farcaster_reply_observe` shortly after a peer
-posts a reply. This tool makes the follow-up repeatable: it reads the latest
-successful reply from `ops/farcaster_reply_log.md`, waits for the observe window
-to mature, then checks notifications plus the reply permalink without posting.
+posts a reply. This tool makes the follow-up repeatable: it reads successful
+replies from `ops/farcaster_reply_log.md`, waits for the observe window to
+mature, then checks notifications plus reply permalinks without posting.
 """
 
 from __future__ import annotations
@@ -32,6 +32,14 @@ class FarcasterReply:
     preview: str
     status: str
     reason: str
+
+
+@dataclass(frozen=True)
+class FarcasterVerification:
+    at: datetime
+    agent: str
+    url: str
+    note: str
 
 
 def parse_timestamp(value: str) -> datetime:
@@ -69,15 +77,142 @@ def parse_reply_log(text: str) -> tuple[FarcasterReply, ...]:
     return tuple(replies)
 
 
-def latest_successful_reply(log_path: Path) -> FarcasterReply | None:
+def parse_verification_log(text: str) -> tuple[FarcasterVerification, ...]:
+    verifications: list[FarcasterVerification] = []
+    for raw_line in text.splitlines():
+        if " | verify -> " not in raw_line:
+            continue
+        parts = [part.strip() for part in raw_line.split(" | ", 4)]
+        if len(parts) < 4:
+            continue
+        timestamp, agent, action = parts[:3]
+        if not action.startswith("verify -> "):
+            continue
+        try:
+            at = parse_timestamp(timestamp)
+        except ValueError:
+            continue
+        note = " | ".join(parts[3:])
+        verifications.append(
+            FarcasterVerification(
+                at=at,
+                agent=agent,
+                url=action.removeprefix("verify -> ").strip(),
+                note=note,
+            )
+        )
+    return tuple(verifications)
+
+
+def dedupe_replies(replies: tuple[FarcasterReply, ...]) -> tuple[FarcasterReply, ...]:
+    by_key: dict[tuple[datetime, str], FarcasterReply] = {}
+    for reply in replies:
+        key = (reply.at, reply.url)
+        previous = by_key.get(key)
+        if previous is None or len(reply.preview) > len(previous.preview):
+            by_key[key] = reply
+    return tuple(sorted(by_key.values(), key=lambda reply: (reply.at, reply.url)))
+
+
+def successful_replies(log_path: Path) -> tuple[FarcasterReply, ...]:
     if not log_path.exists():
-        return None
+        return ()
     replies = [
         reply
         for reply in parse_reply_log(log_path.read_text(encoding="utf-8", errors="replace"))
         if reply.status == "success"
     ]
+    return dedupe_replies(tuple(replies))
+
+
+def latest_successful_reply(log_path: Path) -> FarcasterReply | None:
+    replies = successful_replies(log_path)
     return max(replies, key=lambda reply: reply.at) if replies else None
+
+
+def latest_successful_reply_for_url(log_path: Path, url: str) -> FarcasterReply | None:
+    replies = [reply for reply in successful_replies(log_path) if reply.url == url]
+    return max(replies, key=lambda reply: reply.at) if replies else None
+
+
+def normalize_match_text(value: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", value.lower()))
+
+
+def contains_normalized_phrase(haystack: str, needle: str) -> bool:
+    normalized_haystack = normalize_match_text(haystack)
+    normalized_needle = normalize_match_text(needle)
+    if not normalized_needle:
+        return False
+    return f" {normalized_needle} " in f" {normalized_haystack} "
+
+
+def quoted_fragments(value: str) -> tuple[str, ...]:
+    fragments: list[str] = []
+    for match in re.finditer(r"'([^']+)'|\"([^\"]+)\"", value):
+        fragment = match.group(1) or match.group(2)
+        fragment = fragment.strip()
+        if fragment:
+            fragments.append(fragment)
+    return tuple(fragments)
+
+
+def verification_note_matches_reply(reply: FarcasterReply, note: str) -> bool:
+    if contains_normalized_phrase(note, default_needle(reply.preview)):
+        return True
+    for fragment in quoted_fragments(note):
+        if len(normalize_match_text(fragment).split()) < 2:
+            continue
+        if contains_normalized_phrase(reply.preview, fragment):
+            return True
+    return False
+
+
+def reply_has_later_verification(
+    reply: FarcasterReply,
+    verifications: tuple[FarcasterVerification, ...],
+    *,
+    require_needle: bool = False,
+) -> bool:
+    for verification in verifications:
+        if verification.url != reply.url or verification.at < reply.at:
+            continue
+        if not require_needle:
+            return True
+        if verification_note_matches_reply(reply, verification.note):
+            return True
+    return False
+
+
+def unobserved_recent_successful_replies(
+    log_path: Path,
+    *,
+    now: datetime,
+    since: timedelta,
+) -> tuple[FarcasterReply, ...]:
+    if not log_path.exists():
+        return ()
+    text = log_path.read_text(encoding="utf-8", errors="replace")
+    cutoff = now.astimezone(UTC) - since
+    verifications = parse_verification_log(text)
+    all_replies = dedupe_replies(
+        tuple(reply for reply in parse_reply_log(text) if reply.status == "success")
+    )
+    url_counts: dict[str, int] = {}
+    for reply in all_replies:
+        url_counts[reply.url] = url_counts.get(reply.url, 0) + 1
+    replies = []
+    for reply in all_replies:
+        if reply.at < cutoff:
+            continue
+        if reply_has_later_verification(
+            reply,
+            verifications,
+            require_needle=url_counts.get(reply.url, 0) > 1,
+        ):
+            continue
+        replies.append(reply)
+    return tuple(sorted(replies, key=lambda reply: (reply.at, reply.url)))
 
 
 def default_needle(preview: str) -> str:
@@ -96,6 +231,14 @@ def state_snapshot_path(state_dir: Path, agent: str, now: datetime) -> Path:
     stamp = now.astimezone(UTC)
     return state_dir / (
         f"farcaster-reply-observe-{stamp.strftime('%Y-%m-%d')}-"
+        f"{normalize_agent(agent)}-{stamp.strftime('%H%M')}.md"
+    )
+
+
+def sweep_state_snapshot_path(state_dir: Path, agent: str, now: datetime) -> Path:
+    stamp = now.astimezone(UTC)
+    return state_dir / (
+        f"farcaster-reply-observe-sweep-{stamp.strftime('%Y-%m-%d')}-"
         f"{normalize_agent(agent)}-{stamp.strftime('%H%M')}.md"
     )
 
@@ -134,7 +277,11 @@ def collect_browser_text(
     return notifications, permalink
 
 
-def render_report(
+def heading(level: int, title: str) -> str:
+    return f"{'#' * level} {title}"
+
+
+def render_target_lines(
     reply: FarcasterReply,
     *,
     now: datetime,
@@ -142,16 +289,13 @@ def render_report(
     needle: str,
     notifications_text: str | None,
     permalink_text: str | None,
+    level: int = 2,
+    title: str = "Target",
 ) -> str:
     age = now.astimezone(UTC) - reply.at
     mature = age >= min_age
     lines = [
-        f"# Farcaster Reply Observe - {now.astimezone(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
-        "",
-        "Read-only follow-up after the heartbeat router selected `farcaster_reply_observe`.",
-        "No casts, replies, deletes, or profile edits were performed.",
-        "",
-        "## Target",
+        heading(level, title),
         "",
         f"- Posted: `{reply.at.strftime('%Y-%m-%dT%H:%MZ')}` by `{reply.agent}`",
         f"- URL: {reply.url}",
@@ -163,7 +307,7 @@ def render_report(
         lines.extend(
             [
                 "",
-                "## Decision",
+                heading(level, "Decision"),
                 "",
                 (
                     "Observe window is not mature yet. Keep the channel quiet and "
@@ -181,7 +325,7 @@ def render_report(
     lines.extend(
         [
             "",
-            "## Notifications",
+            heading(level, "Notifications"),
             "",
             (
                 "No notifications visible."
@@ -189,18 +333,18 @@ def render_report(
                 else summarize_text(notifications_text, limit=700)
             ),
             "",
-            "## Permalink Render Check",
+            heading(level, "Permalink Render Check"),
             "",
             "| Check | Result |",
             "| --- | --- |",
             f"| Reply needle | {'present' if needle_present else 'not found'} |",
             f"| Account marker | {'present' if account_present else 'not found'} |",
             "",
-            "## Excerpt",
+            heading(level, "Excerpt"),
             "",
             summarize_text(permalink_text, limit=900),
             "",
-            "## Decision",
+            heading(level, "Decision"),
             "",
         ]
     )
@@ -219,6 +363,82 @@ def render_report(
     return "\n".join(lines) + "\n"
 
 
+def render_report(
+    reply: FarcasterReply,
+    *,
+    now: datetime,
+    min_age: timedelta,
+    needle: str,
+    notifications_text: str | None,
+    permalink_text: str | None,
+) -> str:
+    lines = [
+        f"# Farcaster Reply Observe - {now.astimezone(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
+        "",
+        "Read-only follow-up after the heartbeat router selected `farcaster_reply_observe`.",
+        "No casts, replies, deletes, or profile edits were performed.",
+        "",
+        render_target_lines(
+            reply,
+            now=now,
+            min_age=min_age,
+            needle=needle,
+            notifications_text=notifications_text,
+            permalink_text=permalink_text,
+        ).rstrip(),
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def render_sweep_report(
+    observations: list[tuple[FarcasterReply, str, str | None, str | None]],
+    *,
+    now: datetime,
+    min_age: timedelta,
+    since: timedelta,
+) -> str:
+    mature_count = sum(1 for reply, _, _, _ in observations if now - reply.at >= min_age)
+    lines = [
+        f"# Farcaster Reply Observe Sweep - {now.astimezone(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
+        "",
+        "Read-only sweep across recent successful Farcaster replies that do not have a later `verify ->` row in `ops/farcaster_reply_log.md`.",
+        "No casts, replies, deletes, or profile edits were performed.",
+        "",
+        "## Summary",
+        "",
+        f"- Lookback: {since.total_seconds() / 3600:.1f} hours",
+        f"- Targets: {len(observations)}",
+        f"- Mature targets checked: {mature_count}",
+        f"- Deferred targets: {len(observations) - mature_count}",
+    ]
+    if not observations:
+        lines.extend(
+            [
+                "",
+                "No unobserved successful replies found in the lookback window.",
+            ]
+        )
+        return "\n".join(lines) + "\n"
+
+    for index, (reply, needle, notifications_text, permalink_text) in enumerate(observations, start=1):
+        lines.extend(
+            [
+                "",
+                render_target_lines(
+                    reply,
+                    now=now,
+                    min_age=min_age,
+                    needle=needle,
+                    notifications_text=notifications_text,
+                    permalink_text=permalink_text,
+                    level=3,
+                    title=f"Target {index}",
+                ).rstrip(),
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
 def normalize_now(value: str | None) -> datetime:
     if not value:
         return datetime.now(UTC)
@@ -232,6 +452,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--agent", default="codex")
     parser.add_argument("--url", help="Override the latest logged reply URL.")
     parser.add_argument("--needle", help="Text expected in the rendered reply.")
+    parser.add_argument(
+        "--all-recent",
+        action="store_true",
+        help="Observe every recent successful reply without a later verify row.",
+    )
+    parser.add_argument("--since-hours", type=float, default=24.0)
     parser.add_argument("--now", help="UTC timestamp override for tests.")
     parser.add_argument("--min-age-minutes", type=float, default=30.0)
     parser.add_argument("--wait-seconds", type=float, default=4.0)
@@ -248,15 +474,54 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     now = normalize_now(args.now)
-    reply = latest_successful_reply(args.reply_log)
+    min_age = timedelta(minutes=args.min_age_minutes)
+
+    if args.all_recent:
+        since = timedelta(hours=args.since_hours)
+        replies = unobserved_recent_successful_replies(
+            args.reply_log,
+            now=now,
+            since=since,
+        )
+        observations: list[tuple[FarcasterReply, str, str | None, str | None]] = []
+        for reply in replies:
+            needle = args.needle or default_needle(reply.preview)
+            notifications_text: str | None = None
+            permalink_text: str | None = None
+            if now - reply.at >= min_age and not args.skip_browser:
+                notifications_text, permalink_text = collect_browser_text(
+                    reply.url,
+                    profile_dir=args.profile_dir,
+                    wait_seconds=args.wait_seconds,
+                    timeout_ms=args.timeout_ms,
+                )
+            observations.append((reply, needle, notifications_text, permalink_text))
+
+        report = render_sweep_report(
+            observations,
+            now=now,
+            min_age=min_age,
+            since=since,
+        )
+        args.state_dir.mkdir(parents=True, exist_ok=True)
+        path = sweep_state_snapshot_path(args.state_dir, args.agent, now)
+        path.write_text(report, encoding="utf-8")
+        print(f"wrote {path}")
+        return 0
+
+    reply = (
+        latest_successful_reply_for_url(args.reply_log, args.url)
+        if args.url
+        else latest_successful_reply(args.reply_log)
+    )
     if reply is None:
-        print(f"no successful Farcaster reply found in {args.reply_log}", file=sys.stderr)
+        detail = f" for {args.url}" if args.url else ""
+        print(f"no successful Farcaster reply{detail} found in {args.reply_log}", file=sys.stderr)
         return 1
 
     if args.url:
         reply = FarcasterReply(reply.at, reply.agent, args.url, reply.preview, reply.status, reply.reason)
     needle = args.needle or default_needle(reply.preview)
-    min_age = timedelta(minutes=args.min_age_minutes)
 
     notifications_text: str | None = None
     permalink_text: str | None = None
