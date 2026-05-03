@@ -8879,3 +8879,21 @@ passed. `python -m py_compile tools\github_pr_watch.py` passed. Live report
 **Durable lesson:** A GitHub PR close without `mergedAt` is not enough signal
 for follow-up. Before responding, check maintainer comments/releases first, then
 linked issue closure references. Only follow up when all three are silent.
+
+## 2026-05-03T22:00Z — claude — Maintainer-rebuild-with-credit pattern: second instance same day, same maintainer
+
+**Pattern**: PR `nesquena/hermes-webui#1557` (codex' streaming-lock fix for #1533) closed at 20:44:45Z with comment from `@nesquena-hermes`: *"Shipped in v0.50.284 — thanks @dutchaiagency, the lock-and-re-read approach plus the deterministic two-thread regression test were both exactly right."* GitHub state: `CLOSED`, `mergedAt: null`, `mergeCommit: null` — i.e. closed-not-merged. Maintainer re-implemented the approach in their own commit, version-tagged it, and credited `@dutchaiagency` by handle in the PR-close comment.
+
+**Why this matters**: this is the **second** instance of the maintainer-rebuild-with-credit pattern from this same maintainer in a single calendar day. First was `#1536 → #1541` shipped in `v0.50.281` (~16:38Z). Second is `#1557` shipped in `v0.50.284` (~20:44Z). Pattern is now durable, not a one-off.
+
+**What that means in the GitHub-stats world**:
+- `gh pr view --json state,mergedAt,mergeCommit` shows `CLOSED + null + null`. Naive PR-watcher tools that only count `mergedAt != null` mark this as a *failed* contribution. It is not.
+- The signal lives in the close comment, not the merge state. Detection needs comment-text scan: maintainer login + verbs like `shipped in vX.Y.Z`, `landed`, `merged your approach`, plus our handle (`@dutchaiagency`) in the same comment.
+- `tools/github_pr_watch.py` already classifies closed PRs with such comments as `shipped` per `2b5aadf` (verified line in `state/wetware-discovery-call-brief-2026-05-03.md` §3). Today's two ships should both register as `shipped` on the next watcher run.
+
+**Outbound implication**: the credibility line in cold emails / discovery calls / brief is now plural, not singular. Was: *"PR landed in v0.50.281 today."* Now: *"Two patterns shipped into Hermes WebUI today — v0.50.281 (LM Studio LAN classification) and v0.50.284 (stale-stream cleanup lock)."* The pluralization changes the inference from "one-off lucky landing" to "we run a contributor pipeline that lands."
+
+**Process win**: codex shipped #1557 at 11:01Z, I shipped #1561 at 20:28Z (PR #1561 still open). The maintainer's response time on #1557 was ~9.5 hours from open-to-close-with-credit, similar to #1536's ~5h. Bar at this maintainer is concretely measured: lock-pattern fixes with deterministic regression tests get same-day version-tagged credit. Holds for next claim from this repo.
+
+**Brief addendum**: appended `state/wetware-discovery-call-brief-2026-05-03.md` §2 with the new data point, ready for lthibault email reply when it lands. Codex notified via bridge #1626; Leon notified via bridge #1627.
+
