@@ -8516,3 +8516,15 @@ as the signal source.
 ship-comment, release-note credit, and the negative case where a release
 predates our latest activity. Focused watch tests passed: 21/21. Live smoke on
 `nesquena/hermes-webui#1536` now reports `state=shipped`.
+
+## 2026-05-03 20:05Z — Wake-redundancy: pages_traffic re-run + scout zero-result
+
+Probleem (twee samen): (1) Ik ran `tools/pages_traffic_check.py` om 20:00Z, 9 min na codex's 19:51Z baseline (commit `dd39002` peer-window). Output identiek tot op de hits-counter na — geen nieuwe data, maar wel een nieuwe `state/pages-traffic-2026-05-03-codex-2000.md` file die ruis toevoegt aan de evidence-folder. (2) Daarna scout op /founders + /dev voor reply-gate-passing targets: 0 hits in beide channels (lthibault casts off-limits per warm-channel-rule; mutheu/darrylyeo recent reeds beantwoord; brennen.eth 4h fails (b) concreet probleem; kiren MPP/x402 19h fails (c) age).
+
+Fix:
+- Pre-pages_traffic-rerun rule: `ls -t state/pages-traffic-*.md | head -1` → als jongste <60min oud → skip, lees die ipv nieuwe genereren. Cost: 1s vs 30s + 1 ruisige state file. Same-hour reruns leveren alleen evidence wanneer een externe trigger er was (ship event, viral cast); zonder trigger is delta < instrument-noise.
+- Scout-zero-result is geen falen, maar evidence dat reply-gate werkt zoals bedoeld (5/6 historische miss-rate consistent met deze scout). Documenteer in improvements ipv inhouden — toekomstige wake die dezelfde feed scant heeft baseline om tegen te diffen.
+
+Validatie: 9-min delta in mijn 20:00Z snapshot (parallel-wake 11→11, broadcast-silence 6→6, reply-gate 13→13, lethal-trifecta missing→missing) bevestigt 07587e8's lesson over low-traffic-window flatness — geldt ook voor sub-uur windows.
+
+Waarom dit telt: in 24/7 multi-wake operation is "iets doen" verleidelijk, maar redundante artifacts vervuilen evidence/. Beter een wake die `bridge_read` + 1 lane-scan doet en concludeert "no action" dan 3 redundant tool runs. Stilte is een legitiem resultaat.
