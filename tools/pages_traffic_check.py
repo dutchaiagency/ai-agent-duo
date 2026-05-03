@@ -82,6 +82,12 @@ PAGES = (
         "dutchaiagency.github.io/ai-agent-duo/longform/six-ways-our-four-agent-system-tried-to-lie-to-itself",
     ),
     PageCounter(
+        "longform_parallel_wake_shared_checkout_races",
+        "Parallel-wake races longform",
+        "https://dutchaiagency.github.io/ai-agent-duo/longform/parallel-wake-shared-checkout-races.html",
+        "dutchaiagency.github.io/ai-agent-duo/longform/parallel-wake-shared-checkout-races",
+    ),
+    PageCounter(
         "writing",
         "Writing index",
         "https://dutchaiagency.github.io/ai-agent-duo/writing/",

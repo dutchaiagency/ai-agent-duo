@@ -1,0 +1,145 @@
+import unittest
+from datetime import UTC, datetime
+from pathlib import Path
+
+from tools import lobsters_newest_contact_scout as scout
+
+
+class LobstersNewestContactScoutTests(unittest.TestCase):
+    def story(self) -> scout.LobstersStory:
+        return scout.LobstersStory(
+            short_id="abc123",
+            title="Agent CLI for code reviews | launch",
+            url="https://github.com/alice/agent-cli",
+            score=7,
+            comments=2,
+            tags=("ai", "github"),
+            description="Open source agent automation.",
+            submitter="alice",
+            created_at="2026-05-02T17:11:49.000-05:00",
+            short_id_url="https://lobste.rs/s/abc123",
+            comments_url="https://lobste.rs/s/abc123/agent_cli_for_code_reviews",
+        )
+
+    def test_extract_emails_filters_placeholders_and_noreply(self) -> None:
+        emails = scout.extract_emails(
+            "Email Alice@Example.dev, noreply@github.com, "
+            "123+alice@users.noreply.github.com, and test@example.com."
+        )
+
+        self.assertEqual(emails, ("alice@example.dev",))
+
+    def test_parse_github_repo_url_rejects_reserved_paths(self) -> None:
+        self.assertEqual(
+            scout.parse_github_repo_url("https://github.com/alice/agent-cli"),
+            ("alice", "agent-cli"),
+        )
+        self.assertIsNone(scout.parse_github_repo_url("https://github.com/topics/ai"))
+
+    def test_extract_github_repo_urls_from_launch_page(self) -> None:
+        urls = scout.extract_github_repo_urls(
+            '<a href="https://github.com/alice/agent-cli">repo</a>'
+        )
+
+        self.assertEqual(urls, ("https://github.com/alice/agent-cli",))
+
+    def test_scan_story_candidate_uses_public_commit_email(self) -> None:
+        def json_fetcher(url: str):
+            if url.endswith("/repos/alice/agent-cli"):
+                return {
+                    "full_name": "alice/agent-cli",
+                    "html_url": "https://github.com/alice/agent-cli",
+                    "description": "AI code review CLI",
+                    "stargazers_count": 12,
+                    "pushed_at": "2026-05-02T12:00:00Z",
+                    "owner": {"login": "alice", "type": "User"},
+                }
+            if url.endswith("/users/alice"):
+                return {
+                    "login": "alice",
+                    "type": "User",
+                    "email": "",
+                    "html_url": "https://github.com/alice",
+                }
+            if url.endswith("/repos/alice/agent-cli/commits?per_page=5"):
+                return [
+                    {
+                        "commit": {
+                            "author": {"email": "alice@example.dev"},
+                            "committer": {"email": "123+alice@users.noreply.github.com"},
+                        }
+                    }
+                ]
+            raise AssertionError(url)
+
+        lead = scout.scan_story(
+            self.story(),
+            json_fetcher=json_fetcher,
+            text_fetcher=lambda url: "",
+            fetch_launch_pages=False,
+            fetch_user_profiles=False,
+        )
+
+        self.assertEqual(lead.decision, "candidate_needs_deep_read")
+        self.assertEqual(lead.emails, ("alice@example.dev",))
+        self.assertIn("github repo", lead.reasons)
+        self.assertIn("explicit public email", lead.reasons)
+
+    def test_scan_story_marks_contact_log_email_as_already_contacted(self) -> None:
+        lead = scout.scan_story(
+            scout.LobstersStory(
+                short_id="def456",
+                title="Personal blog post",
+                url="https://alice.dev/post",
+                score=1,
+                comments=0,
+                tags=("programming",),
+                description="",
+                submitter="alice",
+                created_at="2026-05-02T17:11:49.000-05:00",
+                short_id_url="https://lobste.rs/s/def456",
+                comments_url="https://lobste.rs/s/def456/personal_blog_post",
+            ),
+            contacted_emails={"hello@alice.dev"},
+            json_fetcher=lambda url: {},
+            text_fetcher=lambda url: "Email hello@alice.dev" if url.endswith("/u/alice") else "",
+            fetch_launch_pages=False,
+        )
+
+        self.assertEqual(lead.decision, "watch_already_contacted")
+
+    def test_render_markdown_escapes_story_title(self) -> None:
+        lead = scout.ContactLead(
+            story=self.story(),
+            repo=None,
+            emails=(),
+            evidence_urls=(),
+            decision="reject_no_public_email",
+            reasons=("no explicit public email",),
+        )
+
+        output = scout.render_markdown(
+            [lead],
+            limit=5,
+            generated_at=datetime(2026, 5, 2, 22, 55, tzinfo=UTC),
+        )
+
+        self.assertIn("# Lobste.rs Newest Contact Scout - 2026-05-02 22:55 UTC", output)
+        self.assertIn("code reviews \\| launch", output)
+        self.assertIn("zero send-ready candidates", output)
+
+    def test_state_snapshot_path_uses_agent_and_minute(self) -> None:
+        path = scout.state_snapshot_path(
+            Path("state"),
+            "Codex Agent",
+            datetime(2026, 5, 2, 22, 55, tzinfo=UTC),
+        )
+
+        self.assertEqual(
+            path.as_posix(),
+            "state/lobsters-newest-contact-scout-2026-05-02-codex-agent-2255.md",
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

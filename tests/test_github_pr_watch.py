@@ -7,6 +7,7 @@ from unittest.mock import patch
 from tools.github_pr_watch import (
     PullTarget,
     classify_pr,
+    check_targets,
     default_output_path,
     fetch_pr,
     parse_target_spec,
@@ -50,12 +51,14 @@ def check(
     conclusion: str = "",
     status: str = "COMPLETED",
     completed_at: str = "2026-05-02T19:00:00Z",
+    target_url: str = "",
 ) -> dict:
     return {
         "name": name,
         "conclusion": conclusion,
         "status": status,
         "completedAt": completed_at,
+        "targetUrl": target_url,
     }
 
 
@@ -201,6 +204,38 @@ class GitHubPRWatchTests(unittest.TestCase):
         self.assertEqual(status.state, "waiting")
         self.assertEqual(status.check_summary, "0 failed, 1 pending, 0 passed/skipped")
 
+    def test_ignores_vercel_deploy_authorization_noise(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-03T01:16:56Z",
+                "state": "OPEN",
+                "comments": [
+                    comment(
+                        "vercel",
+                        "2026-05-03T01:16:59Z",
+                        "@dutchaiagency is attempting to deploy a commit to the team. "
+                        "A member of the Team first needs to authorize it.",
+                    )
+                ],
+                "reviews": [],
+                "latestReviews": [],
+                "statusCheckRollup": [
+                    check(
+                        "Vercel",
+                        conclusion="FAILURE",
+                        completed_at="2026-05-03T01:16:59Z",
+                        target_url="https://vercel.com/git/authorize?job=abc",
+                    )
+                ],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "waiting")
+        self.assertEqual(status.check_summary, "none reported")
+
     def test_render_markdown_escapes_signal_tables(self) -> None:
         status = classify_pr(
             PullTarget(repo="owner/repo", number=1),
@@ -253,6 +288,25 @@ class GitHubPRWatchTests(unittest.TestCase):
 
         with patch("tools.github_pr_watch.subprocess.run", fake_run):
             self.assertEqual(fetch_pr(PullTarget("owner/repo", 7))["number"], 7)
+
+    def test_repo_not_found_is_unavailable_not_generic_error(self) -> None:
+        def fake_fetch(_target):  # type: ignore[no-untyped-def]
+            raise subprocess.CalledProcessError(
+                1,
+                ["gh", "pr", "view"],
+                stderr=(
+                    "GraphQL: Could not resolve to a Repository with the name "
+                    "'owner/repo'. (repository)"
+                ),
+            )
+
+        with patch("tools.github_pr_watch.fetch_pr", fake_fetch):
+            statuses = check_targets(
+                [PullTarget("owner/repo", 7)], agent_login="dutchaiagency"
+            )
+
+        self.assertEqual(statuses[0].state, "unavailable")
+        self.assertIn("no longer readable", statuses[0].note)
 
     def tmp_path(self, name: str, content: str):
         from pathlib import Path

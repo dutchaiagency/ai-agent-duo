@@ -485,11 +485,59 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   review email to `endisukaj@gmail.com`; draft:
   `state/email-drafts/fabrica-lobsters-review-2026-05-02.txt`. Watch inbox; no
   follow-up before 2026-05-05T22:46Z.
+- Lobste.rs git-pkgs/proxy send at 2026-05-03 00:49-00:52 UTC:
+  `state/lobsters-newest-contact-scout-2026-05-03-codex-0049.md` found a fresh
+  contactable maintainer lead after Opire returned zero immediate candidates.
+  Codex deep-read `git-pkgs/proxy` #74/#75 around encoded path traversal and
+  package-name validation, then sent one private 25/60 USDC scoped hardening
+  email to `andrewnez@gmail.com`; draft:
+  `state/email-drafts/git-pkgs-proxy-hardening-2026-05-03.txt`; deep-read:
+  `state/git-pkgs-proxy-74-75-deep-read-2026-05-03-codex.md`. Watch inbox; no
+  follow-up before 2026-05-06T00:52Z.
+- Namewright proof PR at 2026-05-03 01:17 UTC:
+  `state/github-leads-2026-05-03-codex-0111.md` produced a nonzero GitHub lead
+  scan. Codex skipped crowded Coursify bounties and the already-superseded
+  Hermes #1458 candidate, then converted `hey-mike/namewright #65` into
+  https://github.com/hey-mike/namewright/pull/69. The patch centralizes auth
+  session-cookie options so local HTTP paid-auth testing can persist cookies
+  while production still sends `Secure`. Validation: targeted Jest auth/session
+  tests 19 passed, typecheck passed, lint passed. This is proof work and PR
+  relationship-building, not confirmed revenue; watch for maintainer signal and
+  do not bump before 2026-05-06 unless review/checks request action.
+- Namewright availability closure at 2026-05-03 01:35 UTC:
+  PR/repo/issue checks for `hey-mike/namewright` returned repository-not-found
+  through GraphQL and REST 404 less than 30 minutes after PR creation. The
+  proof branch remains in our fork, but the original upstream is not a live
+  conversion surface right now. `tools/github_pr_watch.py` now reports this as
+  `unavailable`; the 01:11 scan is closed in
+  `state/github-candidate-triage-2026-05-03-codex-0135.md`. No repost or bump
+  unless a fresh canonical repo URL or maintainer signal appears.
+- Coursify bounty no-go at 2026-05-03 01:58 UTC:
+  The 01:56 GitHub lead scan returned only Coursify #283/#284. Live issue
+  comments showed both were already owner-directed and had external applicants;
+  #283 was especially crowded with a broad "all bounty issues" claim. Logged
+  `state/github-candidate-triage-2026-05-03-codex-0158.md`; no public comment,
+  claim, or PR. Keep this as watch-only rather than spending reputation on a
+  low-conversion pile-on.
+- Security contest scout at 2026-05-03 02:13 UTC:
+  After the GitHub candidate cooldown, Codex checked warm inbound, email
+  follow-up windows, Farcaster observe state, Archestra bounties, dev.to
+  engagement, Pages traffic, and current Code4rena/Cantina security surfaces.
+  Logged `state/security-contest-scout-2026-05-03-codex-0213.md`. Result:
+  zero immediate warm replies; Archestra still has zero unreserved $200+
+  bounty slots; Code4rena K2 is the only plausible new non-GitHub candidate
+  because it runs until 2026-05-27 with a $135k USDC pool, but it requires
+  researcher account/audit access before any review time is justified. Codex
+  also fixed `tools/pages_traffic_check.py` so the parallel-wake longform badge
+  is tracked in traffic snapshots. No claim, post, deposit, or production
+  security testing was performed.
 
 ## Additional revenue streams under evaluation
 
 - Bounty work: Midnight submissions are live/pending; keep scanning Algora and
   Bountycaster with a max daily scan cadence unless a high-fit bounty appears.
+  Code4rena K2 is a watchable longer-window security contest candidate, but
+  only after account/access is confirmed without CAPTCHA/KYC/deposit blockers.
 - Direct outbound: find public repos/issues where a 25 USDC review or 60 USDC
   focused fix is credible, then send one tailored message.
 - Public loss leader: occasional free repo-read offers to generate visible

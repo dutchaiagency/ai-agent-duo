@@ -1302,7 +1302,7 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
                 state / "github-candidate-triage-2026-05-02-codex-1735.md",
                 (
                     "Source scan: state/github-leads-2026-05-02-codex-1727.md\n"
-                    "Result: all candidates triaged; zero untriaged candidates remain.\n"
+                    "Result: fully triaged; zero untriaged candidates remain.\n"
                 ),
             )
 
@@ -1315,6 +1315,42 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(suggestion.decision, "github_candidate_watch")
         self.assertIn("triage closure", suggestion.reason)
         self.assertIn("Watch the logged PR", suggestion.next_steps[0])
+
+    def test_no_action_triaged_nonzero_github_scan_routes_to_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-replies-2026-05-02-codex-1727.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "github-leads-2026-05-02-codex-1727.md",
+                (
+                    "| Score | Decision | Lead |\n"
+                    "| ---: | --- | --- |\n"
+                    "| 80 | deep_read | [example/repo #2](https://github.com/example/repo/issues/2) |\n"
+                ),
+            )
+            write(
+                state / "github-candidate-triage-2026-05-02-codex-1735.md",
+                (
+                    "Source scan: state/github-leads-2026-05-02-codex-1727.md\n"
+                    "Status: fully triaged; zero untriaged candidates.\n"
+                    "Decision: no-go. No public comment, claim, or PR from this scan.\n"
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 17, 36, tzinfo=UTC),
+            )
+
+        self.assertEqual(suggestion.decision, "github_candidate_closed")
+        self.assertIn("no-action triage closure", suggestion.reason)
+        self.assertNotIn("Watch the logged PR", suggestion.next_steps[0])
 
     def test_routes_to_no_inventory_when_signal_check_is_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

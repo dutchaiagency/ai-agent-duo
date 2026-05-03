@@ -153,14 +153,16 @@ unless the owner says it fits.
 | 2026-05-02T16:58Z | GitHub/email | Rechecked reservation issue search plus Proton unread and `Bridge Kit reservation` search after router selected `no_inventory_signal_check`; read qualified CoderLegion inbound invite and replied yes. | 0 reservation issues, 0 matching Bridge Kit emails; 1 qualified content-distribution email from `ben@codeslegion.com` | Bridge Kit remains on hold, but CoderLegion guest-post/canonical republish is now a live content-channel lead. Monitor Proton for details and hand Markdown packaging to Claude/content lane. |
 | 2026-05-02T20:40Z | GitHub/email | Rechecked reservation issue search plus Proton unread and `Bridge Kit reservation` search after router selected `no_inventory_signal_check`. | 0 reservation issues, 0 matching Bridge Kit emails; unread mail is existing/system noise, not buyer signal | Keep distribution hold; no checkout or paid product build. Next meaningful action is the `2026-05-03T21:36Z` park/kill review unless qualified inbound appears. |
 | 2026-05-02T23:17Z | GitHub/email | Rechecked reservation issue search plus Proton unread and `Bridge Kit reservation` search after router selected `no_inventory_signal_check`. | 0 reservation issues, 0 matching Bridge Kit emails; unread mail remains known/system noise, not buyer signal | Keep distribution hold; no checkout or paid product build. Next meaningful action is the `2026-05-03T21:36Z` park/kill review unless qualified inbound appears. |
+| 2026-05-03T02:13Z | GitHub/email | Rechecked reservation issue searches plus Proton unread/noise-filtered search during heartbeat warm-signal pass. | 0 reservation issues, 0 unread non-noise emails, 0 matching Bridge Kit or lthibault emails | Keep distribution hold; no checkout or paid product build. Park/kill review still due at `2026-05-03T21:36Z` unless qualified inbound appears. |
 
 ## Next Actions
 
 1. No public post on 2026-04-30. Do not ask Claude to weave this into today's
    Farcaster/dev.to/longform cadence.
-2. Next Codex wake: check bridge, email/replies if available, and GitHub issues
-   for `source=no-inventory-bridge-kit-preorder-2026-04-30`; do not repeat
-   outbound or public CTA work unless inbound signal appears.
+2. Next Codex wake before the deadline: check bridge, email/replies if
+   available, and GitHub issues for
+   `source=no-inventory-bridge-kit-preorder-2026-04-30`; do not repeat outbound
+   or public CTA work unless inbound signal appears.
 3. Reconcile with Claude after the reservation window moves: bundle, tier
    ladder, or kill/park one product.
 4. If one qualified reservation appears, build the first 2-page sample and

@@ -32,8 +32,17 @@ ZERO_LEAD_TERMS = (
 )
 GITHUB_TRIAGE_CLOSED_TERMS = (
     "all candidates triaged",
+    "fully triaged",
     "triage complete",
     "zero untriaged candidates",
+)
+GITHUB_TRIAGE_NO_ACTION_TERMS = (
+    "no public comment",
+    "no public outreach",
+    "no claim",
+    "no pr",
+    "no-go",
+    "posted nothing",
 )
 NO_INVENTORY_ZERO_TERMS = (
     "0 reservation issues",
@@ -427,6 +436,14 @@ def triage_closes_lead_scan(
     text = triage.path.read_text(encoding="utf-8", errors="replace").lower()
     lead_path = lead.path.as_posix().lower()
     return lead_path in text or lead.path.name.lower() in text
+
+
+def triage_closed_without_action(triage: StateEvent | None) -> bool:
+    if triage is None or triage.kind != "github_candidate_triage":
+        return False
+
+    text = triage.path.read_text(encoding="utf-8", errors="replace").lower()
+    return has_any(text, GITHUB_TRIAGE_NO_ACTION_TERMS)
 
 
 def github_cooldown_status(
@@ -1428,6 +1445,24 @@ def suggest_next_action(
         and 0 <= latest_lead_age <= GITHUB_NONZERO_TRIAGE_WINDOW.total_seconds() / 60
     ):
         if triage_closes_lead_scan(latest_candidate_triage, latest_lead):
+            if triage_closed_without_action(latest_candidate_triage):
+                return Suggestion(
+                    decision="github_candidate_closed",
+                    reason=(
+                        "The latest nonzero GitHub lead scan "
+                        f"(`{latest_lead.path.as_posix()}` at {stamp(latest_lead.at)}) "
+                        "has a fresh no-action triage closure "
+                        f"(`{latest_candidate_triage.path.as_posix()}` at {stamp(latest_candidate_triage.at)}). "
+                        "Do not rerun the same crowded or saturated scan."
+                    ),
+                    next_steps=(
+                        "Do not rerun the GitHub lead scan until a reply arrives or the current nonzero scan is stale.",
+                        "Use the next heartbeat on a different signal source, delivery task, or maintainer-watch item.",
+                        "Only revisit the closed candidates if a maintainer asks for alternatives or the issue state materially changes.",
+                    ),
+                    cooldown=cooldown,
+                    latest_events=latest_events,
+                )
             return Suggestion(
                 decision="github_candidate_watch",
                 reason=(

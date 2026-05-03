@@ -48,6 +48,11 @@ CHECK_PENDING_STATUSES = {
     "REQUESTED",
     "WAITING",
 }
+IGNORABLE_DEPLOY_AUTH_PHRASES = (
+    "is attempting to deploy a commit",
+    "first needs to",
+    "authorize it",
+)
 
 
 @dataclass(frozen=True)
@@ -167,6 +172,16 @@ def check_status(item: dict[str, Any]) -> str:
     return str(item.get("status") or item.get("state") or "").upper()
 
 
+def check_target_url(item: dict[str, Any]) -> str:
+    return str(item.get("targetUrl") or item.get("target_url") or "")
+
+
+def is_ignorable_deploy_auth_check(item: dict[str, Any]) -> bool:
+    name = check_name(item).lower()
+    target_url = check_target_url(item).lower()
+    return name == "vercel" and "/git/authorize" in target_url
+
+
 def check_completed_at(item: dict[str, Any]) -> str:
     return str(
         item.get("completedAt")
@@ -179,7 +194,11 @@ def check_completed_at(item: dict[str, Any]) -> str:
 
 def check_rollup_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     items = payload.get("statusCheckRollup") or []
-    return [item for item in items if isinstance(item, dict)]
+    return [
+        item
+        for item in items
+        if isinstance(item, dict) and not is_ignorable_deploy_auth_check(item)
+    ]
 
 
 def failing_checks(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -272,6 +291,14 @@ def timeline_items(payload: dict[str, Any]) -> list[dict[str, str]]:
     return list(deduped.values())
 
 
+def is_ignorable_timeline_item(item: dict[str, str]) -> bool:
+    author = item["author"].lower()
+    body = item["body"].lower()
+    if author == "vercel" and all(phrase in body for phrase in IGNORABLE_DEPLOY_AUTH_PHRASES):
+        return True
+    return False
+
+
 def classify_pr(
     target: PullTarget, payload: dict[str, Any], *, agent_login: str
 ) -> PullStatus:
@@ -306,6 +333,7 @@ def classify_pr(
         for item in items
         if item["author"].lower() != agent_login.lower()
         and parse_github_time(item["created_at"]) > last_agent_dt
+        and not is_ignorable_timeline_item(item)
     ]
     base = {
         "repo": target.repo,
@@ -376,18 +404,53 @@ def fetch_pr(target: PullTarget) -> dict[str, Any]:
     )
 
 
+def fetch_error_note(exc: subprocess.CalledProcessError | json.JSONDecodeError) -> str:
+    if isinstance(exc, subprocess.CalledProcessError):
+        parts = [
+            str(exc),
+            str(exc.stderr or "").strip(),
+            str(exc.stdout or "").strip(),
+        ]
+        return " ".join(part for part in parts if part).strip()
+    return str(exc)
+
+
+def unavailable_error(note: str) -> bool:
+    lowered = note.lower()
+    return (
+        "could not resolve to a repository" in lowered
+        or "not found (http 404)" in lowered
+        or '"status":"404"' in lowered
+        or "repository not found" in lowered
+    )
+
+
 def check_targets(targets: list[PullTarget], *, agent_login: str) -> list[PullStatus]:
     results: list[PullStatus] = []
     for target in targets:
         try:
             payload = fetch_pr(target)
         except (subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+            note = fetch_error_note(exc)
+            if unavailable_error(note):
+                results.append(
+                    PullStatus(
+                        repo=target.repo,
+                        number=target.number,
+                        state="unavailable",
+                        note=(
+                            "PR or repository is no longer readable via GitHub; "
+                            "treat as watch-only until a fresh canonical URL appears."
+                        ),
+                    )
+                )
+                continue
             results.append(
                 PullStatus(
                     repo=target.repo,
                     number=target.number,
                     state="error",
-                    note=str(exc),
+                    note=note,
                 )
             )
             continue

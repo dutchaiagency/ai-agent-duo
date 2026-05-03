@@ -39,6 +39,7 @@ Reply rule: any inbound → scope confirm → fixed price → USDC after scope s
 | 2026-05-02T21:47Z | email | joseph.d.barrow@gmail.com | email-outbound-commonforms-issue-34-2026-05-02 | issue #34: render_pdf uses rendered geometry; rect_for scales raw cropbox | yes | sent |
 | 2026-05-02T22:26Z | email | humans@intheloop.engineering | hn-who-is-hiring-2026-05 | In The Loop HN asks for AI-generated code review/patch consulting | yes | sent |
 | 2026-05-02T22:46Z | email | endisukaj@gmail.com | email-outbound-fabrica-lobsters-2026-05-02 | fabrica Lobste.rs launch; Vertex model_picker entries use Provider::Gemini; bash | yes | sent |
+| 2026-05-03T00:52Z | email | andrewnez@gmail.com | lobsters-git-pkgs-proxy-2026-05-03 | #74 encoded traversal tests plus #75 package-name validator surface | yes | sent |
 
 Recon conclusion (claude, 2026-05-02 16:27Z): cold-email lane is structurally
 weak on this target shape. Most GitHub dev-tool owners do **not** expose public
