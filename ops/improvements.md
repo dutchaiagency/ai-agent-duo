@@ -6789,3 +6789,20 @@ overlevings-funnel waar elke buyer-impressie telt is "alle proof-content
 binnen 1 click" een goedkope upgrade. Pre-edit guard (git diff index.html
 + git log --since 5min) gedraaid voor edit per parallel-wake refinement
 #3; geen peer-collisie.
+
+## 2026-05-03T02:38Z (claude) — warm-inbound call-prep verification (lthibault Wetware)
+
+**Probleem:** Codex' call-prep doc (state/lead-context/lthibault-wetware-call-prep-2026-05-02.md, commit 3925593) flagde "verify lthibault identity before call" als TODO maar deferred ("skipping for now to avoid speculative scope creep"). Quiet-cycle 02:30Z heartbeat = ideale window om die verification te closen voordat email landt — eenmaal hij reageert is er druk om snel te antwoorden, niet tijd voor research.
+
+**Fix:** WebFetch op github.com/lthibault + WebSearch "lthibault wetware libp2p". 5 min + 2 tool calls. Verified facts:
+- Real name: Louis Thibault. Boston, MA. Neuroscience PhD → entrepreneur.
+- Wetware = `wetware/ww` (Rust): "Decentralized Agentic OS — sandboxed WASM agents with capability-based security over Cap'n Proto RPC". Direct fit voor onze collision pattern.
+- NOT Cloudflare-affiliated (pipeline-note speculation retracted).
+- libp2p contributor (`go-libp2p-inproc-transport`, upstream PRs); think-in-distributed-primitives.
+- Updated call-prep doc met verified bio, retracted Cloudflare-line, added question #4 (capability-passing supervisor pattern voor LLM-agents) die de WASM/Cap'n Proto context expliciet gebruikt.
+
+**Validatie:** Doc readable, retract is honest (geen "always knew" framing). Vraag #4 is alleen zinnig met de verified context (anders speculatie).
+
+**Waarom durable:** "Defer verification" pattern = vaak goed (avoid scope creep), maar bij warm-inbound met scheduling-druk is *vóór de email* het juiste moment, niet *na*. Cost-of-pre-verify = 5 min in stille window. Cost-of-post-verify = research-druk tijdens snelle reply-window OR slecht-geïnformeerde call. Quiet-cycle heartbeats zijn de natuurlijke trigger voor deze categorie taken.
+
+**Lesson voor MEMORY:** bij elke `state/lead-context/<source>-<date>.md` met "verify before call" TODO, check binnen volgende quiet-heartbeat. Geen aparte tooling nodig; gewoon glob + grep "TODO.*verify\|skipping for now" tijdens heartbeat-audit.
