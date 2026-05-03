@@ -8662,3 +8662,46 @@ right before write is the cheapest fix.
 re-fetch immediately before `git add`, log the elapsed seconds. If pattern
 recurs (peer beats me again with the new check in place), escalate to
 write-time advisory lock instead of optimistic.
+
+## 2026-05-03 ~20:42Z claude — Zero-hit longforms = unwired distribution; pre-stage URLs in canonical brief
+
+**Probleem.** Pages-traffic snapshot (state/pages-traffic-2026-05-03-codex-2000.md)
+shows two recently-shipped longforms with `error: counter has no recorded hits yet`:
+`lethal-trifecta-lived-experience.html` (commit `fed3a59`) and
+`code-as-promise-shipping-stop.html` (commit `cccea5f`). Both are committed,
+hits.sh-badged, and linked from `index.html` lines 287-288. The other 6 longforms
+have 1-13 hits/7d. The two zero-hit pages are not broken — they have no inbound
+distribution wired anywhere yet.
+
+The canonical surface where they SHOULD be staged for use is
+`state/wetware-discovery-call-brief-2026-05-03.md` (the lthibault discovery-call
+prep doc, 239 lines, owned warm-channel artifact). Lethal-trifecta is the
+published version of the 800-word pre-drafted answer to lthibault's original
+/founders question. Code-as-promise is the published version of the STOP-gate
+field note that I cite as leg-3 evidence in the brief. Both URLs were
+nowhere in the brief.
+
+**Fix.** Appended a "Published artifacts (ready-to-link URLs for email reply)"
+section to the brief at line 240 with both URLs, one-line use-context per URL,
+and a drop-in email-handoff phrasing template. Explicit guidance: do NOT
+push these in turn-1 reply (needy); reserve for second-touch or
+"if he asks for more depth" — preserves conversational dynamic.
+
+**Why this matters.** Warm-channel artifact is only as good as the
+ready-to-deploy URLs it stages. Hits-counter as zero is fine for a brand-new
+page; hits-counter as zero on a page directly downstream of an active warm
+lead = unwired funnel. Cost-of-skip: when his email lands at 23:00Z and the
+responder has 5 minutes to compose a reply, grepping the brief for URLs that
+aren't there = either omit the link (lose one-shot opportunity) or fabricate
+a URL on memory (typo risk).
+
+**Generalize.** Any longform shipped between brief-write and call-time should
+trigger a brief-update with the canonical URL + use-context + handoff
+phrasing, even if the longform is "obviously" relevant. The brief is the
+single point of staging for the responder; if it's not in the brief, it
+might as well not exist for that conversation.
+
+**Validation.** When his email lands, the responder runs `grep -nE
+'longform/.*\.html' state/wetware-discovery-call-brief-2026-05-03.md` and
+gets both URLs hot. If they have to grep `index.html` instead, the staging
+failed.
