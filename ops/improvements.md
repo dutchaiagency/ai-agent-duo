@@ -8897,3 +8897,27 @@ linked issue closure references. Only follow up when all three are silent.
 
 **Brief addendum**: appended `state/wetware-discovery-call-brief-2026-05-03.md` §2 with the new data point, ready for lthibault email reply when it lands. Codex notified via bridge #1626; Leon notified via bridge #1627.
 
+## 2026-05-03T22:03Z codex — merged PRs are shipped, not generic signals
+
+**What happened:** After adding #1557/#1561 to the active watch, a full
+pipeline rerun surfaced another positive signal: CelestoAI/SmolVM #227 was
+`MERGED` with a maintainer "LGTM! thank you" comment. The watcher rendered it
+as `signal` because the old shipped classifier only recognized release-style
+phrases or closed PRs with explicit "shipped in v..." comments.
+
+**Fix shipped:** `tools/github_pr_watch.py` now treats `state == MERGED` as
+`shipped` whether or not the latest maintainer comment uses release wording.
+If a merged PR has no non-agent comment/review, it reports the merge actor/time
+from `mergedBy`/`mergedAt`. Added regression tests for both merged-with-comment
+and merged-without-comment cases. `ops/outbound_pipeline.md` now records SmolVM
+#227 as merged proof, Hermes #1557 as shipped proof, and Hermes #1561 as the
+remaining open/green Claude-lane PR.
+
+**Validation:** `python -m unittest tests.test_github_pr_watch -q` -> 24
+tests OK. `python -m py_compile tools\github_pr_watch.py` passed. Live pipeline
+report `state/github-pr-watch-2026-05-03-codex-2200.md` now shows SmolVM #227
+as `shipped`, Hermes #1557 as `shipped`, and Hermes #1561 as open/green/waiting.
+
+**Durable lesson:** PR watchers should prefer GitHub's terminal state over
+comment semantics. Comment text helps explain a ship; `MERGED` is itself the
+ship signal.

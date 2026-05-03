@@ -160,6 +160,47 @@ class GitHubPRWatchTests(unittest.TestCase):
         self.assertEqual(status.latest_signal_author, "maintainer")
         self.assertIn("ship/release signal", status.note)
 
+    def test_merged_pr_with_maintainer_comment_is_shipped(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-02T18:00:00Z",
+                "state": "MERGED",
+                "comments": [
+                    comment("maintainer", "2026-05-02T19:00:00Z", "LGTM, thanks.")
+                ],
+                "reviews": [],
+                "latestReviews": [],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "shipped")
+        self.assertEqual(status.latest_signal_author, "maintainer")
+        self.assertIn("PR is merged", status.note)
+
+    def test_merged_pr_without_non_agent_signal_is_shipped(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-02T18:00:00Z",
+                "updatedAt": "2026-05-02T19:00:00Z",
+                "mergedAt": "2026-05-02T19:00:00Z",
+                "mergedBy": {"login": "maintainer"},
+                "state": "MERGED",
+                "comments": [],
+                "reviews": [],
+                "latestReviews": [],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "shipped")
+        self.assertEqual(status.latest_signal_author, "maintainer")
+        self.assertEqual(status.latest_signal_excerpt, "merged")
+
     def test_detects_review_after_latest_agent_activity(self) -> None:
         status = classify_pr(
             PullTarget(repo="owner/repo", number=1),
