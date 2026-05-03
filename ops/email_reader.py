@@ -121,18 +121,65 @@ def read_message(proton, msg_id):
     return None
 
 
-def search_messages(proton, query, limit=10):
+def body_snippet(body, query, radius=80):
+    """Return a compact snippet around query in body text."""
+    compact = re.sub(r"\s+", " ", body or "").strip()
+    if not compact:
+        return ""
+    idx = compact.lower().find(query.lower())
+    if idx < 0:
+        return compact[: radius * 2].strip()
+    start = max(0, idx - radius)
+    end = min(len(compact), idx + len(query) + radius)
+    prefix = "..." if start else ""
+    suffix = "..." if end < len(compact) else ""
+    return f"{prefix}{compact[start:end].strip()}{suffix}"
+
+
+def search_messages(
+    proton,
+    query,
+    limit=10,
+    unread_only=False,
+    exclude_noise=False,
+    include_body=False,
+):
     messages = quiet_client_call(proton.get_messages)
     query_lower = query.lower()
     results = []
     for msg in messages[:100]:
-        if query_lower in msg.subject.lower() or query_lower in str(msg.sender).lower():
-            results.append({
+        if unread_only and msg.unread == 0:
+            continue
+        sender_str = str(msg.sender)
+        if exclude_noise and is_noise_sender(sender_str):
+            continue
+
+        matched_fields = []
+        if query_lower in (msg.subject or "").lower():
+            matched_fields.append("subject")
+        if query_lower in sender_str.lower():
+            matched_fields.append("sender")
+
+        snippet = ""
+        if include_body and not matched_fields:
+            full = quiet_client_call(lambda: proton.read_message(msg))
+            body = full.body or ""
+            if query_lower in body.lower():
+                matched_fields.append("body")
+                snippet = body_snippet(body, query)
+
+        if matched_fields:
+            result = {
                 "id": msg.id,
                 "subject": msg.subject,
-                "sender": str(msg.sender),
+                "sender": sender_str,
                 "time": str(msg.time),
-            })
+            }
+            if include_body:
+                result["matched_fields"] = matched_fields
+                if snippet:
+                    result["body_snippet"] = snippet
+            results.append(result)
             if len(results) >= limit:
                 break
     return results
@@ -176,6 +223,7 @@ def main():
     parser.add_argument("--exclude-noise", action="store_true", help="Filter known automated-notification senders")
     parser.add_argument("--read", type=str, help="Read message by ID")
     parser.add_argument("--search", type=str, help="Search by subject/sender")
+    parser.add_argument("--body", action="store_true", help="Include message bodies in --search")
     parser.add_argument("--codes", action="store_true", help="Extract verification codes")
     parser.add_argument("--limit", type=int, default=10, help="Max results")
     args = parser.parse_args()
@@ -190,7 +238,14 @@ def main():
             print(f"Message {args.read} not found", file=sys.stderr)
             sys.exit(1)
     elif args.search:
-        results = search_messages(proton, args.search, args.limit)
+        results = search_messages(
+            proton,
+            args.search,
+            args.limit,
+            unread_only=args.unread,
+            exclude_noise=args.exclude_noise,
+            include_body=args.body,
+        )
         print(json.dumps(results, indent=2, ensure_ascii=False))
     elif args.codes:
         results = extract_codes(proton, args.limit)

@@ -11,22 +11,35 @@ sys.path.insert(0, str(ROOT / "ops"))
 import email_reader  # type: ignore  # noqa: E402
 
 
-def _msg(msg_id: str, subject: str, sender: str, unread: int = 1, time: int = 0):
+def _msg(
+    msg_id: str,
+    subject: str,
+    sender: str,
+    unread: int = 1,
+    time: int = 0,
+    body: str = "",
+):
     return SimpleNamespace(
         id=msg_id,
         subject=subject,
         sender=sender,
         unread=unread,
         time=time,
+        body=body,
     )
 
 
 class _FakeProton:
     def __init__(self, messages):
         self._messages = messages
+        self.read_ids = []
 
     def get_messages(self):
         return self._messages
+
+    def read_message(self, msg):
+        self.read_ids.append(msg.id)
+        return msg
 
 
 class _NoisyFakeProton(_FakeProton):
@@ -108,3 +121,53 @@ def test_list_messages_suppresses_client_progress_noise(capsys):
 
     assert results[0]["id"] == "real"
     assert "_async_get_messages" not in capsys.readouterr().err
+
+
+def test_search_messages_defaults_to_subject_and_sender_only():
+    proton = _FakeProton([
+        _msg("body-only", "Scheduling", "<UserMail [founder@example.com]>", body="Wetware call?"),
+        _msg("subject", "Wetware intro", "<UserMail [founder@example.com]>"),
+        _msg("sender", "hello", "<UserMail [wetware@example.com]>"),
+    ])
+
+    results = email_reader.search_messages(proton, "wetware")
+
+    assert [r["id"] for r in results] == ["subject", "sender"]
+    assert proton.read_ids == []
+
+
+def test_search_messages_can_match_body_when_explicit():
+    proton = _FakeProton([
+        _msg(
+            "body-only",
+            "Scheduling",
+            "<UserMail [founder@example.com]>",
+            body="Could we do the Wetware demo tomorrow morning?",
+        ),
+    ])
+
+    results = email_reader.search_messages(proton, "wetware", include_body=True)
+
+    assert [r["id"] for r in results] == ["body-only"]
+    assert results[0]["matched_fields"] == ["body"]
+    assert "Wetware demo" in results[0]["body_snippet"]
+    assert proton.read_ids == ["body-only"]
+
+
+def test_search_messages_body_mode_respects_unread_and_noise_filters():
+    proton = _FakeProton([
+        _msg("read", "hello", "<UserMail [lead@example.com]>", unread=0, body="wetware"),
+        _msg("noise", "hello", "<UserMail [yo@dev.to]>", unread=1, body="wetware"),
+        _msg("real", "hello", "<UserMail [lead@example.com]>", unread=1, body="wetware"),
+    ])
+
+    results = email_reader.search_messages(
+        proton,
+        "wetware",
+        unread_only=True,
+        exclude_noise=True,
+        include_body=True,
+    )
+
+    assert [r["id"] for r in results] == ["real"]
+    assert proton.read_ids == ["real"]
