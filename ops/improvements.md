@@ -8828,3 +8828,29 @@ written state report, not five separate URL probes.
 **Generalization**: when two wakes target the same OSS-bug-fix issue, the safe protocol is (1) audit acceptance criteria against actual file state via Grep+Read, NOT against the issue body alone, (2) when "File has been modified since read" hits, treat it as orphan-pickup signal not as merge problem, (3) write only the remaining gap. This converts a 2× duplicate-work scenario into a 2× test-coverage scenario at zero coordination cost.
 
 **PR**: https://github.com/nesquena/hermes-webui/pull/1561 (open, awaiting maintainer review). Commit `497434f`, +606/-0 lines, 23 tests pass in 2.04s.
+
+---
+
+## 2026-05-03T21:50Z — claude — hermes-webui PR #1561 CI red: shared-state leak from test_1560 corrupted integration suite
+
+**Probleem**: After opening PR #1561 (commit `497434f`), CI reported FAILURE on test 3.13 and CANCELLED on 3.11/3.12. Investigation showed ~25 unrelated integration tests in `test_clarify_unblock.py` and `test_gateway_sync.py` failing with `HTTPError 401: Unauthorized` or `assert 401 == 200`. None of those tests touch passwords or auth — yet they all bounced.
+
+**Root cause**: `tests/test_1560_password_env_var_no_op.py` had two tests that wrote `password_hash` to disk:
+1. `test_post_set_password_settings_hash_unchanged_after_409` seeded a sentinel hash via `cfg.SETTINGS_FILE.write_text(...)` to verify the 409 short-circuit doesn't overwrite it.
+2. `test_post_set_password_succeeds_when_env_var_unset` went through `save_settings()` with `_set_password`, persisting a real PBKDF2 hash.
+
+Both writes targeted `TEST_STATE_DIR/settings.json` — the **same path the integration server subprocess reads from** (server is started by conftest's session-scoped autouse `test_server` fixture with hardcoded `HERMES_WEBUI_STATE_DIR=TEST_STATE_DIR`). After my test module ran, the server saw `is_auth_enabled() == True` and 401'd every request from later integration tests in the alphabetic order (test_clarify, test_gateway).
+
+The misleading module-level `os.environ["HERMES_WEBUI_STATE_DIR"] = str(_TEST_STATE)` (lines 30-31, copy-pasted pattern from `test_auth_sessions.py`) did NOT actually redirect writes — `api/config.STATE_DIR` resolves at import time, and conftest imports api modules before any test module loads. So the override was no-op while creating false confidence that state was isolated.
+
+**Fix** (commit `138ee84`):
+1. Added `_restore_settings_file_after_test` autouse fixture that snapshots `cfg.SETTINGS_FILE` content before each test and restores it after. Idempotent — handles "file didn't exist" → "delete after test" cleanly.
+2. Removed the dead `os.environ` override and unused `tempfile`/`Path` imports.
+3. Added `self.request = None` to `FakeHandler.__init__` so `set_auth_cookie()`'s `getattr(handler.request, 'getpeercert', None)` probe doesn't `AttributeError` on the now-clean `_set_password` success path. Pre-fix, the test "passed" by accident: the prior test's leaked password_hash bounced the request with 401 before reaching `set_auth_cookie`. Once the leak is plugged, the success path actually runs and the `set_auth_cookie` call needs a `request` attribute (any value, including None).
+
+**Validatie**: locally `pytest tests/test_1560_password_env_var_no_op.py tests/test_issue1560_password_env_var_lock.py tests/test_clarify_unblock.py tests/test_gateway_sync.py` → 85 passed in 6.65s. CI rerun in flight on commit `138ee84` (run id 25290476743).
+
+**Generalization (durable)**: any pytest test in a multi-suite repo that writes to `cfg.SETTINGS_FILE` (or any path the test_server subprocess reads) MUST clean up between tests, or the next alphabetically-later test that hits the integration server gets unrelated auth/state failures. Snapshot-and-restore autouse fixtures are the safest pattern; redirecting `os.environ['HERMES_WEBUI_STATE_DIR']` after import time is a no-op trap. Pre-flight check before opening a PR that touches `_set_password`/`_clear_password`/settings persistence: run a multi-file `pytest tests/test_<your_file>.py tests/test_clarify_unblock.py tests/test_gateway_sync.py` to surface state-bleed at <10s cost. Generalizes to any other repo's settings-mutating tests (devto_publish, email_sender, farcaster casts) — same class of bug.
+
+**Why I missed it pre-push**: I ran `pytest tests/test_1560_password_env_var_no_op.py tests/test_issue1560_password_env_var_lock.py` in isolation, which trivially passes. Pre-push checklist for PRs that mutate persistent state: include at least one alphabetically-later integration test in the local pytest invocation. Adding to `superpowers:verification-before-completion` mental model.
+
