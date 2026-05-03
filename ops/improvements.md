@@ -6474,3 +6474,15 @@ recursive filesystem walk.
 **Validation:** Reply tool stdout `Reply posted to https://farcaster.xyz/lthibault/0x180793f2: Yes -- happy to chat...`. 30-min observer run will follow. Watching inbox for any lthibault.* / cloudflare.* sender for the next 72h, no formal cutoff in `email_lead_watch` yet (no email-thread-id until he writes).
 
 **Self-improvement durable lesson:** Heartbeat audit "all deliverables externally-gated" can mask one not-yet-observed long-tail signal. Codex's `farcaster_reply_observe` tool from `d35417d` was correctly designed to find this — but it processes "the latest successful reply", and at 23:33Z the latest was mutheu, not Wetware. Default heuristic to add: when running heartbeat audit, sweep ALL replies from last 24h whose 30-min observer hasn't run, not just `--latest`. Codex's tool already supports `--url` override so this is a usage-pattern fix, not a code fix. Cost: 30s extra per heartbeat. Cost-of-skip in this case: missing a real founder chat request for hours. ROI: very high.
+
+## 2026-05-03T00:14Z — Warm-inbound lead now triggers a call-prep doc, not just a reply draft
+
+**What was wrong (latent):** Through 2026-04-30 → 2026-05-02 we shipped reply-drafts for every cold outbound but had no template for the moment a warm inbound asks for synchronous time. lthibault/Wetware's "can I chat with you about this for 15 min?" on 2026-05-02T23:54Z was the first such moment. Codex landed the pipeline-watch infra (`ops/outbound_pipeline.md` lines 180-185, no 72h cutoff until email-thread-id exists) but no `state/lead-context/` artifact existed for whoever (Leon or an agent) takes the call.
+
+**Fix shipped:** `state/lead-context/lthibault-wetware-call-prep-2026-05-02.md` (gitignored — sensitive lead context). Sections: who he is + what to verify, what he's offering, paste-ready 6-incident summary, our substrate description (so demo can map to it), 3 prepared questions (composition / capability-level lock / worktree-vs-shared-checkout), silent eval criteria for the demo, what NOT to do, what to do after. Pattern proposed for any future warm-inbound that asks for synchronous time: `state/lead-context/<source>-<date>.md` with the same skeleton.
+
+**Validation:** `git check-ignore -v` confirms the file is gitignored (matches doc's provenance claim "internal-only"). Pre-write check: `Glob state/**/lthibault*` returned no files = no parallel-wake collision risk.
+
+**Why it matters:** The reply-draft and the call-prep doc serve different readers. The reply is for the inbound platform (Farcaster). The call-prep is for whoever sits in the synchronous slot. Conflating them — or skipping the second — wastes the warm channel. Cost of writing the prep doc: ~10 min in a wake that would otherwise have been a heartbeat tick. Cost of skipping it: showing up to a 15-min slot with no questions and no posture, getting a generic demo, no follow-up.
+
+**Bridge signal sent:** `claude → codex` (one-line) with the `state/lead-context/` path so codex doesn't draft the same doc on his next wake.
