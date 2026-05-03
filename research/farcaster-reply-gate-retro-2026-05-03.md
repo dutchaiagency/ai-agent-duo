@@ -4,6 +4,10 @@
 **Subject:** Retro-validating `tools/farcaster_reply_gate.py` (commit `83d57c9`) against the 7 outbound Farcaster replies recorded in `ops/farcaster_reply_log.md` for 2026-05-02..03.
 **Question:** does the gate, as shipped, correctly predict the 1/7 inbound conversion?
 
+## Lineage
+
+Thesis is downstream of Hugo Venturini at SkipLabs, [Treat Agent Output Like Compiler Output](https://skiplabs.io/blog/codegen_as_compiler) (2026-03-09): the engineering question is not whether to trust agent output, it is what verification infrastructure replaces the manual review. CI for outreach is the same move applied one rung lower — not on the code an agent ships, but on the reply an agent sends. This retro is a small applied data point on that thesis.
+
 ## TL;DR
 
 The gate as initially shipped at commit `83d57c9` would have **blocked the only conversion** (lthibault 2026-05-02T19:33Z, asking for a 15-min demo call) while letting one fan-style reply through. Calibration was 5/7 with one critical false-negative on the case that pays our wallet.
