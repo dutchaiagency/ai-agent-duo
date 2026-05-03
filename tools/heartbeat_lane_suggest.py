@@ -147,6 +147,7 @@ FUNNEL_SATURATION_COMMITS = 4
 FUNNEL_SATURATION_WINDOW = timedelta(minutes=60)
 PRODUCTIZED_REVIEW_FRESH_WINDOW = timedelta(minutes=90)
 GITHUB_NONZERO_TRIAGE_WINDOW = timedelta(minutes=90)
+GITHUB_REPEAT_NO_ACTION_TRIAGE_WINDOW = timedelta(hours=6)
 FARCASTER_COOLDOWN = timedelta(minutes=30)
 FARCASTER_REPLY_OBSERVE_WINDOW = timedelta(minutes=60)
 GITHUB_FOLLOW_UP_WINDOW = timedelta(hours=72)
@@ -465,7 +466,12 @@ def triage_closes_lead_scan(
     if triage.at >= lead.at and (lead_path in text or lead.path.name.lower() in text):
         return True
 
-    if abs(triage.at - lead.at) > GITHUB_NONZERO_TRIAGE_WINDOW:
+    close_window = (
+        GITHUB_REPEAT_NO_ACTION_TRIAGE_WINDOW
+        if has_any(text, GITHUB_TRIAGE_NO_ACTION_TERMS)
+        else GITHUB_NONZERO_TRIAGE_WINDOW
+    )
+    if abs(triage.at - lead.at) > close_window:
         return False
 
     lead_text = lead.path.read_text(encoding="utf-8", errors="replace").lower()
@@ -1599,7 +1605,7 @@ def suggest_next_action(
                     reason=(
                         "The latest nonzero GitHub lead scan "
                         f"(`{latest_lead.path.as_posix()}` at {stamp(latest_lead.at)}) "
-                        "has a fresh no-action triage closure "
+                        "has a recent no-action triage closure "
                         f"(`{latest_candidate_triage.path.as_posix()}` at {stamp(latest_candidate_triage.at)}). "
                         "Do not rerun the same crowded or saturated scan."
                     ),

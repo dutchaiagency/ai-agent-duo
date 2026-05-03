@@ -1710,6 +1710,42 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertEqual(suggestion.decision, "github_candidate_closed")
         self.assertIn("no-action triage closure", suggestion.reason)
 
+    def test_no_action_triage_closes_same_issue_rescan_for_six_hours(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-replies-2026-05-02-codex-1727.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "github-candidate-triage-2026-05-02-codex-1732.md",
+                (
+                    "Source scan: state/github-leads-2026-05-02-codex-1730.md\n"
+                    "Status: fully triaged; zero untriaged candidates.\n"
+                    "Decision: no-go. No public comment, claim, or PR from this scan.\n"
+                    "Lead: https://github.com/example/repo/issues/2\n"
+                ),
+            )
+            write(
+                state / "github-leads-2026-05-02-codex-2130.md",
+                (
+                    "| Score | Decision | Lead |\n"
+                    "| ---: | --- | --- |\n"
+                    "| 80 | deep_read | [example/repo #2](https://github.com/example/repo/issues/2) |\n"
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 2, 21, 31, tzinfo=UTC),
+            )
+
+        self.assertEqual(suggestion.decision, "github_candidate_closed")
+        self.assertIn("recent no-action triage closure", suggestion.reason)
+
     def test_recent_no_action_triage_does_not_close_scan_with_new_issue(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
