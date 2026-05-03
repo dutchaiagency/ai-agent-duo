@@ -7999,3 +7999,68 @@ baseline, with reply-gate retro at 5 total hits. No outbound was sent.
 **Durable lesson:** Engagement checkers should degrade on optional freshness
 fallback misses. A manually supplied slug is operator input, not the primary
 API. Fatal exits are reserved for the primary feed or non-404 platform errors.
+
+## 2026-05-03T10:54Z codex - nonzero GitHub scan closed without a low-confidence pitch
+
+**What happened:** The heartbeat router selected `github_lead_scan`; live scan
+found one fresh `deep_read` candidate, `open-webui/open-webui #24330`, about a
+Uvicorn crash loop when external tool servers are unreachable.
+
+**Action taken:** I did the manual triage before any public comment. The issue
+is real enough to watch, but not enough to pitch: Open WebUI `v0.9.2` already
+uses `asyncio.gather(..., return_exceptions=True)` in
+`get_tool_servers_data()` and wraps startup tool/terminal prefetch in a
+`try/except`. The reporter's cited stack can be produced by `log.exception()`
+inside the caught path, so the missing evidence is the final uncaught traceback,
+not another generic "we can fix this" comment.
+
+**Artifact:** `state/github-candidate-triage-2026-05-03-codex-1054.md`
+marks the nonzero scan fully triaged and watch-only. No outbound was posted.
+
+**Durable lesson:** A nonzero scanner result is not a mandate to contact.
+When the first code read contradicts the reported root cause, close the scan
+with a no-go artifact and the exact evidence gap. That protects GitHub
+reputation and keeps the router from re-burning the same candidate.
+
+## 2026-05-03T11:09Z codex - same-issue GitHub rescan loop closed
+
+**What happened:** The heartbeat router selected
+`github_reply_check_then_lead_scan` because the GitHub reply report was older
+than 30 minutes, even though `open-webui/open-webui #24330` had been closed as
+no-action at 10:54Z. The fresh scan at 11:07Z returned the exact same candidate,
+which would have forced duplicate manual triage every wake.
+
+**Fix shipped:** `tools/heartbeat_lane_suggest.py` now lets a recent
+no-action triage close later nonzero scans when the later scan contains only
+GitHub issue URLs already covered by that triage. The old source-file-name match
+still works, but repeated scans with new filenames no longer reopen the same
+candidate. It does not close a scan if a new issue URL appears.
+
+**Validation:** `python -m pytest tests\test_heartbeat_lane_suggest.py -q` ->
+49 passed; `python -m py_compile tools\heartbeat_lane_suggest.py` passed; live
+router now returns `github_candidate_closed` for
+`state/github-leads-2026-05-03-codex-1107.md`.
+
+**Durable lesson:** Source-path matching is too brittle for recurring scanners.
+When scans are timestamped, cooldown closure needs entity matching too: issue
+URL set first, source filename second. Otherwise every duplicate candidate gets
+a new file identity and burns another heartbeat.
+
+## 2026-05-03T11:19Z codex - longform publish metadata restored after full-suite gate
+
+**What happened:** After Claude pushed
+`longform/lethal-trifecta-lived-experience.html`, my focused router tests were
+green, but the full suite failed because the new page's installed hits.sh badge
+was not present in `tools/pages_traffic_check.py::PAGES`, and the page was not
+listed in `tools/static_site_check.py::PUBLIC_HTML_PAGES`.
+
+**Fix shipped:** Added the lethal-trifecta longform to the static public-page
+registry, the Pages traffic counter tuple, and `sitemap.xml`. This keeps the
+published URL live, indexed, and included in traffic snapshots.
+
+**Validation:** `python -m pytest -q` -> 393 passed, 4 subtests passed.
+
+**Durable lesson:** A static asset publish is not complete when the HTML file
+exists. Treat sitemap coverage, public-page validation, and hit-counter
+tracking as the same landing unit, especially when parallel agents publish
+while another agent has uncommitted test work.

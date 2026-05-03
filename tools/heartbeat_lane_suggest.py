@@ -159,6 +159,10 @@ CHANNEL_UNLOCK_ASK_WINDOW = timedelta(hours=6)
 PAGE_TRAFFIC_BOT_BASELINE_7D = 210
 PAGE_TRAFFIC_MAX_AGE = timedelta(hours=36)
 PAGE_TRAFFIC_JSON_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
+GITHUB_ISSUE_URL_RE = re.compile(
+    r"https://github\.com/(?P<owner>[^/\s)]+)/(?P<repo>[^/\s)]+)/issues/(?P<number>\d+)",
+    re.IGNORECASE,
+)
 LAUNCH_RESPONSE_WINDOW = timedelta(minutes=90)
 LAUNCH_URL_RE = re.compile(r"https://[^\s)>]+")
 LAUNCH_CLOSED_TERMS = (
@@ -453,12 +457,35 @@ def triage_closes_lead_scan(
         return False
     if triage.kind != "github_candidate_triage" or lead.kind != "github_leads":
         return False
-    if triage.at < lead.at or not triage.zero_signal:
+    if not triage.zero_signal:
         return False
 
     text = triage.path.read_text(encoding="utf-8", errors="replace").lower()
     lead_path = lead.path.as_posix().lower()
-    return lead_path in text or lead.path.name.lower() in text
+    if triage.at >= lead.at and (lead_path in text or lead.path.name.lower() in text):
+        return True
+
+    if abs(triage.at - lead.at) > GITHUB_NONZERO_TRIAGE_WINDOW:
+        return False
+
+    lead_text = lead.path.read_text(encoding="utf-8", errors="replace").lower()
+    lead_issues = github_issue_refs(lead_text)
+    if not lead_issues:
+        return False
+
+    triage_issues = github_issue_refs(text)
+    return lead_issues.issubset(triage_issues)
+
+
+def github_issue_refs(text: str) -> set[tuple[str, str, str]]:
+    return {
+        (
+            match.group("owner").lower(),
+            match.group("repo").lower(),
+            match.group("number"),
+        )
+        for match in GITHUB_ISSUE_URL_RE.finditer(text)
+    }
 
 
 def triage_closed_without_action(triage: StateEvent | None) -> bool:
@@ -1556,19 +1583,8 @@ def suggest_next_action(
             latest_events=latest_events,
         )
 
-    if latest_reply is None or minutes_old(now, latest_reply) is None or minutes_old(now, latest_reply) > 30:
-        return Suggestion(
-            decision="github_reply_check_then_lead_scan",
-            reason="GitHub is not in cooldown and reply state is missing or older than 30 minutes.",
-            next_steps=(
-                "Run `python tools/github_reply_check.py --state-dir state --agent codex` before any public outbound.",
-                "Run `python tools/github_lead_scan.py --state-dir state --agent codex` only after reply state is known.",
-                "Do a manual code read before posting or claiming anything.",
-            ),
-            cooldown=cooldown,
-            latest_events=latest_events,
-        )
-
+    latest_reply_age = minutes_old(now, latest_reply)
+    reply_is_stale = latest_reply is None or latest_reply_age is None or latest_reply_age > 30
     latest_lead_age = minutes_old(now, latest_lead)
     if (
         latest_lead is not None
@@ -1615,14 +1631,28 @@ def suggest_next_action(
         return Suggestion(
             decision="github_candidate_manual_triage",
             reason=(
-                "GitHub reply state is fresh and the latest lead scan is nonzero "
+                "The latest lead scan is nonzero "
                 f"(`{latest_lead.path.as_posix()}` at {stamp(latest_lead.at)}). "
                 "Do not rerun the same scan while candidate triage is still fresh."
             ),
             next_steps=(
                 f"Open `{latest_lead.path.as_posix()}` and pick one candidate for manual code read, or log a no-go if all are saturated.",
+                "If a candidate survives and the latest reply report is stale, run `python tools/github_reply_check.py --state-dir state --agent codex` before public action.",
                 "If a candidate is pickup-ready, convert it into a small PR, precise comment, or tracked watch item.",
                 "Only rerun `python tools/github_lead_scan.py --state-dir state --agent codex` after this nonzero scan is stale or all candidates are explicitly closed out.",
+            ),
+            cooldown=cooldown,
+            latest_events=latest_events,
+        )
+
+    if reply_is_stale:
+        return Suggestion(
+            decision="github_reply_check_then_lead_scan",
+            reason="GitHub is not in cooldown and reply state is missing or older than 30 minutes.",
+            next_steps=(
+                "Run `python tools/github_reply_check.py --state-dir state --agent codex` before any public outbound.",
+                "Run `python tools/github_lead_scan.py --state-dir state --agent codex` only after reply state is known.",
+                "Do a manual code read before posting or claiming anything.",
             ),
             cooldown=cooldown,
             latest_events=latest_events,

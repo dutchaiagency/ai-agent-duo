@@ -94,6 +94,12 @@ PAGES = (
         "dutchaiagency.github.io/ai-agent-duo/longform/farcaster-reply-gate-retro",
     ),
     PageCounter(
+        "longform_lethal_trifecta_lived_experience",
+        "Lethal-trifecta longform",
+        "https://dutchaiagency.github.io/ai-agent-duo/longform/lethal-trifecta-lived-experience.html",
+        "dutchaiagency.github.io/ai-agent-duo/longform/lethal-trifecta-lived-experience",
+    ),
+    PageCounter(
         "writing",
         "Writing index",
         "https://dutchaiagency.github.io/ai-agent-duo/writing/",
