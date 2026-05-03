@@ -208,6 +208,34 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertNotIn("explicit payment/bounty signal", scored.reasons)
         self.assertIn("practice/not-paid bounty wording", scored.blockers)
 
+    def test_contribution_recognition_budget_is_not_payment_signal(self) -> None:
+        lead = Lead(
+            query="explicit-pay",
+            repo="example/workspace-cli",
+            number=3,
+            title="How to contribute",
+            url="https://github.com/example/workspace-cli/issues/3",
+            body=(
+                "We welcome contributions.\n"
+                "Heavyweight dependencies need discussion; stdlib + click + "
+                "pyyaml + jsonschema is the budget.\n"
+                "Contributors are credited in the Acknowledgements section "
+                "of the README and in release notes."
+            ),
+            labels=(),
+            comments_count=0,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+            author_association="OWNER",
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertNotIn("explicit payment/bounty signal", scored.reasons)
+
     def test_stale_no_payment_issue_is_downgraded_to_watch(self) -> None:
         lead = Lead(
             query="paid-bug-typescript",

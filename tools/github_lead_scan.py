@@ -101,6 +101,16 @@ PAY_TERMS = (
     "bounty",
     "reward",
 )
+NON_PAYMENT_BUDGET_CONTEXT_TERMS = (
+    "dependency budget",
+    "dependencies is the budget",
+    "stdlib +",
+    "performance budget",
+    "bundle budget",
+    "cpu budget",
+    "memory budget",
+    "error budget",
+)
 BUSINESS_TERMS = (
     "checkout",
     "billing",
@@ -374,6 +384,12 @@ def has_payment_signal(text: str, label_text: str) -> bool:
     if has_any(label_text, ("bounty",)):
         return True
     if has_any(text, PAY_TERMS_EXCEPT_BOUNTY):
+        if (
+            has_any(text, ("budget",))
+            and not has_cash_floor(text)
+            and has_any(text, NON_PAYMENT_BUDGET_CONTEXT_TERMS)
+        ):
+            return False
         return True
     return (
         "bounty" in text.lower()
