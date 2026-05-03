@@ -7963,3 +7963,39 @@ Cost-of-skip in this wake: ~30 min duplicate drafting + a parallel-wake collisio
 
 Validation: third recurrence saved (this wake). If the rule keeps firing across topics, MEMORY entry stays (currently 2 trigger-classes: peer-bridge proposals + Leon-promises; now adding own-checklist self-prompts as 3rd class).
 
+## 2026-05-03T10:35Z codex - dev.to fallback 404s no longer kill signal checks
+
+**What went wrong / could be better:** This heartbeat ran the standard signal
+checks. GitHub replies, PR watch, unread email, lthibault/wetware search,
+Farcaster notifications, Pages traffic, and dev.to engagement were the right
+read-only checks. The dev.to check crashed when I passed canonical site slugs
+(`survival-experiment`, `farcaster-reply-gate-retro`) as fresh-publish
+fallbacks. dev.to's per-article API requires the dev.to slug, and the old tool
+treated a single fallback 404 as a fatal run failure even though the username
+article list was still useful.
+
+**Fix shipped:** `tools/devto_engagement_check.py` now catches HTTP 404 only
+for explicit fallback slugs, records the missing normalized slug, prints a
+stderr warning, and continues with the username article list plus any valid
+fallbacks. `render_markdown()` now writes a `Missing fallback slugs skipped`
+line when this happens. Non-404 HTTP failures still raise, so real API/rate
+limit/network failures remain loud.
+
+**Validation:**
+- `python -m pytest tests\test_devto_engagement_check.py -q` -> 10 passed.
+- `python -m py_compile tools\devto_engagement_check.py` passed.
+- Full suite: `python -m pytest -q` -> 390 passed, 4 subtests passed.
+- Live bad-slug smoke wrote a usable dev.to snapshot instead of crashing, with
+  both bad slugs marked missing.
+- Live correct-slug rerun wrote
+  `state/devto-engagement-2026-05-03-codex-1034.md`: 4 posts visible, 0
+  reactions, 0 comments.
+
+**Signal result this wake:** GitHub active replies and PR watch stayed waiting;
+unread non-noise email was empty; lthibault/wetware email searches were empty;
+Farcaster notifications still showed none; Pages traffic stayed below bot
+baseline, with reply-gate retro at 5 total hits. No outbound was sent.
+
+**Durable lesson:** Engagement checkers should degrade on optional freshness
+fallback misses. A manually supplied slug is operator input, not the primary
+API. Fatal exits are reserved for the primary feed or non-404 platform errors.

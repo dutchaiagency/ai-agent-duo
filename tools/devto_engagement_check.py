@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Sequence
+from urllib.error import HTTPError
 from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
@@ -140,6 +141,7 @@ def fetch_articles(
     api_url: str = DEFAULT_API_URL,
     user_agent: str = DEFAULT_USER_AGENT,
     slugs: Sequence[str] | None = None,
+    missing_slugs: list[str] | None = None,
 ) -> list[DevtoArticle]:
     payload = read_json_api(
         build_url(api_url, username, per_page),
@@ -149,15 +151,27 @@ def fetch_articles(
     if not isinstance(payload, list):
         raise ValueError("dev.to API response was not a list")
     username_articles = [normalize_article(item) for item in payload if isinstance(item, dict)]
-    fallback_articles = [
-        fetch_article_by_slug(
-            username,
-            slug,
-            api_url=api_url,
-            user_agent=user_agent,
-        )
-        for slug in (slugs or [])
-    ]
+    fallback_articles: list[DevtoArticle] = []
+    for slug in slugs or []:
+        normalized_slug = normalize_slug(slug)
+        try:
+            fallback_articles.append(
+                fetch_article_by_slug(
+                    username,
+                    normalized_slug,
+                    api_url=api_url,
+                    user_agent=user_agent,
+                )
+            )
+        except HTTPError as exc:
+            if exc.code != 404:
+                raise
+            if missing_slugs is not None:
+                missing_slugs.append(normalized_slug)
+            print(
+                f"warning: dev.to article slug not found: {username}/{normalized_slug}",
+                file=sys.stderr,
+            )
     return merge_articles(username_articles, fallback_articles)
 
 
@@ -167,6 +181,7 @@ def render_markdown(
     username: str,
     per_page: int,
     slugs: Sequence[str] | None = None,
+    missing_slugs: Sequence[str] | None = None,
     generated_at: datetime | None = None,
 ) -> str:
     generated_at = generated_at or datetime.now(UTC)
@@ -182,6 +197,9 @@ def render_markdown(
         lines.append(
             f"Fresh-publish fallback: `/api/articles/{username}/<slug>` for {rendered_slugs}"
         )
+    if missing_slugs:
+        rendered_missing = ", ".join(f"`{slug}`" for slug in missing_slugs)
+        lines.append(f"Missing fallback slugs skipped: {rendered_missing} (404)")
     lines.extend(
         [
             "",
@@ -264,18 +282,21 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--write and --state-dir are mutually exclusive")
 
     generated_at = normalize_now(args.now)
+    missing_slugs: list[str] = []
     articles = fetch_articles(
         args.username,
         per_page=args.per_page,
         api_url=args.api_url,
         user_agent=args.user_agent,
         slugs=args.slug,
+        missing_slugs=missing_slugs,
     )
     output = render_markdown(
         articles,
         username=args.username,
         per_page=args.per_page,
         slugs=args.slug,
+        missing_slugs=missing_slugs,
         generated_at=generated_at,
     )
     write_path = args.write

@@ -3,8 +3,10 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from datetime import UTC, datetime
+from io import BytesIO
 from io import StringIO
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from tools import devto_engagement_check as devto
 
@@ -75,6 +77,40 @@ class DevtoEngagementCheckTests(unittest.TestCase):
         self.assertTrue(slug_request.full_url.endswith("/dutchaiagents/fresh"))
         self.assertEqual([article.title for article in articles], ["Fresh", "Older"])
 
+    def test_fetch_articles_skips_missing_slug_fallback(self) -> None:
+        missing: list[str] = []
+
+        def fake_urlopen(request, timeout: int = 20):
+            if request.full_url.endswith("/dutchaiagents/missing"):
+                raise HTTPError(
+                    request.full_url,
+                    404,
+                    "Not Found",
+                    hdrs=None,
+                    fp=BytesIO(b'{"error":"not found"}'),
+                )
+            return FakeResponse(
+                [
+                    {
+                        "title": "Older",
+                        "published_at": "2026-05-02T07:18:15Z",
+                        "public_reactions_count": 2,
+                        "comments_count": 1,
+                        "url": "https://dev.to/dutchaiagents/older",
+                    }
+                ]
+            )
+
+        with patch("tools.devto_engagement_check.urlopen", side_effect=fake_urlopen):
+            articles = devto.fetch_articles(
+                "dutchaiagents",
+                slugs=["missing"],
+                missing_slugs=missing,
+            )
+
+        self.assertEqual([article.title for article in articles], ["Older"])
+        self.assertEqual(missing, ["missing"])
+
     def test_fetch_articles_deduplicates_per_slug_fallback(self) -> None:
         payload = {
             "title": "Fresh",
@@ -126,6 +162,18 @@ class DevtoEngagementCheckTests(unittest.TestCase):
         self.assertIn("Total reactions: 6", output)
         self.assertIn("Total comments: 3", output)
         self.assertIn("A \\| title", output)
+
+    def test_render_markdown_notes_missing_slug_fallbacks(self) -> None:
+        output = devto.render_markdown(
+            [],
+            username="dutchaiagents",
+            per_page=100,
+            slugs=["missing"],
+            missing_slugs=["missing"],
+            generated_at=datetime(2026, 5, 2, 9, 45, tzinfo=UTC),
+        )
+
+        self.assertIn("Missing fallback slugs skipped: `missing` (404)", output)
 
     def test_rejects_non_list_api_response(self) -> None:
         with patch("tools.devto_engagement_check.urlopen", return_value=FakeResponse({"error": "no"})):
