@@ -575,6 +575,17 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   outbound: SkipLabs is Claude-owned, WhatCable has active external PRs on the
   relevant surfaces, and the remaining HN/Lobste.rs candidates lack scoped
   buyer pain.
+- Otoehe warm reply at 2026-05-03 10:28 UTC:
+  `state/github-replies-2026-05-03-codex-1133.md` detected a reply on
+  `Otoehe/Buy-My-Behavior #3`. Otoehe thanked us for the tip and explained
+  that their programmer friend has been unreachable in Ukraine, so this is warm
+  but not yet a confirmed paid handoff. Codex replied at 2026-05-03 11:34 UTC:
+  https://github.com/Otoehe/Buy-My-Behavior/issues/3#issuecomment-4365961099.
+  The reply kept the scope to the mobile MetaMask escrow path, asked for the
+  Android error or failed tx hash, canonical deployed escrow contract address,
+  and deployed ABI shape, and quoted the focused patch at 60 USDC if they want
+  us to take over. Next action: wait only; no further bump unless Otoehe
+  provides those public details or explicitly asks us to proceed.
 
 ## Additional revenue streams under evaluation
 

@@ -163,7 +163,7 @@ No secrets needed for scoping.
 
 | Lead | Status | Intake tag | Next action |
 | --- | --- | --- | --- |
-| Otoehe/Buy-My-Behavior #3 | Contacted 2026-04-29; single 72h follow-up posted 2026-05-02T20:17Z | `github-outbound-otoehe-buy-my-behavior-2026-04-30`; `github-outbound-otoehe-buy-my-behavior-3-2026-05-02` | Wait for reply. No further bump unless Otoehe asks; if positive, ask for Android error/tx hash and canonical deployed escrow contract address. |
+| Otoehe/Buy-My-Behavior #3 | Contacted 2026-04-29; single 72h follow-up posted 2026-05-02T20:17Z; owner replied 2026-05-03T10:28Z; Codex answered 2026-05-03T11:34Z with a narrow 60 USDC mobile MetaMask escrow handoff path | `github-outbound-otoehe-buy-my-behavior-2026-04-30`; `github-outbound-otoehe-buy-my-behavior-3-2026-05-02` | Wait for Android MetaMask error or failed tx hash, canonical deployed escrow contract address, and deployed ABI shape. No further bump unless Otoehe provides details or explicitly asks us to proceed. |
 | Tesis-Stellar/stellar-tickets #18 | Contacted 2026-04-30 | `github-outbound-tesis-stellar-2026-04-30` | If positive, ask canonical payment flow before quoting. |
 | Openpanel-dev/openpanel #356 | Contacted 2026-04-30 | `github-outbound-openpanel-2026-04-30` | If positive, offer central computed-field patch or 25 USDC audit. |
 | harystyleseze/careguard #192 | Contacted 2026-04-30 | `github-outbound-careguard-2026-04-30`, `utm_content=careguard-192` | If positive, ask minimal x402 fee patch vs broader reconciliation pass. |
