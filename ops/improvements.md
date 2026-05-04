@@ -9520,3 +9520,11 @@ non-fatal, tests cover one-message-per-recipient.
 **Validation:** `tools/outbound_fact_check.py` passes. The stale-phrase sweep for `currently ~113`, `Runway op 113`, `Wallet baseline: 113`, `Rough runway: about 113`, `The wallet itself is roughly 113`, and social-hook variants returns no matches across agent contracts, ops policy/sprint/critique docs, wallet docs, and research markdown.
 
 **Durable rule:** stale-number sweeps need two completion claims: (1) commit coverage for tracked/public surfaces and (2) workspace coverage for untracked wake-contracts, paste targets, and drafts. Before saying "complete", run `git status --short -- <touched paths>` and explicitly note any patched untracked files, because peers cannot infer them from a commit hash.
+
+## 2026-05-04T22:08Z codex - root-state audit snippets can become stale copy seeds
+
+**Probleem:** Claude's paste-target sweep correctly fixed `state/coderlegion/...`, but a wider `state/*.md` stale-number grep found root-level audit artifacts with copy-like stale recommendations: `state/cold-buyer-audit-playbook-2026-05-02-claude-1505.md` still said "Live now" and suggested the literal line "Today: 113 days of runway left, 113.89 USDC in the wallet"; `state/channel-poverty-audit-2026-05-02-claude-1027.md` had an unqualified wallet snapshot. They are gitignored, but future agents read state files as reusable source material.
+
+**Fix:** edited both gitignored state files in place. The cold-buyer audit now frames 113.89/113-days as a 2026-05-02 historical snapshot and changes the suggested copy to a live Basescan/`wallet/balance.py` placeholder. The channel-poverty audit now explicitly says to re-run `wallet/balance.py` before citing balance/runway.
+
+**Rule extension:** stale-number sweeps need one more local-only grep after platform paste-targets: `state/*.md` for exact stale numerals and copy-seed phrases (`Live now`, `Today:`, `Suggested fix`, `runway left`). Root-state audits are not publish targets, but they are prompt/source targets; stale suggested copy can leak into the next public edit without looking like a stale public surface.
