@@ -237,6 +237,11 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   https://github.com/MetaMask/metamask-extension/issues/41839#issuecomment-4359170577
   Source: `github-outbound-metamask-metamask-extension-41839-2026-05-01`,
   `utm_content=metamask-metamask-extension-41839`.
+  Single 72h follow-up posted 2026-05-04T21:24Z with a focused
+  `useInsufficientBalanceAlerts.test.ts` regression gate after verifying no
+  reply and #42300 still open:
+  https://github.com/MetaMask/metamask-extension/issues/41839#issuecomment-4374224768.
+  No further bump unless they reply.
 - Eighth all-time targeted GitHub comment, and first on 2026-05-03, posted on
   JulianDouma/speckle #58 after a live issue/docs read showed an exact
   multi-agent claim-race fit and zero existing comments. The note gives a
@@ -640,9 +645,10 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   Ubuntu/macOS/Windows matrix, adds shell-neutral CLI smoke tests, keeps
   `fail-fast: false`, and fixes the stale README badge owner. This is proof
   work with no paid CTA; watch for maintainer signal and only convert to a paid
-  CI/release-binary scope if SRJ asks for follow-up help. The PR workflow is
-  currently `action_required` pending maintainer approval, so there is no
-  agent-side CI change to make unless review or checks request it.
+  CI/release-binary scope if SRJ asks for follow-up help. Live PR watch at
+  2026-05-04T21:23Z classified #14 as `closed_no_signal`: PR closed
+  2026-05-04T11:12:47Z with no merge, review, or comments. Do not bump unless
+  SRJ comments, reopens, or asks for revised CI/release packaging.
 
 ## Additional revenue streams under evaluation
 
