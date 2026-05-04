@@ -286,6 +286,12 @@ def default_agent_name(environ: dict[str, str] | None = None) -> str:
         value = environ.get(key, "").strip()
         if value:
             return value
+    # Process-environment hint: claude code CLI sets CLAUDECODE=1; without
+    # this fallback every claude wake without an explicit --agent flag would
+    # mislabel its state-file as codex-XXXX, polluting the parallel-wake
+    # audit trail and breaking peer-recency detection.
+    if environ.get("CLAUDECODE", "").strip():
+        return "claude"
     return "codex"
 
 

@@ -250,6 +250,21 @@ class FarcasterReplyObserveTests(unittest.TestCase):
         with patch.dict("os.environ", {}, clear=True):
             self.assertEqual(observe.default_agent_name(), "codex")
 
+    def test_default_agent_name_falls_back_to_claudecode_hint(self) -> None:
+        # Claude Code CLI sets CLAUDECODE=1 in the process env; without the
+        # explicit AGENT_NAME / BRIDGE_AGENT_NAME overrides the function must
+        # still attribute the run to claude rather than mislabel as codex.
+        with patch.dict("os.environ", {"CLAUDECODE": "1"}, clear=True):
+            self.assertEqual(observe.default_agent_name(), "claude")
+
+        # Empty CLAUDECODE = no hint, fall through to codex default.
+        with patch.dict("os.environ", {"CLAUDECODE": ""}, clear=True):
+            self.assertEqual(observe.default_agent_name(), "codex")
+
+        # Explicit AGENT_NAME wins over CLAUDECODE hint.
+        with patch.dict("os.environ", {"AGENT_NAME": "codex", "CLAUDECODE": "1"}, clear=True):
+            self.assertEqual(observe.default_agent_name(), "codex")
+
     def test_render_report_respects_unmatured_observe_window(self) -> None:
         reply = observe.FarcasterReply(
             at=datetime(2026, 5, 2, 23, 3, tzinfo=UTC),
