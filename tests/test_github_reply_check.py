@@ -1,14 +1,18 @@
+import io
 import unittest
 import subprocess
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, datetime
 from unittest.mock import patch
 
 from tools.github_reply_check import (
     IssueUnavailable,
+    ReplyStatus,
     Target,
     classify_thread,
     default_output_path,
     fetch_issue,
+    main,
     normalize_rest_issue,
     parse_target_spec,
     parse_targets,
@@ -186,6 +190,36 @@ class GitHubReplyCheckTests(unittest.TestCase):
             state_dir
             / "github-ad-hoc-replies-sambigeara-pollen-3-2026-05-02-codex-1516.md",
         )
+
+    def test_main_reports_written_path_to_stderr(self) -> None:
+        output_path = self.tmp_path("reply-check.md", "")
+        status = ReplyStatus(repo="owner/repo", number=1, state="waiting")
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+
+        with (
+            patch("tools.github_reply_check.check_targets", return_value=[status]),
+            patch(
+                "sys.argv",
+                [
+                    "github_reply_check.py",
+                    "--target",
+                    "owner/repo#1",
+                    "--write",
+                    str(output_path),
+                    "--agent-login",
+                    "dutchaiagency",
+                ],
+            ),
+            redirect_stderr(stderr),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn(f"wrote {output_path}", stderr.getvalue())
+        self.assertIn("owner/repo #1", output_path.read_text(encoding="utf-8"))
 
     def test_target_slug_is_stable_for_multiple_ad_hoc_targets(self) -> None:
         self.assertEqual(

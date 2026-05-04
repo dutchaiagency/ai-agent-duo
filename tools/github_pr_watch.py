@@ -1018,6 +1018,7 @@ def main(argv: list[str] | None = None) -> int:
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(output, encoding="utf-8")
+        print(f"wrote {output_path}", file=sys.stderr)
     else:
         sys.stdout.write(output)
     return 0

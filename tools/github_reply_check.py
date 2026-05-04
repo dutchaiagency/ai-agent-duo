@@ -384,6 +384,7 @@ def main() -> int:
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(output, encoding="utf-8")
+        print(f"wrote {output_path}", file=sys.stderr)
     else:
         print(output, end="")
     return 0

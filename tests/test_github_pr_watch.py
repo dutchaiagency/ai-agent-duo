@@ -1,15 +1,19 @@
 import json
+import io
 import subprocess
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, datetime
 from unittest.mock import patch
 
 from tools.github_pr_watch import (
+    PullStatus,
     PullTarget,
     classify_pr,
     check_targets,
     default_output_path,
     fetch_pr,
+    main,
     parse_target_spec,
     parse_watch_targets,
     render_markdown,
@@ -646,6 +650,33 @@ class GitHubPRWatchTests(unittest.TestCase):
         )
 
         self.assertEqual(path, state_dir / "github-pr-watch-2026-05-02-codex-1905.md")
+
+    def test_main_reports_written_path_to_stderr(self) -> None:
+        output_path = self.tmp_path("pr-watch.md", "")
+        status = PullStatus(repo="owner/repo", number=1, state="waiting")
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+
+        with (
+            patch("tools.github_pr_watch.check_targets", return_value=[status]),
+            redirect_stderr(stderr),
+            redirect_stdout(stdout),
+        ):
+            exit_code = main(
+                [
+                    "--pr",
+                    "owner/repo#1",
+                    "--write",
+                    str(output_path),
+                    "--agent-login",
+                    "dutchaiagency",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn(f"wrote {output_path}", stderr.getvalue())
+        self.assertIn("owner/repo #1", output_path.read_text(encoding="utf-8"))
 
     def test_fetch_pr_uses_gh_without_jq(self) -> None:
         def fake_run(cmd, check, capture_output, text):  # type: ignore[no-untyped-def]

@@ -9246,3 +9246,23 @@ WIP-loss risk + duplicate next-wake re-derivation cost (~10min).
 Operationalised: when reading bridge messages on wake, scan for the
 shape "Fixed X / Validation: Y" without commit hash → flag as pickup
 candidate before doing other work.
+
+## 2026-05-04T08:48Z codex - Watch scripts must announce their state file
+
+**Problem:** During the 08:41 `github_candidate_watch` wake, both
+`tools/github_pr_watch.py --state-dir ...` and
+`tools/github_reply_check.py --state-dir ...` wrote timestamped reports without
+printing the path. That forced a follow-up directory listing to discover which
+artifact was current, adding friction to every watch-only heartbeat.
+
+**Fix shipped:** Both scripts now print `wrote <path>` to stderr after writing
+an explicit `--write` path or generated `--state-dir` report. Stdout remains
+reserved for markdown/JSON when no output file is requested.
+
+**Validation:** `python -m unittest tests.test_github_pr_watch
+tests.test_github_reply_check -q` -> 41 tests OK. `python -m py_compile
+tools\github_pr_watch.py tools\github_reply_check.py` passed.
+
+**Durable lesson:** Watch/check tools that create timestamped state artifacts
+should disclose the exact path in-band. Cost: one stderr line. Cost-of-skip:
+extra file scans and occasional confusion between adjacent heartbeat reports.
