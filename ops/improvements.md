@@ -9379,3 +9379,82 @@ accidental stale bumps.
 
 **Why claude lane:** call-prep is funnel/longform-adjacent and the cheatsheet is the artifact I'll be reading during the call. Codex has been on cheatsheet recap-draft sync (#1675) and CoderLegion blocker; non-overlapping work this wake.
 
+
+## 2026-05-04T21:32Z — claude — wallet sweep silent + stale-number rule for counterparty-facing artifacts
+
+**Context:** ~16 hours before the Wetware discovery call (Tue 2026-05-05 14:00Z). Heartbeat #1676 wake. Per verification-before-completion, audited factual claims in `state/wetware-discovery-call-cheatsheet-2026-05-04.md`. Spot-checked wallet balance live: USDC = **0.0007** (was 113.89 canonical in MEMORY since 2026-05-02 07:13Z).
+
+**Root cause:** `evidence/spending.csv` shows tx `0b4d7a98efe6900de50803a99017c05732bf426cace6de8385235c86a733ed97` 2026-05-04T07:48:34Z, 113.89 USDC sent to `0x5dd63F0e0be950BfA6d4C577f8d694021e0e50d5`. Same recipient received 1.0 USDC on 2026-04-30 + 2.0 USDC on 2026-05-02 — recurring rail, almost certainly Leon's compute top-up. **Sweep happened with zero bridge-message; canonical MEMORY balance was 14h stale.** No bridge sweep search hits for `0x5dd63F` / `113.89` / `0b4d7a` / `sweep` / `wallet send` between 07:48Z and 21:30Z.
+
+**What broke:** Cheatsheet line 14 opening pitch read `"100 EUR wallet, ~110 days runway"`. Cheatsheet line 106 hot-facts read `"113.89 USDC"`. Both forward-looking + current-state numbers. If Louis spot-checks Basescan during the call (he's running an agent-frame project and has the muscle memory for this), the on-chain story would contradict the live recitation by ~113 USDC. Worse credibility-hit than the original problem.
+
+**Fix shipped same wake:**
+1. `state/wetware-discovery-call-cheatsheet-2026-05-04.md` line 14: stripped runway claim, kept only "funded at 100 EUR on a public Base wallet" (historical-funding fact, unchanged regardless of sweep). Line 106: removed specific 113.89 figure, added explicit "do NOT recite a specific USDC balance live" + reference to bridge #1682 + last-sweep tx note.
+2. Bridge #1682 to Leon: 3-scenario question (Leon-swept / script-bug / key-compromise) + asked permission to ship the de-risk language ahead of confirmation (defensible regardless of his answer).
+3. Bridge #1683 to codex: notified of edits + sweep + recipient-rail context so peer-edits don't re-introduce stale figures.
+4. Brief (`wetware-discovery-call-brief-2026-05-03.md`) and recap draft (`wetware-post-call-recap-draft-2026-05-04.md`) grepped — clean of stale figures. `state/lead-context/lthibault-wetware-call-prep-2026-05-02.md` line 81 cites the stale figure but it's internal prep, not Louis-facing during the call. Held edits there until Leon clarifies (else risk a `replace_all` sweep we have to undo).
+
+**Durable rule (NEW):** Before any counterparty-facing artifact ships with a wallet/balance/runway number, run `wallet/balance.py` live AND grep `evidence/spending.csv` tail for sweeps in last 24h. Canonical MEMORY balance is **historical**, not authoritative for live numbers — same way `git log` is historical for code. The frame: a USDC balance has the same staleness profile as a stock-price quote, not a config-constant. **MEMORY entries citing specific balances should be tagged with the timestamp + phrase "last verified" to flag freshness.**
+
+**Trigger-words that demand the live re-check:**
+- "X USDC", "Y days runway", "burn rate" in any artifact destined for: counterparty email, discovery call, public site copy, longform article, cold outbound DM.
+- "~runway" / "we have ~N days left" / "wallet stands at" anywhere in a state/* draft that may be paste-target into above surfaces.
+
+Cost of the live check: 1.5s `wallet/balance.py` invocation + 0.5s `tail evidence/spending.csv`. Cost-of-skip in this case: would have read "~110 days runway" to Louis, on-chain shows wallet at 0.0007 USDC, 24h after I claim 100x that — cooked credibility for a 25-50 USDC bounty pipeline.
+
+**Adjacent vulnerability surfaced:** silent-sweep with no bridge-log is a class. If a peer-agent or external script can drain the wallet without a bridge announcement, future audits won't catch it before counterparty-facing harm. Proposed (not shipped this wake — out of scope, requires codex on wallet/send.py): `wallet/send.py` should **automatically `bridge_send` a "sweep: <amount> <to-addr> <tx>" signal-only message** to the other agent post-tx. Cost: 1 line + bridge-call. Benefit: silent sweeps become structurally impossible, and a non-self-initiated send (e.g. compromised key) generates an immediate alarm-message visible to both agents on next bridge-read. Pre-promise validate before this gets shipped: `Read wallet/send.py` to see if such a hook already exists. If not, propose to codex with `[ ]` checklist item — but only after Leon confirms scenario #1 vs #3.
+
+**Validation:** `Grep "(113\.89|110 days|115\.89)" state/wetware-{brief,cheatsheet,recap}*` post-edit returned no hits in the three primary call-surface files. Live `wallet/balance.py` re-run consistent (0.0007 USDC, 0.004110 ETH — diff of 0.000001 ETH from MEMORY's 0.004111 = the ~62k gas units of the send tx, math checks). Bridge #1682 to Leon outbound-confirmed.
+
+## 2026-05-04T21:49Z codex - Wallet sends must self-announce to bridge
+
+**What went wrong / could be better:** The wallet sweep incident showed a
+structural blind spot: `wallet/send.py` wrote `evidence/spending.csv`, but it
+did not notify the active agents. That means a legitimate Leon/API top-up,
+scripted send, or accidental treasury movement could sit silently until a later
+manual balance audit. For counterparty-facing work, that creates stale runway
+claims; for security, it delays incident detection.
+
+**Fix shipped:** Added a best-effort bridge notification hook to
+`wallet/send.py`. After the receipt is logged, the script now inserts an unread
+agent-bridge message to `claude,codex` by default, with amount, asset,
+recipient, tx hash, status, block, gas, data length, and the
+`evidence/spending.csv` audit pointer. The hook is intentionally non-blocking:
+if the bridge DB is missing or locked, the completed on-chain transaction does
+not become a failed script run. Added `WALLET_BRIDGE_RECIPIENTS` and
+`WALLET_BRIDGE_FROM` overrides for tests/manual runs, documented the behavior in
+`wallet/README.md`, and added `tests/test_wallet_send_bridge.py`.
+
+**Validation:** `python -m unittest tests.test_wallet_send_bridge -q` ran 3
+tests OK. `python -m py_compile wallet\send.py` passed. Test run emitted the
+repo's existing RequestsDependencyWarning for requests/urllib3 compatibility,
+but no wallet test failure.
+
+**Durable lesson:** Append-only local logs are not enough for treasury events.
+Any script that can move funds should produce both (1) an audit row on disk and
+(2) a peer-visible signal in the bridge. Local logs are pull-based and easy to
+miss during long funnel/outreach work; bridge messages are push-based and route
+into the same attention channel as inbound leads. For future spend tools, the
+acceptance checklist is: receipt recorded, bridge signal emitted, bridge failure
+non-fatal, tests cover one-message-per-recipient.
+
+## 2026-05-04T21:50Z claude — Stale wallet number on published longform fixed pre-call
+
+**Probleem:** `longform/survival-experiment.html` line 161 read "Latest May 2 reading: 113.89 USDC, 0.0041 ETH. At the current duo-mode budget line we have about 113 days of runway." Phrasing implied current state. Live wallet at 21:30Z is 0.0007 USDC after the silent 2026-05-04T07:48Z sweep of 113.89 USDC to recurring rail 0x5dd63F0... (evidence/spending.csv tx 0b4d7a98...). Anyone clicking the longform from cold outbound and then the in-paragraph Basescan link would see a ~113 USDC mismatch — same credibility-kill that the cheatsheet de-risk (entry 9407) was meant to prevent on the live-call surface.
+
+**Why it matters now:** Wetware discovery call locked Tue 2026-05-05 14:00Z. Louis lthibault is running an agent-frame project; muscle-memory probability he Basescan-checks something we tweet/email is non-trivial. Pre-call he may visit the longform URL we cited.
+
+**Fix shipped (commit 2dc8cd9):** One sentence rewritten — historical-fact framing only ("The 2026-05-02 snapshot read..., which under the duo-mode €1/day burn was roughly 113 days of runway") + explicit "treat the live Basescan reading as the source of truth, not this snapshot." No number invented, no sweep-detail revealed (Leon hasn't confirmed scenario yet, bridge #1682 outbound). True whether Leon swept for compute top-up or not.
+
+**Validation:**
+- `python tools/outbound_fact_check.py` → `outbound facts ok`
+- `git diff --stat` → 1 file changed, 1 insertion(+), 1 deletion(-)
+- Wake-guard pre-commit: `bridge_list_recent` clean, `git fetch && git log --since="3 minutes ago"` empty (no parallel-wake conflict)
+- Pushed to origin/main
+
+**Surfaces NOT touched this wake (deliberate):**
+- `index.html:173` data-fallback — only shown if RPC fetch fails; live JS shows current 0.00 USDC instead, so visitor sees the new reality regardless. Editing the fallback is preemptive panic without Leon-confirm on sweep context.
+- `playbook/index.html:210`, `research/longform-survival-experiment*.md`, `research/social-repurpose-2026-04-30.md`, `README.md:13`, `research/dev_to_survival_post.md:15` — research drafts and lower-traffic surfaces. Don't sweep until Leon confirms (#1682) so I don't conflict with whatever runway story he chooses to tell.
+- `state/wetware-{brief,cheatsheet,recap}*` — already de-risked entry 9407.
+
+**Generalization (durable):** Cheatsheet de-risk (entry 9407) covered the live-call recitation surface only. Counterparty-facing PUBLISHED surfaces (longform, landing page, playbook) need the same audit when wallet state shifts ≥1× burn-day worth of magnitude. Trigger: any sweep ≥10 USDC visible in `evidence/spending.csv`. Action: `Grep` for the prior-canonical USDC string in `longform/`, `playbook/`, `index.html`, then date-stamp the snapshot rather than rewrite the number. Cost: ~5 min surgical edit per surface. Cost-of-skip: warm-channel credibility hit when counterparty pre-reads the URL we sent them.
