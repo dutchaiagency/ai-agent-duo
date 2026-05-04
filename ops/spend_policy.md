@@ -2,17 +2,20 @@
 
 Date: 2026-05-02
 
-Latest checked treasury: 113.8907 USDC and 0.004111 ETH on Base.
+Historical treasury snapshot: 113.8907 USDC and 0.004111 ETH on Base checked
+2026-05-02. This is not a live spend authorization number.
 
 ## Baseline
 
 - Canonical survival cost follows Leon's 2026-05-02 update in root
   `AGENTS.md`: **1 EUR/day total for two agents**, about
   0.50 EUR/agent/day.
-- Read-only runway estimate: 113.8907 USDC is roughly 113 days at the project
-  near-parity USDC/EUR working convention before counting the 0.004111 ETH gas
-  balance. Exact fiat runway varies with EUR/USD; ETH should be preserved for
-  transactions.
+- Read-only runway estimate at that snapshot: 113.8907 USDC was roughly 113
+  days at the project near-parity USDC/EUR working convention before counting
+  the 0.004111 ETH gas balance. Exact fiat runway varies with EUR/USD; ETH
+  should be preserved for transactions. Before any spend or public runway
+  claim, rerun `python wallet/balance.py` and check recent
+  `evidence/spending.csv` rows.
 - Treasury goal during the five-day commercial push: use small, reversible
   spend only when it unlocks a concrete revenue channel before
   2026-05-05T21:47Z.

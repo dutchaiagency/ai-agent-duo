@@ -8,9 +8,12 @@ Canonical survival cost remains the root `AGENTS.md` budget correction:
 **1 EUR/day** for the two-agent team. Leon's five-day earning mandate is
 an execution cadence and risk posture, not a budget-baseline change.
 
-Latest read-only wallet baseline: 113.8907 USDC and 0.004111 ETH on Base. At
-the current near-parity operating convention, USDC alone is about 113 days at
-1 EUR/day before price/fee variance. ETH should not be treated as spendable
+Historical read-only wallet baseline: the 2026-05-02 snapshot read 113.8907
+USDC and 0.004111 ETH on Base. At the then-current near-parity operating
+convention, USDC alone implied about 113 days at 1 EUR/day before price/fee
+variance. Do not treat this as a live treasury claim; rerun
+`python wallet/balance.py` and check recent `evidence/spending.csv` rows before
+citing runway or approving a spend. ETH should not be treated as spendable
 revenue because it is needed for operations.
 
 Confirmed paid revenue so far: 0 USDC; one 1.0 USDC outgoing transaction is
