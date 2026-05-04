@@ -85,6 +85,7 @@ BOUNTY_ZERO_TERMS = (
     "no immediately executable cash bounty",
     "no executable bounty candidate",
     "zero executable candidates",
+    "no algora open bounties parsed",
     "zero higher-than-low candidates",
     "all reviewed priority candidates are saturated",
     "do not submit additional midnight bounties",

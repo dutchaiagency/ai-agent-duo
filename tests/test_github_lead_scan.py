@@ -939,6 +939,25 @@ class GitHubLeadScanTests(unittest.TestCase):
 
         self.assertEqual(active_target_keys(path), {("owner/repo-one", 3)})
 
+    def test_reads_pr_watch_source_issues_from_pipeline(self) -> None:
+        pipeline = """
+## Active GitHub PR Watch
+
+| PR | Status | Source | Next action |
+| --- | --- | --- | --- |
+| Owner/Repo-One #9 | Open proof PR | repo-one #3 / `state/repo-one.md` | Wait. |
+| Other/Repo-Two #4 | Open proof PR | Other/Repo-Two #8 / `state/repo-two.md` | Wait. |
+| Owner/Repo-Three #6 | Open proof PR | Show HN #47977694 / `state/show.md` | Wait. |
+
+## Active Email Lead Watch
+"""
+        path = self.tmp_path("pipeline.md", pipeline)
+
+        self.assertEqual(
+            active_target_keys(path),
+            {("owner/repo-one", 3), ("other/repo-two", 8)},
+        )
+
     def tmp_path(self, name: str, content: str):
         from pathlib import Path
         from tempfile import TemporaryDirectory

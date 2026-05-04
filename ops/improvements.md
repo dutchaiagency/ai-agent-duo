@@ -9170,3 +9170,51 @@ docs-only edits.
 **Validation:** Rechecked live with `gh pr view 22 --repo AutomationAlchemyst/meathead-app --json ...` and `gh issue view 8 --repo AutomationAlchemyst/meathead-app --json ...`; `state/github-pr-watch-2026-05-04-codex-0751.md` agrees with `closed_no_signal`. The same wake also checked GitHub issue replies, email unread, email follow-up timers, Opire, Archestra, and Algora; all were watch/zero, so no outbound or bounty claim was sent.
 
 **Durable lesson:** After every PR-watch run, compare any `closed_no_signal`, `unavailable`, or `shipped` state against the active PR table. If the table still says "open" or "watch", update the owner-facing row in the same wake. Cost: one grep and one doc patch. Cost-of-skip: repeated heartbeat work on dead lanes and accidental no-signal bumps.
+
+## 2026-05-04T08:13Z codex - Empty Algora parses are zero bounty signal
+
+**Problem:** The 08:12 heartbeat router listed
+`state/algora-bounty-check-2026-05-04-codex-0753.md` as a nonzero bounty event
+even though the report said "No Algora open bounties parsed." That could send a
+future wake into unnecessary bounty triage when the correct state is watch/zero.
+
+**Fix shipped:** `tools/heartbeat_lane_suggest.py` now treats
+"no algora open bounties parsed" as a bounty zero-signal term.
+`tests/test_heartbeat_lane_suggest.py` has a regression test for the exact
+Algora empty-parse table shape.
+
+**Validation:** `python -m pytest tests\test_heartbeat_lane_suggest.py -q` ->
+53 passed. `python -m py_compile tools\heartbeat_lane_suggest.py` passed. Live
+router output now shows the Algora event as `bounty ... (zero)`. This wake also
+refreshed `state/github-pr-watch-2026-05-04-codex-0815.md`,
+`state/github-replies-2026-05-04-codex-0815.md`, and
+`state/email-lead-watch-2026-05-04-codex-0812.md`; no maintainer reply,
+workflow-unblocked PR, or due email follow-up appeared.
+
+**Durable lesson:** Parser-empty bounty reports need explicit zero phrases in
+the router, not just human-readable "none" rows. Otherwise a report that saved
+time during scouting can later cost time by looking actionable.
+
+## 2026-05-04T08:31Z codex - Lead scans must exclude issues already converted to PRs
+
+**Problem:** The 08:27 GitHub lead scan kept surfacing
+`SRJ-ai/makesurenew #10` as `deep_read` even though Codex had already opened
+proof PR #14 and the active PR watch row linked the source as `makesurenew #10`.
+That made a future heartbeat likely to re-triage an already-active lead instead
+of looking for fresh revenue.
+
+**Fix shipped:** `tools/github_lead_scan.py` now treats issue references in the
+`Active GitHub PR Watch` source column as active lead keys. It supports full
+`owner/repo #number` references and bare same-repo references like
+`makesurenew #10`, while ignoring unrelated source numbers such as
+`Show HN #47977694`.
+
+**Validation:** `python -m unittest tests.test_github_lead_scan -q` -> 37 tests
+OK. `python -m py_compile tools\github_lead_scan.py` passed. A fresh scan
+`state/github-leads-2026-05-04-codex-0829.md` no longer lists
+`SRJ-ai/makesurenew #10`; only watch-level candidates remain.
+
+**Durable lesson:** When a lead is converted into a proof PR, the scanner must
+treat the PR watch source as an active sink, not just the non-Farcaster target
+queue. Cost: parse one markdown table. Cost-of-skip: repeated deep-read loops
+on a lead whose next useful action is maintainer review.

@@ -94,6 +94,19 @@ DEFAULT_QUERIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
 )
 
+PR_WATCH_HEADING = "## Active GitHub PR Watch"
+GITHUB_REF_RE = re.compile(
+    r"(?:https://github\.com/)?"
+    r"(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)"
+    r"(?:(?:/(?:issues|pull)/)|(?:\s*#))"
+    r"(?P<number>\d+)"
+)
+BARE_REPO_ISSUE_REF_RE = re.compile(
+    r"(?<![A-Za-z0-9_.-/])"
+    r"(?P<repo>[A-Za-z0-9_.-]+)"
+    r"\s*#(?P<number>\d+)"
+)
+
 PAY_TERMS = (
     "pay even",
     "willing to pay",
@@ -681,12 +694,50 @@ def lead_key(repo: str, number: int) -> tuple[str, int]:
     return (repo.lower(), number)
 
 
+def normalized_name(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+
+def pr_watch_source_issue_keys(markdown: str) -> set[tuple[str, int]]:
+    keys: set[tuple[str, int]] = set()
+    in_watch = False
+    for line in markdown.splitlines():
+        if line.startswith(PR_WATCH_HEADING):
+            in_watch = True
+            continue
+        if in_watch and line.startswith("## "):
+            break
+        if not in_watch or not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 3 or cells[0].lower() in {"pr", "---"}:
+            continue
+
+        pr_match = GITHUB_REF_RE.search(cells[0])
+        if not pr_match:
+            continue
+        pr_repo = pr_match.group("repo")
+        pr_repo_name = pr_repo.rsplit("/", 1)[-1]
+        source_cell = cells[2]
+
+        for match in GITHUB_REF_RE.finditer(source_cell):
+            keys.add(lead_key(match.group("repo"), int(match.group("number"))))
+
+        for match in BARE_REPO_ISSUE_REF_RE.finditer(source_cell):
+            source_repo = match.group("repo")
+            if normalized_name(source_repo) == normalized_name(pr_repo_name):
+                keys.add(lead_key(pr_repo, int(match.group("number"))))
+    return keys
+
+
 def active_target_keys(pipeline: Path) -> set[tuple[str, int]]:
     try:
         markdown = pipeline.read_text(encoding="utf-8")
     except OSError:
         return set()
-    return {lead_key(target.repo, target.number) for target in parse_targets(markdown)}
+    keys = {lead_key(target.repo, target.number) for target in parse_targets(markdown)}
+    keys.update(pr_watch_source_issue_keys(markdown))
+    return keys
 
 
 def filter_scored(

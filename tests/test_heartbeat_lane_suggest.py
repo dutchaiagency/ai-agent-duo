@@ -427,6 +427,25 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertIn("Archestra label-watch", suggestion.reason)
         self.assertIn("archestra.ai/contributor-onboard", suggestion.next_steps[3])
 
+    def test_empty_algora_parse_report_is_zero_bounty_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "algora-bounty-check-2026-05-04-codex-0753.md"
+            write(
+                path,
+                (
+                    "# Algora Bounty Verification\n\n"
+                    "| Decision | Amount | Issue | GitHub State | Note | Source |\n"
+                    "| --- | ---: | --- | --- | --- | --- |\n"
+                    "| none | - | - | - | No Algora open bounties parsed. | - |\n"
+                ),
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        self.assertEqual(event.kind, "bounty")
+        self.assertTrue(event.zero_signal)
+
     def test_fresh_github_priority_scan_routes_to_priority_gate_triage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
