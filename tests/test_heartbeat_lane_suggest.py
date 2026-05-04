@@ -1855,6 +1855,49 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertIsNotNone(event)
         self.assertTrue(event.zero_signal)
 
+    def test_no_inventory_final_decision_is_zero_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = (
+                Path(tmp)
+                / "no-inventory-bridge-kit-final-decision-2026-05-03-codex-2232.md"
+            )
+            write(
+                path,
+                (
+                    "Decision: Kill the standalone 9 USD Agent Bridge Reliability Kit.\n"
+                    "Do not build checkout. Validation path is closed.\n"
+                ),
+            )
+
+            event = lane.classify_event(path)
+
+        self.assertIsNotNone(event)
+        self.assertEqual(event.kind, "no_inventory")
+        self.assertTrue(event.zero_signal)
+
+    def test_no_inventory_closed_decision_suppresses_deadline_route(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ops = root / "ops"
+            write(
+                ops / "no_inventory_validation_lane.md",
+                (
+                    "Status: closed; standalone Bridge Kit validation killed/recycled.\n"
+                    "Review window: 2026-04-30T21:36Z to 2026-05-03T21:36Z\n"
+                    "Final decision 2026-05-03T22:32Z: kill the standalone lane.\n"
+                ),
+            )
+
+            suggestion = lane.suggest_next_action(
+                [],
+                ops,
+                datetime(2026, 5, 3, 22, 40, tzinfo=UTC),
+            )
+            deadline = lane.parse_deadline(ops)
+
+        self.assertEqual(deadline, datetime(2026, 5, 3, 21, 36, tzinfo=UTC))
+        self.assertNotEqual(suggestion.decision, "park_or_scale_no_inventory_lane")
+
     def test_deadline_passed_overrides_cooldown(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

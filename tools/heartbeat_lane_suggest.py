@@ -24,6 +24,16 @@ TIMESTAMP_RE = re.compile(
     r"(?P<date>20\d\d-\d\d-\d\d)(?:-[A-Za-z0-9]+)*-(?P<hhmm>\d{4})\.md$"
 )
 DEADLINE_RE = re.compile(r"20\d\d-\d\d-\d\dT\d\d:\d\dZ")
+REVIEW_WINDOW_DEADLINE_RE = re.compile(
+    r"Review window:\s*20\d\d-\d\d-\d\dT\d\d:\d\dZ\s+to\s+"
+    r"(?P<deadline>20\d\d-\d\d-\d\dT\d\d:\d\dZ)",
+    re.IGNORECASE,
+)
+KILL_OR_PARK_BY_RE = re.compile(
+    r"(?:kill|park)[^.\n\r]{0,80}\bby\s+`?"
+    r"(?P<deadline>20\d\d-\d\d-\d\dT\d\d:\d\dZ)`?",
+    re.IGNORECASE,
+)
 
 ZERO_LEAD_TERMS = (
     "no candidates passed",
@@ -62,6 +72,13 @@ NO_INVENTORY_ZERO_TERMS = (
     "zero matching reservation emails",
     "zero matching bridge kit emails",
     "keep the distribution hold",
+)
+NO_INVENTORY_FINAL_TERMS = (
+    "standalone bridge kit validation killed/recycled",
+    "kill the standalone",
+    "validation lane for now",
+    "do not build checkout",
+    "validation path is closed",
 )
 BOUNTY_ZERO_TERMS = (
     "zero immediate candidates",
@@ -265,7 +282,9 @@ def event_kind(path: Path) -> str | None:
         return "github_candidate_triage"
     if name.startswith("github-outbound-"):
         return "github_outbound"
-    if name.startswith("no-inventory-bridge-kit-signal-check-"):
+    if name.startswith("no-inventory-bridge-kit-signal-check-") or name.startswith(
+        "no-inventory-bridge-kit-final-decision-"
+    ):
         return "no_inventory"
     if (
         name.startswith("algora-bounty-check-")
@@ -368,7 +387,9 @@ def classify_event(path: Path) -> StateEvent | None:
     elif kind == "github_candidate_triage":
         zero_signal = has_any(lower, GITHUB_TRIAGE_CLOSED_TERMS)
     elif kind == "no_inventory":
-        zero_signal = has_any(lower, NO_INVENTORY_ZERO_TERMS)
+        zero_signal = has_any(lower, NO_INVENTORY_ZERO_TERMS) or has_any(
+            lower, NO_INVENTORY_FINAL_TERMS
+        )
     elif kind == "bounty":
         zero_signal = has_any(lower, BOUNTY_ZERO_TERMS)
     elif kind == "devto_engagement":
@@ -575,12 +596,30 @@ def parse_deadline(ops_dir: Path) -> datetime | None:
         return None
 
     text = lane_path.read_text(encoding="utf-8", errors="replace")
+    if match := REVIEW_WINDOW_DEADLINE_RE.search(text):
+        return datetime.fromisoformat(
+            match.group("deadline").replace("Z", "+00:00")
+        ).astimezone(UTC)
+    if match := KILL_OR_PARK_BY_RE.search(text):
+        return datetime.fromisoformat(
+            match.group("deadline").replace("Z", "+00:00")
+        ).astimezone(UTC)
     matches = DEADLINE_RE.findall(text)
     if not matches:
         return None
     return max(
         datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
         for value in matches
+    )
+
+
+def no_inventory_decision_resolved(ops_dir: Path) -> bool:
+    lane_path = ops_dir / "no_inventory_validation_lane.md"
+    if not lane_path.exists():
+        return False
+    lower = lane_path.read_text(encoding="utf-8", errors="replace").lower()
+    return has_any(lower, NO_INVENTORY_FINAL_TERMS) or (
+        "status: closed" in lower and ("killed" in lower or "recycled" in lower)
     )
 
 
@@ -1255,7 +1294,11 @@ def suggest_next_action(
             latest_events=latest_events,
         )
 
-    if deadline is not None and now >= deadline:
+    if (
+        deadline is not None
+        and now >= deadline
+        and not no_inventory_decision_resolved(ops_dir)
+    ):
         return Suggestion(
             decision="park_or_scale_no_inventory_lane",
             reason=(

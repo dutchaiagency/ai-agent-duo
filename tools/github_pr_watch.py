@@ -30,7 +30,7 @@ MARKDOWN_LINK_RE = re.compile(r"^\[(?P<label>[^\]]+)\]\((?P<url>[^)]+)\)$")
 PR_FIELDS = (
     "number,state,title,url,author,createdAt,updatedAt,comments,reviews,"
     "latestReviews,reviewDecision,mergeStateStatus,statusCheckRollup,body,"
-    "mergedAt,mergedBy"
+    "mergedAt,mergedBy,headRefName,headRefOid"
 )
 ISSUE_FIELDS = (
     "number,state,stateReason,closedAt,title,url,closedByPullRequestsReferences"
@@ -52,6 +52,7 @@ CHECK_PENDING_STATUSES = {
     "REQUESTED",
     "WAITING",
 }
+WORKFLOW_ACTION_REQUIRED_VALUES = {"ACTION_REQUIRED"}
 IGNORABLE_DEPLOY_AUTH_PHRASES = (
     "is attempting to deploy a commit",
     "first needs to",
@@ -215,6 +216,34 @@ def check_rollup_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
         for item in items
         if isinstance(item, dict) and not is_ignorable_deploy_auth_check(item)
     ]
+
+
+def run_conclusion(item: dict[str, Any]) -> str:
+    return str(item.get("conclusion") or "").upper()
+
+
+def run_status(item: dict[str, Any]) -> str:
+    return str(item.get("status") or "").upper()
+
+
+def run_time(item: dict[str, Any]) -> str:
+    return str(
+        item.get("updatedAt")
+        or item.get("createdAt")
+        or item.get("startedAt")
+        or ""
+    )
+
+
+def run_label(item: dict[str, Any]) -> str:
+    return str(item.get("workflowName") or item.get("name") or "workflow")
+
+
+def is_action_required_run(item: dict[str, Any]) -> bool:
+    return (
+        run_conclusion(item) in WORKFLOW_ACTION_REQUIRED_VALUES
+        or run_status(item) in WORKFLOW_ACTION_REQUIRED_VALUES
+    )
 
 
 def failing_checks(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -472,6 +501,80 @@ def fetch_pr(target: PullTarget) -> dict[str, Any]:
     )
 
 
+def fetch_recent_pr_workflow_runs(
+    target: PullTarget, payload: dict[str, Any], *, limit: int = 10
+) -> list[dict[str, Any]]:
+    head_ref = str(payload.get("headRefName") or "")
+    if not head_ref:
+        return []
+
+    rows = gh_json(
+        [
+            "gh",
+            "run",
+            "list",
+            "--repo",
+            target.repo,
+            "--branch",
+            head_ref,
+            "--event",
+            "pull_request",
+            "--limit",
+            str(limit),
+            "--json",
+            (
+                "databaseId,displayTitle,event,status,conclusion,createdAt,"
+                "updatedAt,headBranch,headSha,url,workflowName"
+            ),
+        ]
+    )
+    if not isinstance(rows, list):
+        return []
+
+    head_sha = str(payload.get("headRefOid") or "")
+    runs = [row for row in rows if isinstance(row, dict)]
+    if head_sha:
+        runs = [row for row in runs if str(row.get("headSha") or "") == head_sha]
+    return runs
+
+
+def apply_workflow_action_required_signal(
+    target: PullTarget,
+    status: PullStatus,
+    payload: dict[str, Any],
+) -> PullStatus:
+    if (
+        status.state != "waiting"
+        or str(payload.get("state") or "").upper() != "OPEN"
+        or check_rollup_items(payload)
+    ):
+        return status
+
+    try:
+        runs = fetch_recent_pr_workflow_runs(target, payload)
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
+        return status
+
+    action_required = [run for run in runs if is_action_required_run(run)]
+    if not action_required:
+        return status
+
+    latest = max(action_required, key=lambda item: run_time(item) or "")
+    label = run_label(latest)
+    return replace(
+        status,
+        state="workflow_action_required",
+        latest_signal_author="github-actions",
+        latest_signal_at=run_time(latest),
+        latest_signal_excerpt=excerpt(f"{label}: action required before checks run"),
+        check_summary="workflow approval required",
+        note=(
+            "Latest pull_request workflow run requires maintainer approval before "
+            "checks can execute; wait unless a reviewer requests changes."
+        ),
+    )
+
+
 def fetch_error_note(exc: subprocess.CalledProcessError | json.JSONDecodeError) -> str:
     if isinstance(exc, subprocess.CalledProcessError):
         parts = [
@@ -523,6 +626,7 @@ def check_targets(targets: list[PullTarget], *, agent_login: str) -> list[PullSt
             )
             continue
         status = classify_pr(target, payload, agent_login=agent_login)
+        status = apply_workflow_action_required_signal(target, status, payload)
         if status.state == "closed_no_signal":
             status = apply_release_ship_signal(
                 target,

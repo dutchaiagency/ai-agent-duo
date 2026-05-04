@@ -402,6 +402,46 @@ class GitHubPRWatchTests(unittest.TestCase):
         self.assertEqual(status.state, "waiting")
         self.assertEqual(status.check_summary, "0 failed, 1 pending, 0 passed/skipped")
 
+    def test_action_required_workflow_run_is_not_plain_waiting(self) -> None:
+        def fake_fetch(_target):  # type: ignore[no-untyped-def]
+            return {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-04T06:39:43Z",
+                "state": "OPEN",
+                "title": "Fix CI",
+                "url": "https://github.com/owner/repo/pull/14",
+                "headRefName": "codex/fix-ci",
+                "headRefOid": "abc123",
+                "comments": [],
+                "reviews": [],
+                "latestReviews": [],
+                "statusCheckRollup": [],
+            }
+
+        runs = [
+            {
+                "workflowName": "CI",
+                "conclusion": "action_required",
+                "status": "completed",
+                "updatedAt": "2026-05-04T06:39:47Z",
+                "headSha": "abc123",
+            }
+        ]
+
+        with (
+            patch("tools.github_pr_watch.fetch_pr", fake_fetch),
+            patch("tools.github_pr_watch.fetch_recent_pr_workflow_runs", return_value=runs),
+        ):
+            statuses = check_targets(
+                [PullTarget("owner/repo", 14)],
+                agent_login="dutchaiagency",
+            )
+
+        self.assertEqual(statuses[0].state, "workflow_action_required")
+        self.assertEqual(statuses[0].latest_signal_author, "github-actions")
+        self.assertIn("CI", statuses[0].latest_signal_excerpt)
+        self.assertEqual(statuses[0].check_summary, "workflow approval required")
+
     def test_status_context_success_counts_as_passed(self) -> None:
         status = classify_pr(
             PullTarget(repo="owner/repo", number=1),

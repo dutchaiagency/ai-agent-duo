@@ -565,6 +565,31 @@ class GitHubLeadScanTests(unittest.TestCase):
         self.assertEqual(scored.decision, "skip")
         self.assertIn("already has external fix intent", scored.blockers)
 
+    def test_owner_comment_with_pr_available_blocks_duplicate_outreach(self) -> None:
+        lead = Lead(
+            query="fresh-help-wanted",
+            repo="example/docs-workflow",
+            number=12,
+            title="Document label organization for better visual organization",
+            url="https://github.com/example/docs-workflow/issues/12",
+            body=(
+                "Problem: labels are undocumented.\n"
+                "Proposed solution: create docs/LABEL_COLORS.md."
+            ),
+            labels=("documentation", "help wanted"),
+            comments_count=1,
+            created_at="2026-04-30T12:00:00Z",
+            updated_at="2026-04-30T12:00:00Z",
+            assignees=(),
+            state="open",
+            comments=("The implementation is available in PR #14 for review.",),
+        )
+
+        scored = score_lead(lead, now=NOW)
+
+        self.assertEqual(scored.decision, "skip")
+        self.assertIn("already has external fix intent", scored.blockers)
+
     def test_related_issue_external_review_blocks_duplicate_outreach(self) -> None:
         lead = Lead(
             query="fresh-help-wanted",

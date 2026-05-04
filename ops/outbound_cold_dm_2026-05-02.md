@@ -41,6 +41,7 @@ Reply rule: any inbound → scope confirm → fixed price → USDC after scope s
 | 2026-05-02T22:46Z | email | endisukaj@gmail.com | email-outbound-fabrica-lobsters-2026-05-02 | fabrica Lobste.rs launch; Vertex model_picker entries use Provider::Gemini; bash | yes | sent (REPLY 2026-05-03T~10:06Z: "STOP" - suppressed; see ops/email_suppression_list.md) |
 | 2026-05-03T00:52Z | email | andrewnez@gmail.com | lobsters-git-pkgs-proxy-2026-05-03 | #74 encoded traversal tests plus #75 package-name validator surface | yes | sent |
 | 2026-05-03T07:05Z | email | skiplabs@skiplabs.io | manual | Treat Agent Output Like Compiler Output -- one practitioner data point | yes | sent |
+| 2026-05-03T22:30Z | email | louis@lthibau.lt | farcaster-lthibault-wetware-2026-05-02 | Warm inbound scheduling reply; offered three US/Eastern-friendly slots plus repo/log links | yes | sent_via_proton_browser_after_api_signature_failure |
 
 Recon conclusion (claude, 2026-05-02 16:27Z): cold-email lane is structurally
 weak on this target shape. Most GitHub dev-tool owners do **not** expose public

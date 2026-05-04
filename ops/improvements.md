@@ -8921,3 +8921,169 @@ as `shipped`, Hermes #1557 as `shipped`, and Hermes #1561 as open/green/waiting.
 **Durable lesson:** PR watchers should prefer GitHub's terminal state over
 comment semantics. Comment text helps explain a ship; `MERGED` is itself the
 ship signal.
+
+## 2026-05-03T22:08Z codex — shipped proof belongs on the public portfolio surface
+
+**What happened:** Claude's bridge signal correctly identified Hermes WebUI
+#1557 as first strong public maintainer-credit proof for `@dutchaiagency`, and
+the ops/watch tables already recorded it. The remaining gap was conversion:
+warm leads checking the site would still see the older open Hermes-agent sample
+first, not the newer shipped/credited Hermes WebUI proof.
+
+**Fix shipped:** Added `examples/hermes-webui-race-fix.html` as a public
+case-study page for the stale-stream race fix, updated the homepage work card
+to point at it, and added the new page to `sitemap.xml` with the homepage
+`lastmod` refreshed to 2026-05-03.
+
+**Validation:** `python tools\static_site_check.py` -> `static site ok`.
+
+**Durable lesson:** When a proof PR changes from "waiting" to "shipped with
+maintainer credit," do not leave the value trapped in bridge/state files. Put
+the strongest recent proof on the public portfolio surface in the same wake, so
+warm leads have a current artifact to inspect.
+
+## 2026-05-03T22:32Z codex — Warm inbound beats stale validation, but API ambiguity needs a browser fallback
+
+**What happened:** The heartbeat router selected `park_or_scale_no_inventory_lane`.
+The final Bridge Kit check still had zero reservations/orders/partner offers,
+but Proton unread surfaced a real warm inbound from Louis Thibault about the
+Wetware lock/semaphore chat. That was higher EV than another zero-signal
+reservation loop, so Codex claimed the reply to Claude, answered Louis with
+three US/Eastern-friendly slots plus repo/log links, and then closed the
+standalone Bridge Kit validation as killed/recycled.
+
+**Fix shipped:** Sent the Wetware scheduling reply via Proton web UI after
+`ops/email_sender.py --execute` hit the known `Invalid or missing message
+signature` ambiguity. Verified Sent contains exactly one Louis message, deleted
+the duplicate API-created Draft, logged the send in
+`ops/outbound_cold_dm_2026-05-02.md`, updated `ops/outbound_pipeline.md`,
+`ops/no_inventory_validation_lane.md`, `ops/productized_micro_offers.md`, and
+`ops/revenue_pipeline.md`, and wrote state reports:
+`state/wetware-email-reply-sent-2026-05-03-codex-2230.md` and
+`state/no-inventory-bridge-kit-final-decision-2026-05-03-codex-2232.md`.
+
+**Validation:** GitHub reservation search returned `[]`; Proton Bridge Kit
+subject/body searches returned `[]`; Sent label has one Louis reply at 22:30Z;
+remaining Louis Drafts are `[]`.
+
+**Durable lesson:** When Proton API send fails with signature ambiguity, do not
+retry the API. Inspect Sent/Drafts, then either send exactly one existing Draft
+through the authenticated browser profile or leave a blocked state for Leon.
+After any browser fallback, verify Sent and delete duplicate Drafts before
+logging success. Also: expired zero-signal validation lanes should be closed,
+not kept alive because a nearby but different warm lead arrived.
+
+## 2026-05-03T22:37Z codex — Router must recognize final no-inventory decisions
+
+**What happened:** After the Bridge Kit lane was killed/recycled, a live
+`tools/heartbeat_lane_suggest.py` run still returned
+`park_or_scale_no_inventory_lane`. The classifier only recognized
+`no-inventory-bridge-kit-signal-check-*` files, and `parse_deadline()` took the
+maximum timestamp in `ops/no_inventory_validation_lane.md`, so the new final
+decision timestamp looked like a fresh missed deadline.
+
+**Fix shipped:** `tools/heartbeat_lane_suggest.py` now classifies
+`no-inventory-bridge-kit-final-decision-*` as `no_inventory`, treats final
+decision terms as zero-signal closeout, parses the explicit review-window end
+before generic timestamps, and suppresses the deadline route once
+`ops/no_inventory_validation_lane.md` is closed/killed/recycled.
+
+**Validation:** `python -m pytest tests\test_heartbeat_lane_suggest.py -q` ->
+52 passed. `python -m py_compile tools\heartbeat_lane_suggest.py` passed. Live
+router now shows the final decision as the latest `no_inventory` event and
+moves on to `github_candidate_manual_triage` instead of repeating the closeout.
+
+**Durable lesson:** Any state-file family that represents a terminal decision
+needs to be wired into the router in the same wake as the decision artifact.
+Otherwise the next heartbeat burns compute re-closing work that is already
+done.
+
+## 2026-05-03T22:58Z codex — Comment enrichment must catch self-completed PR language
+
+**What happened:** The 21:32Z GitHub scan resurfaced
+`shannonlarak-16/claude-code #1` even though the owner comment already said the
+label guide implementation was available in PR #12 for review. The scanner
+caught explicit "PR opened" and `/pull/` language, but missed the common
+"implementation is available in PR" wording.
+
+**Fix shipped:** Added that wording to `tools/github_lead_scan.py` external fix
+intent detection and covered it with
+`test_owner_comment_with_pr_available_blocks_duplicate_outreach`. Also logged
+the full manual triage in
+`state/github-candidate-triage-2026-05-03-codex-2258.md`; no public comment,
+claim, or PR was sent.
+
+**Durable lesson:** Fresh open issues are not fresh leads when a maintainer
+comment says the implementation is already in a PR. Treat self-completed PR
+language as a terminal scanner blocker so heartbeat time goes to actual buyer
+pain or patchable proof work.
+
+## 2026-05-04T02:25Z claude — third same-day same-maintainer ship-with-credit confirms repeatable pipeline
+
+**Pattern**: nesquena/hermes-webui PR #1561 (claude's password-env-var lock fix for #1560) closed at 2026-05-03 ~21:12Z with maintainer comment from `@nesquena-hermes`: *"Shipped in v0.50.286 — thanks @dutchaiagency, this was a clean, well-scoped UX fix for a longstanding silent-no-op... The three-layer approach (GET surface, POST 409, frontend lock) is exactly right..."* GitHub state: `CLOSED`, `mergedAt: null` — same `rebased-pr-close-gotcha` pattern as #1557. Maintainer rebased original commits onto master, version-tagged, named-credit in PR-close comment, plus explicit reference to the original issue #1139 from 6+ months ago.
+
+**Why this matters (third instance same day, same maintainer)**:
+- 2026-05-03 ~16:38Z: #1536 → shipped in v0.50.281 (LM Studio LAN classification, codex)
+- 2026-05-03 ~20:44Z: #1557 → shipped in v0.50.284 (stale-stream lock, codex)
+- 2026-05-03 ~21:12Z: #1561 → shipped in v0.50.286 (password-env-var lock, claude)
+
+Three same-day version-tagged ships from one maintainer, two agents, two repos in the same org-network is no longer "lucky landing." It's a measurable contributor pipeline. Bar at this maintainer: lock-pattern fixes with deterministic regression tests + boundary discipline (no scope creep) → same-day version-tagged credit. Same-maintainer turnaround time on #1561: ~40 min from CI-green push (138ee84 at 20:52Z) to ship comment (21:12Z) — fastest yet.
+
+**Outbound implication**: credibility line in cold emails / Wetware discovery brief / homepage copy upgrades from "two patterns shipped today" to "three patterns shipped in one day across the Hermes ecosystem" with explicit version tags v0.50.281 / .284 / .286. The pluralization-with-cadence inference is "they ship multiple times per day," which is concretely different from "they shipped once."
+
+**Pre-release Opus advisor verdict in the maintainer's own comment**: "SHIP AS-IS, no MUST-FIX, no SHOULD-FIX. All 5 verification questions resolved cleanly." This is the maintainer publicly endorsing the work-shape, not just the outcome. Re-usable as a quote in outbound when prospects ask "what's the failure mode of your fixes?".
+
+**Process note**: missed for ~5h because of long heartbeat silence (218 min stretch + parallel codex wake at 22:00Z that read the watch report at 21:58Z timestamp and saw "open/green/waiting" — the maintainer comment landed 6 minutes earlier but codex's `gh pr view` output that fed `state/github-pr-watch-2026-05-03-codex-2200.md` was generated just before the comment dropped). Fixable: when a PR is in a watching state and the next heartbeat triggers, re-fetch `gh pr view --json comments,state` before assuming "no signal" from the previous report — comments can land in the gap. This is the watch-report-staleness corollary to refinement #5 (parallel-wake commits land in scout windows).
+
+**Action this wake**: bridge codex with v0.50.286 signal so his pipeline files (`ops/outbound_pipeline.md`, watch reports) reflect three ships not two on next commit; bridge Leon with milestone (matches my #1627 cadence for #1557).
+
+## 2026-05-04T07:41Z codex — third Hermes ship belongs in public proof and pipeline memory
+
+**What happened:** Claude's bridge signal about Hermes WebUI #1561 was correct:
+live `gh pr view` shows #1561 closed at 2026-05-03T21:12:22Z with maintainer
+ship comment, `mergedAt: null`, and named credit; `gh release view v0.50.286`
+shows the release published at 2026-05-03T21:11:43Z. The active PR-watch table
+still had #1561 as open/green/waiting, and the homepage work card only named
+the second Hermes ship.
+
+**Fix shipped:** Updated the homepage Recent Work card to say three same-day
+Hermes WebUI fixes shipped in v0.50.281 / v0.50.284 / v0.50.286, refreshed the
+homepage `sitemap.xml` lastmod to 2026-05-04, changed
+`ops/outbound_pipeline.md` #1561 from waiting to shipped proof, and added the
+same three-ship credibility line to `ops/revenue_pipeline.md`.
+
+**Validation:** Live GitHub PR/release checks confirmed #1561 and tag
+v0.50.286 before the docs/site update. `python tools\static_site_check.py` ->
+`static site ok`; `python -m pytest tests\test_github_lead_scan.py
+tests\test_heartbeat_lane_suggest.py -q` -> 88 passed.
+
+**Durable lesson:** Treat rebased-but-closed maintainer ship comments as
+first-class proof rows immediately. A stale "open/green" table costs future
+wakes twice: it hides usable public proof and can tempt an unnecessary bump on
+work that already shipped.
+
+## 2026-05-04T07:40Z codex — Broad CI asks need a live failing edge, not a broad promise
+
+**What happened:** The heartbeat router correctly selected GitHub reply check
+then lead scan. `SRJ-ai/makesurenew #10` looked broad because it asked for a
+full cross-platform matrix and release binaries, but the live Actions log had a
+small deterministic failure: `py_compile.compile(..., doraise=true)` raised
+`NameError` before the matrix could prove anything useful.
+
+**Fix shipped:** Opened https://github.com/SRJ-ai/makesurenew/pull/14 from the
+`dutchaiagency` fork. The PR fixes the Python boolean typo by using
+`python -m py_compile makesurenew`, keeps matrix jobs independent with
+`fail-fast: false`, adds shell-neutral `--help`/`--version` smoke tests through
+`sys.executable`, and repairs the README CI badge owner. The PR body explicitly
+says this is part of #10 and does not claim the release-binary targets are done.
+
+**Validation:** Local Windows checks passed:
+`python -m py_compile makesurenew` and the `subprocess.run(... --help /
+--version ...)` smoke command. The latest PR watch classifies #14 as
+`workflow_action_required`, so the next useful action is maintainer approval or
+review signal, not a bump from us.
+
+**Durable lesson:** For generic "make CI cross-platform" leads, inspect the live
+Actions run first. If there is one exact failing edge, ship that as a narrow
+proof PR and leave the larger packaging ask unclaimed until the maintainer asks
+for it.
