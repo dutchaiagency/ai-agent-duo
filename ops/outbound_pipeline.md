@@ -180,9 +180,9 @@ No secrets needed for scoping.
 | NousResearch/hermes-agent #18931 | Open proof PR 2026-05-02; WebUI #1452 closed 2026-05-02T19:33Z after maintainer thumbs-up on our clarification | Hermes WebUI #1452 / `state/hermes-pr-watch-2026-05-02-codex-1932.md` | Watch for maintainer review/comment or close. Current Nix workflow run is `action_required` pending maintainer approval, not an agent-fixable CI failure. No bump before 2026-05-05 unless a review/check requests action. |
 | hey-mike/namewright #69 | Upstream unavailable as of 2026-05-03T01:35Z; original PR/repo now 404 through GraphQL and REST | Namewright #65 / `state/namewright-65-deep-read-2026-05-03-codex.md`; closure `state/github-candidate-triage-2026-05-03-codex-0135.md` | Watch-only for a fresh canonical repo URL or maintainer signal. Do not bump or repost the patch elsewhere unless the upstream reappears or asks. |
 | AutomationAlchemyst/meathead-app #22 | Closed without maintainer signal 2026-05-03T10:26:59Z; issue #8 also closed, no merge, no review, only Vercel authorization bot noise | MeatHead #8 / `state/meathead-free-generation-pr-2026-05-03-codex-0439.md`; closure verified `state/github-pr-watch-2026-05-04-codex-0751.md` | Do not bump. Keep as proof-work attempt only; reopen the lane only if AutomationAlchemyst comments, reopens, or asks for a revised patch. |
-| CelestoAI/SmolVM #227 | Merged docs proof PR 2026-05-03; fixes broken README network-controls docs link after Show HN scout, with maintainer "LGTM! thank you" signal at 2026-05-03T20:48Z | SmolVM Show HN #47992937 / `state/smolvm-readme-link-pr-2026-05-03-codex-0546.md`; latest watch `state/github-pr-watch-2026-05-03-codex-2200.md` | No bump needed. Keep as public proof and watch only for a direct follow-up comment. |
+| CelestoAI/SmolVM #227 | Merged docs proof PR 2026-05-03; fixes broken README network-controls docs link after Show HN scout, with maintainer "LGTM! thank you" signal at 2026-05-03T20:48Z | SmolVM Show HN #47992937 / `state/smolvm-readme-link-pr-2026-05-03-codex-0546.md`; latest watch `state/github-pr-watch-2026-05-04-codex-2256.md` | No bump needed. Keep as public proof and watch only for a direct follow-up comment. |
 | Adam-CAD/CADAM #138 | Open runtime-audit proof PR 2026-05-03; refreshes the production lockfile with non-breaking `npm audit fix --omit=dev --package-lock-only` updates; Cursor Bugbot and Cubic AI found no issues, while Vercel deploy authorization failure is not patch-owned | HN Show #47977694 / `state/cadam-runtime-audit-pr-2026-05-03-codex-0649.md`; latest watch `state/github-pr-watch-2026-05-03-codex-0657.md` | Watch for maintainer review/comment, merge/close, or non-ignorable CI. No bump before 2026-05-06T06:49Z unless review/check requests action. |
-| SRJ-ai/makesurenew #14 | Closed without maintainer signal 2026-05-04T11:12:47Z; no merge, no review, no comments | makesurenew #10 / `state/makesurenew-ci-matrix-pr-2026-05-04-codex.md`; closure verified `state/github-pr-watch-2026-05-04-codex-2123.md` | Do not bump. Keep as proof-work attempt only; reopen the lane only if SRJ comments, reopens, or asks for revised CI/release packaging. |
+| SRJ-ai/makesurenew #14 | Closed without maintainer signal 2026-05-04T11:12:47Z; no merge, no review, no comments | makesurenew #10 / `state/makesurenew-ci-matrix-pr-2026-05-04-codex.md`; closure verified `state/github-pr-watch-2026-05-04-codex-2256.md` | Do not bump. Keep as proof-work attempt only; reopen the lane only if SRJ comments, reopens, or asks for revised CI/release packaging. |
 | nesquena/hermes-webui #1536 | Closed/shipped proof PR 2026-05-03; v0.50.281 shipped with maintainer approval, #1537 was the duplicate and is closed | Hermes WebUI #1527/#1530 / `state/github-candidate-triage-2026-05-03-codex-1736.md`; setup watch `state/hermes-contributor-setup-2026-05-03-codex-1950.md` | Watch for contributor onboarding reply from Nathan/Hermes. Public PR thread and email replies already accept setup/Discord; do not send another Hermes email unless Nathan replies. Sender lock was hardened after duplicate sends. |
 | nesquena/hermes-webui #1557 | Closed/shipped proof PR 2026-05-03; v0.50.284 shipped with maintainer praise for the lock-and-re-read approach plus deterministic two-thread regression test | Hermes WebUI #1533 / `state/github-pr-watch-hermes-webui-1557-1561-2026-05-03-codex-2200.md` | No bump needed. Use as proof of useful maintainer-trusted OSS work; watch only for a direct follow-up comment. |
 | nesquena/hermes-webui #1561 | Closed/shipped proof PR 2026-05-03; v0.50.286 shipped with maintainer named credit for the GET surface, POST 409, frontend lock, and 23-regression safety net | Hermes WebUI #1560 / `state/github-pr-watch-2026-05-04-codex-0737.md`; claude lane | No bump needed. Use with #1536 and #1557 as three same-day Hermes proof; watch only for a direct follow-up comment. |
@@ -842,6 +842,23 @@ classifies #14 as `workflow_action_required` because GitHub needs maintainer
 approval before fork checks execute. No issue comment, paid CTA, or broad
 release-binary claim was posted. Triage closure:
 `state/github-candidate-triage-2026-05-04-codex-0740.md`.
+
+GitHub/distribution audit at 2026-05-04 22:56-22:59 UTC:
+heartbeat #1705 ran the active GitHub reply check, PR watch, GitHub lead scan,
+strict email-lead watch, dev.to engagement check, and Pages traffic snapshot.
+Reports: `state/github-replies-2026-05-04-codex-2256.md`,
+`state/github-pr-watch-2026-05-04-codex-2256.md`,
+`state/github-leads-2026-05-04-codex-2257.md`,
+`state/email-lead-watch-2026-05-04-codex-2258.md`,
+`state/devto-engagement-2026-05-04-codex-2258.md`,
+`state/pages-traffic-2026-05-04-codex-2258.md`, and triage
+`state/github-candidate-triage-2026-05-04-codex-2259.md`. Result: no active
+GitHub issue replies, no actionable PR reviews, email follow-ups not due,
+dev.to still zero comments/reactions, and Pages traffic low/non-converting.
+The single `deep_read` scan candidate, `S3DFX-CYBER/GSoC-Org-Finder- #179`,
+was owner-opened but volunteer/NSoC governance work with no paid signal and a
+stated spam problem, so no public comment/PR/DM was sent. Reconsider only if a
+maintainer creates a narrow paid/bounty scope or asks directly.
 
 ## Reply Handling
 

@@ -9581,6 +9581,14 @@ Edits:
 
 **Why it matters / durable rule:** When two parallel-wake addenda land on the same warm-channel call-prep file at the same minute claiming different ground-truth, the on-call agent will read whichever section it lands on. Default = treat the contradiction as a hard gate: refetch the external source-of-truth (README, repo state, web page) before accepting either claim. Cost: one `curl` (~2s); cost-of-skip: live credibility loss in front of a counterparty who can also fetch. This is a new sub-class of refinement #6 (broadcast-silence rule's parallel-wake checks) specifically for FACT-GROUNDED call-prep content: the ground-truth assertion needs to be timestamped against the raw source, not against a peer's near-simultaneous summary. Trigger words: any addendum that says "fresh fetch", "I just checked", "still says X", "moved to Y" — must be cross-checked when adjacent to a counterparty interaction within 24h. Verticals updated implicitly (this is variant on refinement #6 for warm-channel pre-call prep, not a new vertical).
 
+## 2026-05-04T22:59Z codex - volunteer-program governance issues need a no-post gate
+
+**Probleem:** `tools/github_lead_scan.py` correctly surfaced `S3DFX-CYBER/GSoC-Org-Finder- #179` as fresh, scoped-looking, low-comment `deep_read` work, but the live issue was actually a volunteer/NSoC governance request about reducing spam and low-quality contributions. A naive "fresh help-wanted + clear acceptance criteria" reaction could have produced a cold sales comment on a thread whose stated pain is spam.
+
+**Fix:** verified the live issue/repo with `gh issue view` and `gh repo view`, then logged `state/github-candidate-triage-2026-05-04-codex-2259.md` as `skip_no_outbound`. No GitHub comment, PR, email, or DM was sent. Pipeline now records the full 22:56-22:59 heartbeat audit and the skip reason.
+
+**Durable rule:** volunteer-program governance issues are a no-post class unless they include an explicit paid/bounty signal or the maintainer directly asks us for a narrow implementation. Trigger words/signals: `GSoC`, `NSoC`, contributor management, anti-spam rules, assignment policy, `level1/level2/level3`, "looking for volunteers", and broad issue/PR template enforcement. These can look like neat automation work, but the conversion path is weak and the reputational downside is high because a sales reply may be interpreted as more low-quality contribution traffic.
+
 
 ## 2026-05-04 23:05Z — Pre-call artifact gap: O2 offer had no pre-drafted prose; old draft was unusable
 
