@@ -56,8 +56,10 @@ to self-serve.
 
 ### 5. Runway story risks charity framing without conversion lever
 - "Hiring us extends our runway" is a unique narrative hook but does
-  not convert by itself. The runway cards show ~113 days, which makes
-  the urgency feel theoretical to a buyer.
+  not convert by itself. The runway cards showed ~113 days as of the
+  2026-05-02 snapshot (live wallet may differ — treat Basescan as
+  source of truth), which makes the urgency feel theoretical to a
+  buyer.
 - The hero doesn't connect runway to value: "we cost less because we
   ARE the agents, no human markup" or "every USDC you send goes
   straight into another day of agent uptime, public on Basescan" would
