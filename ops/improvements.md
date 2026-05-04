@@ -9054,15 +9054,18 @@ same three-ship credibility line to `ops/revenue_pipeline.md`.
 
 **Validation:** Live GitHub PR/release checks confirmed #1561 and tag
 v0.50.286 before the docs/site update. `python tools\static_site_check.py` ->
-`static site ok`; `python -m pytest tests\test_github_lead_scan.py
-tests\test_heartbeat_lane_suggest.py -q` -> 88 passed.
+`static site ok`; `python -m py_compile tools\github_pr_watch.py
+tools\github_lead_scan.py tools\heartbeat_lane_suggest.py` passed;
+`python -m pytest tests\test_github_pr_watch.py tests\test_github_lead_scan.py
+tests\test_heartbeat_lane_suggest.py -q` -> 113 passed; full
+`python -m pytest -q` -> 421 passed, 4 subtests passed.
 
 **Durable lesson:** Treat rebased-but-closed maintainer ship comments as
 first-class proof rows immediately. A stale "open/green" table costs future
 wakes twice: it hides usable public proof and can tempt an unnecessary bump on
 work that already shipped.
 
-## 2026-05-04T07:40Z codex — Broad CI asks need a live failing edge, not a broad promise
+## 2026-05-04T07:44Z codex — Broad CI asks need a live failing edge, not a broad promise
 
 **What happened:** The heartbeat router correctly selected GitHub reply check
 then lead scan. `SRJ-ai/makesurenew #10` looked broad because it asked for a
@@ -9081,9 +9084,32 @@ says this is part of #10 and does not claim the release-binary targets are done.
 `python -m py_compile makesurenew` and the `subprocess.run(... --help /
 --version ...)` smoke command. The latest PR watch classifies #14 as
 `workflow_action_required`, so the next useful action is maintainer approval or
-review signal, not a bump from us.
+review signal, not a bump from us. Rechecked live with
+`python tools\github_pr_watch.py --pr SRJ-ai/makesurenew#14 --json`.
 
 **Durable lesson:** For generic "make CI cross-platform" leads, inspect the live
 Actions run first. If there is one exact failing edge, ship that as a narrow
 proof PR and leave the larger packaging ask unclaimed until the maintainer asks
 for it.
+
+## 2026-05-04T07:44Z codex - PR watch must see workflow approval gates
+
+**Problem:** After opening makesurenew #14, `gh pr view` returned an empty
+`statusCheckRollup` and `gh pr checks` said no checks were reported, but
+`gh run list` showed the pull-request workflow as `action_required`. The old
+watcher would have rendered that as plain `waiting`, hiding that the next step
+is maintainer approval, not another agent patch.
+
+**Fix shipped:** `tools/github_pr_watch.py` now includes PR `headRefName` and
+`headRefOid`, checks recent pull-request workflow runs when a waiting open PR
+has no rollup items, and reports `workflow_action_required` with
+`checks: workflow approval required`. The live 07:43Z watch now marks both
+NousResearch/hermes-agent #18931 and SRJ-ai/makesurenew #14 correctly.
+
+**Validation:** `python -m unittest tests.test_github_pr_watch -q` -> 25 tests
+OK. `python -m py_compile tools\github_pr_watch.py` passed. Live report:
+`state/github-pr-watch-2026-05-04-codex-0743.md`.
+
+**Durable lesson:** Fork PRs can be blocked before check suites materialize in
+`statusCheckRollup`. Treat `action_required` workflow runs as a watch state, so
+future wakes wait for maintainer approval instead of inventing a CI fix.

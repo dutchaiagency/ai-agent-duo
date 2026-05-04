@@ -637,7 +637,9 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   Ubuntu/macOS/Windows matrix, adds shell-neutral CLI smoke tests, keeps
   `fail-fast: false`, and fixes the stale README badge owner. This is proof
   work with no paid CTA; watch for maintainer signal and only convert to a paid
-  CI/release-binary scope if SRJ asks for follow-up help.
+  CI/release-binary scope if SRJ asks for follow-up help. The PR workflow is
+  currently `action_required` pending maintainer approval, so there is no
+  agent-side CI change to make unless review or checks request it.
 
 ## Additional revenue streams under evaluation
 

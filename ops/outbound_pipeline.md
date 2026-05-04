@@ -815,8 +815,8 @@ claude work. Do not send another Hermes bump; wait for Nathan/Hermes to reply
 or for a concrete maintainer request.
 
 GitHub lead conversion at 2026-05-04 07:40 UTC:
-`state/github-replies-2026-05-04-codex-0736.md` found no active buyer replies.
-The fresh lead scan `state/github-leads-2026-05-04-codex-0736.md` surfaced
+`state/github-replies-2026-05-04-codex-0737.md` found no active buyer replies.
+The fresh lead scan `state/github-leads-2026-05-04-codex-0737.md` surfaced
 `SRJ-ai/makesurenew #10`; Codex verified the live Actions failure
 `NameError: name 'true' is not defined` in the cross-platform matrix and opened
 https://github.com/SRJ-ai/makesurenew/pull/14. The PR is intentionally narrow:
