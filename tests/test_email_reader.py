@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -46,6 +47,17 @@ class _NoisyFakeProton(_FakeProton):
     def get_messages(self):
         print("_async_get_messages: 100%", file=sys.stderr)
         return self._messages
+
+
+class _FakeSessionProton:
+    def __init__(self, fail_paths=()):
+        self.fail_paths = {str(path) for path in fail_paths}
+        self.loaded_paths = []
+
+    def load_session(self, path: str):
+        self.loaded_paths.append(path)
+        if path in self.fail_paths:
+            raise RuntimeError("bad session")
 
 
 def test_is_noise_sender_matches_known_substrings():
@@ -171,3 +183,59 @@ def test_search_messages_body_mode_respects_unread_and_noise_filters():
 
     assert [r["id"] for r in results] == ["real"]
     assert proton.read_ids == ["real"]
+
+
+def test_session_candidates_include_current_then_newest_backups(monkeypatch):
+    with tempfile.TemporaryDirectory() as tmp:
+        secrets = Path(tmp)
+        current = secrets / "proton_session.pickle"
+        older = secrets / "proton_session.pickle.bak-old"
+        newer = secrets / "proton_session.pickle.bak-new"
+        current.write_text("current", encoding="utf-8")
+        older.write_text("older", encoding="utf-8")
+        newer.write_text("newer", encoding="utf-8")
+        older_time = 1_700_000_000
+        newer_time = 1_700_000_100
+        older.touch()
+        newer.touch()
+        import os
+
+        os.utime(older, (older_time, older_time))
+        os.utime(newer, (newer_time, newer_time))
+
+        monkeypatch.setattr(email_reader, "SECRETS_DIR", secrets)
+        monkeypatch.setattr(email_reader, "SESSION_FILE", current)
+
+        candidates = email_reader.session_candidates()
+
+    assert candidates == (current, newer, older)
+
+
+def test_load_saved_session_tries_backup_and_restores_canonical_file(monkeypatch):
+    with tempfile.TemporaryDirectory() as tmp:
+        secrets = Path(tmp)
+        current = secrets / "proton_session.pickle"
+        backup = secrets / "proton_session.pickle.bak-20260503-184102"
+        current.write_text("bad", encoding="utf-8")
+        backup.write_text("good", encoding="utf-8")
+        monkeypatch.setattr(email_reader, "SECRETS_DIR", secrets)
+        monkeypatch.setattr(email_reader, "SESSION_FILE", current)
+        proton = _FakeSessionProton(fail_paths=(current,))
+
+        loaded = email_reader.load_saved_session(proton)
+
+        assert loaded == backup
+        assert proton.loaded_paths == [str(current), str(backup)]
+        assert current.read_text(encoding="utf-8") == "good"
+
+
+def test_captcha_errors_are_classified_without_importing_protonmail():
+    assert email_reader.is_captcha_error(RuntimeError("Validate CAPTCHA returns code: 404"))
+    assert not email_reader.is_captcha_error(RuntimeError("network timeout"))
+
+
+def test_invalid_refresh_token_errors_are_classified():
+    assert email_reader.is_session_expired_error(
+        RuntimeError("Can't update tokens, status: 400 json: {'Error': 'Invalid refresh token'}")
+    )
+    assert not email_reader.is_session_expired_error(RuntimeError("network timeout"))

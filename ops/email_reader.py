@@ -15,6 +15,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sys
 import warnings
 from pathlib import Path
@@ -47,6 +48,72 @@ def get_credentials():
     return lines[0].strip(), lines[1].strip()
 
 
+class EmailLoginBlocked(RuntimeError):
+    """Raised when Proton requires a human action before API login can continue."""
+
+
+def session_candidates() -> tuple[Path, ...]:
+    """Return current and backup Proton session files, newest backups first."""
+    candidates: list[Path] = []
+    if SESSION_FILE.exists():
+        candidates.append(SESSION_FILE)
+    backups = sorted(
+        SECRETS_DIR.glob("proton_session.pickle.bak-*"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    for backup in backups:
+        if backup not in candidates:
+            candidates.append(backup)
+    return tuple(candidates)
+
+
+def load_saved_session(proton) -> Path | None:
+    """Try every saved Proton session; canonicalize a working backup."""
+    for session_path in session_candidates():
+        try:
+            proton.load_session(str(session_path))
+        except Exception:
+            continue
+        if session_path != SESSION_FILE:
+            try:
+                shutil.copy2(session_path, SESSION_FILE)
+            except Exception:
+                pass
+        return session_path
+    return None
+
+
+def is_captcha_error(exc: Exception) -> bool:
+    text = f"{type(exc).__name__}: {exc}".lower()
+    return "captcha" in text
+
+
+def is_session_expired_error(exc: Exception) -> bool:
+    text = f"{type(exc).__name__}: {exc}".lower()
+    return "invalid refresh token" in text or "can't update tokens" in text
+
+
+def raise_blocked_for_client_error(exc: Exception) -> None:
+    if is_session_expired_error(exc):
+        try:
+            SESSION_FILE.unlink()
+        except FileNotFoundError:
+            pass
+        raise EmailLoginBlocked(
+            "Saved Proton session is expired or revoked. Refresh "
+            ".secrets/proton_session.pickle in a browser-backed login, then "
+            "rerun ops/email_reader.py."
+        ) from exc
+    if is_captcha_error(exc):
+        raise EmailLoginBlocked(
+            "Proton login requires CAPTCHA or another human verification. "
+            "Refresh .secrets/proton_session.pickle in a browser-backed login, "
+            "then rerun ops/email_reader.py."
+        ) from exc
+    raise exc
+
+
 @contextlib.contextmanager
 def suppress_client_noise():
     """Keep Proton client progress/warning chatter out of JSON CLI output."""
@@ -72,15 +139,13 @@ def get_client():
         username, password = get_credentials()
         proton = ProtonMail()
 
-        # Try loading saved session first
-        if SESSION_FILE.exists():
-            try:
-                proton.load_session(str(SESSION_FILE))
-                return proton
-            except Exception:
-                pass
+        if load_saved_session(proton):
+            return proton
 
-        proton.login(username, password)
+        try:
+            proton.login(username, password)
+        except Exception as exc:
+            raise_blocked_for_client_error(exc)
         proton.save_session(str(SESSION_FILE))
         return proton
 
@@ -228,31 +293,42 @@ def main():
     parser.add_argument("--limit", type=int, default=10, help="Max results")
     args = parser.parse_args()
 
-    proton = get_client()
+    try:
+        proton = get_client()
+    except EmailLoginBlocked as exc:
+        print(f"EMAIL_BLOCKED: {exc}", file=sys.stderr)
+        sys.exit(2)
 
-    if args.read:
-        result = read_message(proton, args.read)
-        if result:
-            print(json.dumps(result, indent=2, ensure_ascii=False))
+    try:
+        if args.read:
+            result = read_message(proton, args.read)
+            if result:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                print(f"Message {args.read} not found", file=sys.stderr)
+                sys.exit(1)
+        elif args.search:
+            results = search_messages(
+                proton,
+                args.search,
+                args.limit,
+                unread_only=args.unread,
+                exclude_noise=args.exclude_noise,
+                include_body=args.body,
+            )
+            print(json.dumps(results, indent=2, ensure_ascii=False))
+        elif args.codes:
+            results = extract_codes(proton, args.limit)
+            print(json.dumps(results, indent=2, ensure_ascii=False))
         else:
-            print(f"Message {args.read} not found", file=sys.stderr)
-            sys.exit(1)
-    elif args.search:
-        results = search_messages(
-            proton,
-            args.search,
-            args.limit,
-            unread_only=args.unread,
-            exclude_noise=args.exclude_noise,
-            include_body=args.body,
-        )
-        print(json.dumps(results, indent=2, ensure_ascii=False))
-    elif args.codes:
-        results = extract_codes(proton, args.limit)
-        print(json.dumps(results, indent=2, ensure_ascii=False))
-    else:
-        results = list_messages(proton, args.unread, args.limit, args.exclude_noise)
-        print(json.dumps(results, indent=2, ensure_ascii=False))
+            results = list_messages(proton, args.unread, args.limit, args.exclude_noise)
+            print(json.dumps(results, indent=2, ensure_ascii=False))
+    except Exception as exc:
+        try:
+            raise_blocked_for_client_error(exc)
+        except EmailLoginBlocked as blocked:
+            print(f"EMAIL_BLOCKED: {blocked}", file=sys.stderr)
+            sys.exit(2)
 
 
 if __name__ == "__main__":
