@@ -23,6 +23,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+try:
+    from tools.agent_identity import default_agent_name
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
+
 
 DEFAULT_NEWEST_URL = "https://lobste.rs/newest.json"
 DEFAULT_GITHUB_API_URL = "https://api.github.com"
@@ -779,7 +784,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Write to state/lobsters-newest-contact-scout-YYYY-MM-DD-agent-HHMM.md.",
     )
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--now", help="Override current UTC time, for tests.")
     return parser
 

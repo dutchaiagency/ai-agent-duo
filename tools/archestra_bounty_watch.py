@@ -20,6 +20,11 @@ from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+try:
+    from tools.agent_identity import default_agent_name
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
+
 
 DEFAULT_API_URL = "https://api.github.com/search/issues"
 DEFAULT_REPO = "archestra-ai/archestra"
@@ -255,7 +260,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Write to state/archestra-bounty-label-watch-YYYY-MM-DD-agent-HHMM.md.",
     )
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--now", help="Override current UTC time, for tests.")
     return parser
 

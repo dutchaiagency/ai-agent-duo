@@ -14,6 +14,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+try:
+    from tools.agent_identity import default_agent_name
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
+
 
 DEFAULT_API_BASE = "https://hits.sh/api/urns/"
 DEFAULT_BOT_BASELINE_7D = 210
@@ -372,7 +377,7 @@ def parse_today(value: str | None) -> date:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state-dir", type=Path, default=Path("state"))
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--api-base", default=DEFAULT_API_BASE)
     parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument("--window-days", type=int, default=DEFAULT_WINDOW_DAYS)

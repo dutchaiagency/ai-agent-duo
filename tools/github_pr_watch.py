@@ -17,6 +17,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.agent_identity import default_agent_name
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
+
 
 WATCH_HEADING = "## Active GitHub PR Watch"
 TARGET_CELL_RE = re.compile(
@@ -971,7 +976,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--agent-login", default="dutchaiagency")
     parser.add_argument("--write", type=Path, help="Write report to this path.")
     parser.add_argument("--state-dir", type=Path, help="Write timestamped report.")
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--note", default="", help="Optional Markdown note.")
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
     return parser.parse_args(argv)

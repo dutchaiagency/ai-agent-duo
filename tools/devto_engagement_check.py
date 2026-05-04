@@ -15,6 +15,11 @@ from urllib.error import HTTPError
 from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
+try:
+    from tools.agent_identity import default_agent_name
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
+
 
 DEFAULT_API_URL = "https://dev.to/api/articles"
 DEFAULT_USER_AGENT = "survival-agents/1.0 (+https://github.com/dutchaiagency/ai-agent-duo)"
@@ -271,7 +276,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Write to a timestamped state/devto-engagement-YYYY-MM-DD-agent-HHMM.md file.",
     )
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--now", help="Override current UTC time, for tests.")
     return parser
 

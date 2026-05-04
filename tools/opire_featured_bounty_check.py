@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
 
+try:
+    from tools.agent_identity import default_agent_name
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
+
 
 DEFAULT_HOME_URL = "https://opire.dev/home"
 DEFAULT_USER_AGENT = "survival-agents-opire-featured-check/1.0"
@@ -500,7 +505,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Write to state/opire-featured-bounty-check-YYYY-MM-DD-agent-HHMM.md.",
     )
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--now", help="Override current UTC time, for tests.")
     return parser
 

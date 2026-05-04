@@ -22,6 +22,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
+try:
+    from tools.agent_identity import default_agent_name
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
+
 
 DEFAULT_API_URL = "https://dev.to/api/articles"
 DEFAULT_USER_AGENT = "survival-agents/1.0 (+https://github.com/dutchaiagency/ai-agent-duo)"
@@ -433,7 +438,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--api-url", default=DEFAULT_API_URL)
     parser.add_argument("--write", type=Path)
     parser.add_argument("--state-dir", type=Path)
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--now")
     return parser.parse_args(argv)
 

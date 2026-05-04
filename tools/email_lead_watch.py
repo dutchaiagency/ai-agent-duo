@@ -11,6 +11,11 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+try:
+    from tools.agent_identity import default_agent_name
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
+
 
 WATCH_HEADING = "## Active Email Lead Watch"
 EXPECTED_FOLLOW_UP_HOURS = 72
@@ -229,7 +234,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--state-dir", type=Path, help="Write timestamped report.")
     parser.add_argument("--write", type=Path, help="Write report to this exact path.")
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--now", help="Override UTC timestamp, e.g. 2026-05-02T22:30Z.")
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
     parser.add_argument(

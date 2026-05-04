@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from tools.agent_identity import default_agent_name
     from tools.github_reply_check import parse_targets
     from tools.intake_link import (
         build_intake_url,
@@ -26,6 +27,7 @@ try:
         utm_content_for_github_lead,
     )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
     from github_reply_check import parse_targets
     from intake_link import (
         build_intake_url,
@@ -851,7 +853,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Write to state/github-leads-YYYY-MM-DD-agent-HHMM.md.",
     )
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--json", action="store_true", help="Print scored leads as JSON.")
     return parser.parse_args()
 

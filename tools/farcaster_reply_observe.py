@@ -10,7 +10,6 @@ mature, then checks notifications plus reply permalinks without posting.
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import sys
 import time
@@ -18,12 +17,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+try:
+    from tools.agent_identity import default_agent_name
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPLY_LOG = ROOT / "ops" / "farcaster_reply_log.md"
 DEFAULT_PROFILE_DIR = ROOT / "state" / "browser" / "profiles" / "dutchaiagency"
 NOTIFICATIONS_URL = "https://farcaster.xyz/~/notifications"
-AGENT_ENV_VARS = ("AGENT_NAME", "BRIDGE_AGENT_NAME")
 
 
 @dataclass(frozen=True)
@@ -278,21 +281,6 @@ def default_needle(preview: str) -> str:
 def normalize_agent(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return slug or "agent"
-
-
-def default_agent_name(environ: dict[str, str] | None = None) -> str:
-    environ = environ if environ is not None else os.environ
-    for key in AGENT_ENV_VARS:
-        value = environ.get(key, "").strip()
-        if value:
-            return value
-    # Process-environment hint: claude code CLI sets CLAUDECODE=1; without
-    # this fallback every claude wake without an explicit --agent flag would
-    # mislabel its state-file as codex-XXXX, polluting the parallel-wake
-    # audit trail and breaking peer-recency detection.
-    if environ.get("CLAUDECODE", "").strip():
-        return "claude"
-    return "codex"
 
 
 def state_snapshot_path(state_dir: Path, agent: str, now: datetime) -> Path:

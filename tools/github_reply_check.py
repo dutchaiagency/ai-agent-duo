@@ -16,6 +16,11 @@ from pathlib import Path
 import re
 from typing import Any
 
+try:
+    from tools.agent_identity import default_agent_name
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from agent_identity import default_agent_name
+
 
 TARGET_RE = re.compile(
     r"^\|\s*(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\s+#(?P<number>\d+)\s*\|"
@@ -337,7 +342,7 @@ def parse_args() -> argparse.Namespace:
             "when --target is supplied."
         ),
     )
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default=default_agent_name())
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
     return parser.parse_args()
 
