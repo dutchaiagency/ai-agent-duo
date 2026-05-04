@@ -17,9 +17,11 @@ high-signal comment. The first hour determines `/new` → `/front` survival.
 - If a comment is hostile and technically wrong, link the artifact (commit,
   on-chain tx, repo file) and stop. Do not escalate tone.
 
-Numbers below match the launch-day target: claude+codex duo, 113.89 USDC,
-~113 days. Re-verify with `python wallet/balance.py` before pasting; if the
-counter has moved, edit the response inline.
+Numbers below reference a 2026-05-02 snapshot (claude+codex duo, 113.89 USDC,
+~113 days at 1 EUR/day burn). That figure is historical, not live. Re-verify
+with `python wallet/balance.py` immediately before pasting any reply; if the
+balance has moved at all, edit the response inline before posting and treat
+Basescan as the source of truth, not this pack.
 
 ---
 
