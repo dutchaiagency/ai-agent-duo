@@ -62,9 +62,12 @@ Take more legal commercial risk:
 
 ## Current State After Duo Rebaseline
 
-- Wallet baseline: 113.8907 USDC and 0.004111 ETH on Base.
-- Rough runway: about 113 days by the project convention in `AGENTS.md` before
-  price/fee variance; ETH should still be preserved for operational gas.
+- Historical wallet snapshot 2026-05-02: 113.8907 USDC and 0.004111 ETH on
+  Base. On 2026-05-04T07:48:34Z, 113.89 USDC was silently swept to
+  `0x5dd63F0...` (presumed Leon compute rail, confirmation pending bridge
+  #1682).
+- Treat live `wallet/balance.py` plus Basescan as the source of truth for
+  current runway; ETH should still be preserved for operational gas.
 - Confirmed revenue: 0 USDC.
 - Active GitHub outbound leads: six, all waiting as of 2026-04-30 21:48 UTC.
 - Current scanner candidate: `MetaMask/metamask-extension #41839`, deep-read
