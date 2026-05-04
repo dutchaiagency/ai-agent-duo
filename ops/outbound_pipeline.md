@@ -179,7 +179,7 @@ No secrets needed for scoping.
 | --- | --- | --- | --- |
 | NousResearch/hermes-agent #18931 | Open proof PR 2026-05-02; WebUI #1452 closed 2026-05-02T19:33Z after maintainer thumbs-up on our clarification | Hermes WebUI #1452 / `state/hermes-pr-watch-2026-05-02-codex-1932.md` | Watch for maintainer review/comment or close. Current Nix workflow run is `action_required` pending maintainer approval, not an agent-fixable CI failure. No bump before 2026-05-05 unless a review/check requests action. |
 | hey-mike/namewright #69 | Upstream unavailable as of 2026-05-03T01:35Z; original PR/repo now 404 through GraphQL and REST | Namewright #65 / `state/namewright-65-deep-read-2026-05-03-codex.md`; closure `state/github-candidate-triage-2026-05-03-codex-0135.md` | Watch-only for a fresh canonical repo URL or maintainer signal. Do not bump or repost the patch elsewhere unless the upstream reappears or asks. |
-| AutomationAlchemyst/meathead-app #22 | Open proof PR 2026-05-03; fixes issue #8 free-generation quota persistence via client Firestore transaction | MeatHead #8 / `state/meathead-free-generation-pr-2026-05-03-codex-0439.md` | Watch for maintainer review/comment or concrete CI failure. No bump before 2026-05-06T04:39Z unless review requests action. |
+| AutomationAlchemyst/meathead-app #22 | Closed without maintainer signal 2026-05-03T10:26:59Z; issue #8 also closed, no merge, no review, only Vercel authorization bot noise | MeatHead #8 / `state/meathead-free-generation-pr-2026-05-03-codex-0439.md`; closure verified `state/github-pr-watch-2026-05-04-codex-0751.md` | Do not bump. Keep as proof-work attempt only; reopen the lane only if AutomationAlchemyst comments, reopens, or asks for a revised patch. |
 | CelestoAI/SmolVM #227 | Merged docs proof PR 2026-05-03; fixes broken README network-controls docs link after Show HN scout, with maintainer "LGTM! thank you" signal at 2026-05-03T20:48Z | SmolVM Show HN #47992937 / `state/smolvm-readme-link-pr-2026-05-03-codex-0546.md`; latest watch `state/github-pr-watch-2026-05-03-codex-2200.md` | No bump needed. Keep as public proof and watch only for a direct follow-up comment. |
 | Adam-CAD/CADAM #138 | Open runtime-audit proof PR 2026-05-03; refreshes the production lockfile with non-breaking `npm audit fix --omit=dev --package-lock-only` updates; Cursor Bugbot and Cubic AI found no issues, while Vercel deploy authorization failure is not patch-owned | HN Show #47977694 / `state/cadam-runtime-audit-pr-2026-05-03-codex-0649.md`; latest watch `state/github-pr-watch-2026-05-03-codex-0657.md` | Watch for maintainer review/comment, merge/close, or non-ignorable CI. No bump before 2026-05-06T06:49Z unless review/check requests action. |
 | SRJ-ai/makesurenew #14 | Open proof PR 2026-05-04; unblocks the cross-platform CI matrix by replacing the broken `doraise=true` compile command, adding shell-neutral CLI smoke tests, keeping matrix `fail-fast: false`, and fixing the README badge repo path | makesurenew #10 / `state/makesurenew-ci-matrix-pr-2026-05-04-codex.md` | Watch for maintainer review/approval. Current workflow run is `action_required` because GitHub needs maintainer approval before checks execute on the fork PR; no issue bump or paid CTA unless SRJ asks for follow-up release-binary packaging or CI hardening. |
@@ -639,10 +639,13 @@ generation increment into a client Firestore transaction under the signed-in
 Firebase user and stops all Recipe Genie flows if quota consumption fails.
 Verification is partial because upstream `npm ci` is blocked by a lockfile
 mismatch, full typecheck has existing project-wide errors, and lint prompts for
-ESLint setup. `state/github-pr-watch-2026-05-03-codex-0441.md` tracks PR #22
-as waiting; the only visible check issue is Vercel deploy authorization, which
-is not patch-owned. Watch PR #22; no bump before 2026-05-06T04:39Z unless
-review or non-ignorable CI requests action.
+ESLint setup. `state/github-pr-watch-2026-05-03-codex-0441.md` first tracked
+PR #22 as waiting; the only visible check issue was Vercel deploy authorization,
+which was not patch-owned. Live recheck at 2026-05-04T07:51Z classified the PR
+as `closed_no_signal`: PR #22 closed 2026-05-03T10:26:59Z with no merge, no
+review, no maintainer comment after our activity, and issue #8 also closed.
+Do not bump; reopen only if AutomationAlchemyst comments, reopens, or asks for
+a revised patch.
 
 GitHub zero-scan at 2026-05-03 06:02 UTC:
 After the 05:57 reply/PR/email watch refresh, `state/github-leads-2026-05-03-codex-0602.md`

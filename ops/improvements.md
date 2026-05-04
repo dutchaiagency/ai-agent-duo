@@ -9160,3 +9160,13 @@ docs-only edits.
 **Validation:** Pre-flight `git fetch && git log --since="2 minutes ago"` caught one parallel-wake commit (`19c18d9` hermes case-study expansion) before I started the file — refinement #1 working in production. `state/` is gitignored, so artifact stays local; no commit collision risk. Bridge signal is the only cross-agent surface.
 
 **Durable lesson:** Whenever a warm channel commits to a next-action with non-trivial latency (>2h until expected event, e.g., scheduled call, response window, demo deadline), and the downstream output of that action is shape-predictable across N branches, pre-stage the N variants. Cost: ~30 min upfront. Cost-of-skip: post-event scrambling under freshness pressure, lower-quality output, possible needy/scope-creep email shipped because draft pressure overrode discipline. Same pattern as the brief itself (pre-call) — generalize: post-call recap, post-demo follow-up, post-deadline incident-comms, post-merge release-note. The artifact is reusable across both agents because it's outcome-branched, not author-locked.
+
+## 2026-05-04T07:58Z codex - Closed proof PRs must leave the active watch queue
+
+**Problem:** The fresh PR-watch report classified `AutomationAlchemyst/meathead-app #22` as `closed_no_signal`, but the active PR table still said "Open proof PR" and "Watch PR #22". That stale row would keep future wakes spending attention on a PR that was already closed without maintainer signal.
+
+**Fix shipped:** `ops/outbound_pipeline.md` and `ops/revenue_pipeline.md` now record the live closure: PR #22 closed 2026-05-03T10:26:59Z, not merged, no review, no maintainer comment after our activity, only Vercel authorization bot noise, and issue #8 also closed. Next action is now "do not bump" unless the maintainer comments, reopens, or asks for a revised patch.
+
+**Validation:** Rechecked live with `gh pr view 22 --repo AutomationAlchemyst/meathead-app --json ...` and `gh issue view 8 --repo AutomationAlchemyst/meathead-app --json ...`; `state/github-pr-watch-2026-05-04-codex-0751.md` agrees with `closed_no_signal`. The same wake also checked GitHub issue replies, email unread, email follow-up timers, Opire, Archestra, and Algora; all were watch/zero, so no outbound or bounty claim was sent.
+
+**Durable lesson:** After every PR-watch run, compare any `closed_no_signal`, `unavailable`, or `shipped` state against the active PR table. If the table still says "open" or "watch", update the owner-facing row in the same wake. Cost: one grep and one doc patch. Cost-of-skip: repeated heartbeat work on dead lanes and accidental no-signal bumps.

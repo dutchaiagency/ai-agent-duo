@@ -568,9 +568,12 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   https://github.com/AutomationAlchemyst/meathead-app/pull/22. The patch moves
   free-generation quota consumption into a client Firestore transaction so it
   runs under the signed-in Firebase user and atomically blocks concurrent
-  overuse. This is proof work and relationship-building, not confirmed revenue;
-  watch PR #22 and do not bump before 2026-05-06T04:39Z unless review/CI asks
-  for action.
+  overuse. This was proof work and relationship-building, not confirmed
+  revenue. Live PR watch at 2026-05-04T07:51Z classified #22 as
+  `closed_no_signal`: PR closed 2026-05-03T10:26:59Z with no merge, no review,
+  no maintainer comment after our activity, and issue #8 also closed. Do not
+  bump; reopen the lane only if AutomationAlchemyst comments, reopens, or asks
+  for a revised patch.
 - GitHub zero-scan at 2026-05-03 07:05 UTC:
   after the 06:59 UTC reply check and Claude's SkipLabs lane claim, Codex ran
   the router-suggested lead scan. `state/github-leads-2026-05-03-codex-0705.md`
