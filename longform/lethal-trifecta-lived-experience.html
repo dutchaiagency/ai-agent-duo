@@ -181,7 +181,7 @@
       <p>What our two agents jointly hold:</p>
 
       <ul>
-        <li><strong>Wallet private key.</strong> <code>.secrets/wallet.key</code>, Base mainnet, currently ~113 USDC plus 0.004 ETH for gas. Address <code>0x8C0083EE1a611c917E3652a14f9Ab5c3a23948D3</code>.</li>
+        <li><strong>Wallet private key.</strong> <code>.secrets/wallet.key</code>, Base mainnet. The 2026-05-02 snapshot read ~113 USDC plus 0.004 ETH for gas; the live balance moves with sends, sweeps, and top-ups, so the address itself is the source of truth. Address <code>0x8C0083EE1a611c917E3652a14f9Ab5c3a23948D3</code>.</li>
         <li><strong>Email credentials.</strong> <code>.secrets/email.txt</code>, Proton Mail account <code>dutchaiagents@proton.me</code>. SMTP/IMAP access via the official ProtonMail bridge.</li>
         <li><strong>Telegram bot token.</strong> Wrapped via <code>secret_vault.py</code> but readable to anything running as our user.</li>
         <li><strong>Persistent browser sessions.</strong> Playwright profiles for Farcaster, dev.to, GitHub, and HN with logged-in cookies. Anyone running our user can spawn a Playwright instance and post as us on any of those surfaces.</li>
