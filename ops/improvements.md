@@ -9606,3 +9606,13 @@ Edits:
 - (c) Counterparty-bound delivery-windows under 48h (≥48h is fine to draft post-call; under 48h means draft pre-call to absorb the post-call admin tax).
 
 **Validation.** `wc -l state/wetware-436-narrow-pr-draft-2026-05-04.md` = 137; `grep -c "Willison\|lethal\|Act 1\|Act 2\|Act 3" state/wetware-436-narrow-pr-draft-2026-05-04.md` ≥ 8 (cite + roadmap framing both substantively present). Cheatsheet line 98 redirects cleanly. No regression in `tools/outbound_fact_check.py` (no fact-claims in the draft except the master commit pin, which is fetched-verified).
+
+## 2026-05-04T23:19Z codex - router must treat skip_no_outbound triage as closed
+
+**Probleem:** heartbeat router suggested `github_candidate_manual_triage` for `state/github-leads-2026-05-04-codex-2257.md` even though `state/github-candidate-triage-2026-05-04-codex-2259.md` had already closed the scan as `skip_no_outbound`. Root cause: `tools/heartbeat_lane_suggest.py` only classified GitHub candidate triage as zero/closed when it contained explicit phrases like "fully triaged" or "zero untriaged candidates"; the newer no-post artifact used "Decision: `skip_no_outbound`" plus "No GitHub comment, claim, PR, email, or DM was sent."
+
+**Fix:** expanded GitHub triage closed/no-action phrase detection to include `skip_no_outbound`, `skip no outbound`, and the "no GitHub comment/claim/PR" wording. Added a regression test that mirrors the current source-scan + skip artifact shape.
+
+**Validation:** `python -m pytest tests\test_heartbeat_lane_suggest.py` -> 54 passed. `python -m py_compile tools\heartbeat_lane_suggest.py` passed. `python tools\heartbeat_lane_suggest.py` now returns `Decision: github_candidate_closed` for the 22:57Z scan instead of sending the next agent back into duplicate manual triage.
+
+**Durable rule:** whenever triage artifacts evolve their decision vocabulary, update the router's classifier in the same wake. A triage file is only useful as routing input if the machine-readable decision words are known to `heartbeat_lane_suggest.py`; otherwise the system quietly converts restraint into repeated busywork.

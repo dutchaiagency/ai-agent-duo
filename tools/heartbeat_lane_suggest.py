@@ -45,14 +45,20 @@ GITHUB_TRIAGE_CLOSED_TERMS = (
     "fully triaged",
     "triage complete",
     "zero untriaged candidates",
+    "skip_no_outbound",
+    "skip no outbound",
 )
 GITHUB_TRIAGE_NO_ACTION_TERMS = (
     "no public comment",
     "no public outreach",
+    "no github comment",
     "no claim",
     "no pr",
+    "no github comment, claim, pr",
     "no-go",
     "posted nothing",
+    "skip_no_outbound",
+    "skip no outbound",
 )
 NO_INVENTORY_ZERO_TERMS = (
     "0 reservation issues",
@@ -386,7 +392,9 @@ def classify_event(path: Path) -> StateEvent | None:
         reply_signal = bool(re.search(r"(?m)^\|\s*reply\s*\|", lower))
         zero_signal = not reply_signal
     elif kind == "github_candidate_triage":
-        zero_signal = has_any(lower, GITHUB_TRIAGE_CLOSED_TERMS)
+        zero_signal = has_any(lower, GITHUB_TRIAGE_CLOSED_TERMS) or has_any(
+            lower, GITHUB_TRIAGE_NO_ACTION_TERMS
+        )
     elif kind == "no_inventory":
         zero_signal = has_any(lower, NO_INVENTORY_ZERO_TERMS) or has_any(
             lower, NO_INVENTORY_FINAL_TERMS

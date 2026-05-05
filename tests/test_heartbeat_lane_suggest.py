@@ -1650,6 +1650,48 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertIn("no-action triage closure", suggestion.reason)
         self.assertNotIn("Watch the logged PR", suggestion.next_steps[0])
 
+    def test_skip_no_outbound_triage_closes_source_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-replies-2026-05-04-codex-2256.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "github-leads-2026-05-04-codex-2257.md",
+                (
+                    "| Score | Decision | Lead |\n"
+                    "| ---: | --- | --- |\n"
+                    "| 55 | deep_read | [org/volunteer #179](https://github.com/org/volunteer/issues/179) |\n"
+                    "| 40 | watch | [example/repo #6](https://github.com/example/repo/issues/6) |\n"
+                ),
+            )
+            write(
+                state / "github-candidate-triage-2026-05-04-codex-2259.md",
+                (
+                    "Source scan: state/github-leads-2026-05-04-codex-2257.md\n"
+                    "Decision: `skip_no_outbound`.\n"
+                    "No GitHub comment, claim, PR, email, or DM was sent.\n"
+                ),
+            )
+
+            triage = lane.classify_event(
+                state / "github-candidate-triage-2026-05-04-codex-2259.md"
+            )
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 4, 23, 17, tzinfo=UTC),
+            )
+
+        self.assertIsNotNone(triage)
+        assert triage is not None
+        self.assertTrue(triage.zero_signal)
+        self.assertEqual(suggestion.decision, "github_candidate_closed")
+        self.assertIn("no-action triage closure", suggestion.reason)
+
     def test_no_action_triage_beats_stale_reply_rescan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
