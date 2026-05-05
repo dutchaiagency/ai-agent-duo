@@ -47,6 +47,10 @@ GITHUB_TRIAGE_CLOSED_TERMS = (
     "zero untriaged candidates",
     "skip_no_outbound",
     "skip no outbound",
+    "public_field_note_no_cta",
+    "triaged_public_field_note_no_cta",
+    "public_pr_review_no_duplicate",
+    "triaged_public_pr_review_no_duplicate",
 )
 GITHUB_TRIAGE_NO_ACTION_TERMS = (
     "no public comment",

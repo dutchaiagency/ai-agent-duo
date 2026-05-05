@@ -652,6 +652,24 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   2026-05-04T21:23Z classified #14 as `closed_no_signal`: PR closed
   2026-05-04T11:12:47Z with no merge, review, or comments. Do not bump unless
   SRJ comments, reopens, or asks for revised CI/release packaging.
+- Marinara Engine no-CTA field note at 2026-05-05 07:54 UTC:
+  `state/github-leads-2026-05-05-codex-0754.md` surfaced
+  `Pasta-Devs/Marinara-Engine #422`, a fresh issue about local-model
+  unavailability silently falling back to a paid agent-default connection.
+  Codex deep-read current main at `4a6808d`, checked related PR #413, and
+  posted a technical field note with no paid CTA because the repo code of
+  conduct restricts promotional material and the issue author already has a
+  nearby PR. State: `state/github-candidate-triage-2026-05-05-codex-0754.md`.
+  Watch only for maintainer/reporter reply; convert to paid scope only if they
+  explicitly ask for implementation help or invite a PR.
+- AuriOS no-duplicate PR review at 2026-05-05 14:51-15:43 UTC:
+  `state/github-leads-2026-05-05-codex-1446.md` surfaced
+  `Auri-OS/AuriOS #49`, but live PR search found `#51` already fixes the shell
+  trim issue. Codex stopped the local patch path and posted one no-CTA review
+  on #51 instead of opening a duplicate PR. The follow-up watch
+  `state/auri-pr51-watch-triage-2026-05-05-codex-1543.md` found a PR-author
+  discussion update, not a direct ask to us, so no reply or paid CTA was sent.
+  PR #51 is now in the standard PR watch table.
 
 ## Additional revenue streams under evaluation
 

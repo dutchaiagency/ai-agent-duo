@@ -19,6 +19,8 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 WATCH_HEADING = "## Active Email Lead Watch"
 EXPECTED_FOLLOW_UP_HOURS = 72
+DEFAULT_SUPPRESSION_LIST = Path("ops/email_suppression_list.md")
+EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -83,6 +85,24 @@ def parse_email_leads(markdown: str) -> list[EmailLead]:
     return leads
 
 
+def parse_suppressed_emails(markdown: str) -> set[str]:
+    return {match.group(0).lower() for match in EMAIL_RE.finditer(markdown)}
+
+
+def load_suppressed_emails(path: Path) -> set[str]:
+    try:
+        return parse_suppressed_emails(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return set()
+
+
+def lead_email(lead: str) -> str | None:
+    match = EMAIL_RE.search(lead)
+    if not match:
+        return None
+    return match.group(0).lower()
+
+
 def parse_utc_timestamp(value: str) -> datetime:
     normalized = value.strip().replace("Z", "+00:00")
     parsed = datetime.fromisoformat(normalized)
@@ -107,7 +127,12 @@ def md_escape(value: str) -> str:
     return value.replace("|", "\\|")
 
 
-def classify_lead(lead: EmailLead, *, now: datetime) -> EmailLeadStatus:
+def classify_lead(
+    lead: EmailLead,
+    *,
+    now: datetime,
+    suppressed_emails: set[str] | None = None,
+) -> EmailLeadStatus:
     try:
         sent_dt = parse_utc_timestamp(lead.sent_at)
     except ValueError:
@@ -151,7 +176,11 @@ def classify_lead(lead: EmailLead, *, now: datetime) -> EmailLeadStatus:
 
     hours = (cutoff_dt - now).total_seconds() / 3600
     lowered_action = lead.next_action.lower()
-    if "cold_no_reply" in lowered_action:
+    suppressed = lead_email(lead.lead) in (suppressed_emails or set())
+    if suppressed:
+        state = "suppressed"
+        note = "Address is in email suppression list; no contact on any channel."
+    elif "cold_no_reply" in lowered_action:
         state = "closed"
         note = "Lead is already marked cold_no_reply."
     elif hours <= 0:
@@ -173,8 +202,16 @@ def classify_lead(lead: EmailLead, *, now: datetime) -> EmailLeadStatus:
     )
 
 
-def classify_leads(leads: list[EmailLead], *, now: datetime) -> list[EmailLeadStatus]:
-    return [classify_lead(lead, now=now) for lead in leads]
+def classify_leads(
+    leads: list[EmailLead],
+    *,
+    now: datetime,
+    suppressed_emails: set[str] | None = None,
+) -> list[EmailLeadStatus]:
+    return [
+        classify_lead(lead, now=now, suppressed_emails=suppressed_emails)
+        for lead in leads
+    ]
 
 
 def render_markdown(
@@ -232,6 +269,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("ops/outbound_pipeline.md"),
         help="Markdown pipeline file with Active Email Lead Watch.",
     )
+    parser.add_argument(
+        "--suppression-list",
+        type=Path,
+        default=DEFAULT_SUPPRESSION_LIST,
+        help="Markdown suppression list; matching addresses are never follow-up due.",
+    )
     parser.add_argument("--state-dir", type=Path, help="Write timestamped report.")
     parser.add_argument("--write", type=Path, help="Write report to this exact path.")
     parser.add_argument("--agent", default=default_agent_name())
@@ -264,7 +307,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"email-lead-watch: invalid --now timestamp: {exc}", file=sys.stderr)
         return 2
 
-    statuses = classify_leads(leads, now=now)
+    suppressed_emails = load_suppressed_emails(args.suppression_list)
+    statuses = classify_leads(leads, now=now, suppressed_emails=suppressed_emails)
     generated_at = datetime.now(UTC)
     if args.json:
         output = json.dumps([asdict(status) for status in statuses], indent=2)

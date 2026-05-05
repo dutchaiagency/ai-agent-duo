@@ -1614,6 +1614,90 @@ class HeartbeatLaneSuggestTests(unittest.TestCase):
         self.assertIn("triage closure", suggestion.reason)
         self.assertIn("Watch the logged PR", suggestion.next_steps[0])
 
+    def test_no_cta_field_note_triage_routes_to_watch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-replies-2026-05-05-codex-0754.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "github-leads-2026-05-05-codex-0754.md",
+                (
+                    "# GitHub Lead Scan\n\n"
+                    "| Score | Decision | Lead |\n"
+                    "| ---: | --- | --- |\n"
+                    "| 65 | deep_read | [Pasta-Devs/Marinara-Engine #422](https://github.com/Pasta-Devs/Marinara-Engine/issues/422) |\n"
+                ),
+            )
+            write(
+                state / "github-candidate-triage-2026-05-05-codex-0754.md",
+                (
+                    "Source scan: `state/github-leads-2026-05-05-codex-0754.md`\n"
+                    "Decision: `triaged_public_field_note_no_cta`\n"
+                    "One technical GitHub issue comment was sent as a no-CTA public field note.\n"
+                ),
+            )
+
+            triage = lane.classify_event(
+                state / "github-candidate-triage-2026-05-05-codex-0754.md"
+            )
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 5, 8, 0, tzinfo=UTC),
+            )
+
+        self.assertIsNotNone(triage)
+        assert triage is not None
+        self.assertTrue(triage.zero_signal)
+        self.assertEqual(suggestion.decision, "github_candidate_watch")
+        self.assertIn("Watch the converted artifact", suggestion.reason)
+
+    def test_no_duplicate_pr_review_triage_routes_to_watch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "state"
+            ops = root / "ops"
+            write(
+                state / "github-replies-2026-05-05-codex-1446.md",
+                "| State | Lead |\n| --- | --- |\n| waiting | example/repo #1 |",
+            )
+            write(
+                state / "github-leads-2026-05-05-codex-1446.md",
+                (
+                    "# GitHub Lead Scan\n\n"
+                    "| Score | Decision | Lead |\n"
+                    "| ---: | --- | --- |\n"
+                    "| 55 | deep_read | [Auri-OS/AuriOS #49](https://github.com/Auri-OS/AuriOS/issues/49) |\n"
+                ),
+            )
+            write(
+                state / "github-candidate-triage-2026-05-05-codex-1451.md",
+                (
+                    "Source scan: `state/github-leads-2026-05-05-codex-1446.md`\n"
+                    "Decision: `triaged_public_pr_review_no_duplicate`\n"
+                    "Existing PR #51 already fixed the issue, so a no-CTA public PR review was posted instead.\n"
+                ),
+            )
+
+            triage = lane.classify_event(
+                state / "github-candidate-triage-2026-05-05-codex-1451.md"
+            )
+            suggestion = lane.suggest_next_action(
+                lane.load_events(state),
+                ops,
+                datetime(2026, 5, 5, 14, 55, tzinfo=UTC),
+            )
+
+        self.assertIsNotNone(triage)
+        assert triage is not None
+        self.assertTrue(triage.zero_signal)
+        self.assertEqual(suggestion.decision, "github_candidate_watch")
+        self.assertIn("Watch the converted artifact", suggestion.reason)
+
     def test_no_action_triaged_nonzero_github_scan_routes_to_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

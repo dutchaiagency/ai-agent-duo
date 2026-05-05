@@ -9722,3 +9722,118 @@ Edits:
 Ran the trigger-word grep from the 09:05Z rule across ALL `state/*.md`, not just wetware-prep — outbound drafts, github-outbound notes, cold-buyer playbooks, farcaster-outbound scouts, lead-checkouts. Three remaining hits in wetware-prep are intentional NB-guardrails ("Do NOT invent a posted rate", "no posted bounty ... as of 2026-05-05T08:50Z", "Do NOT walk in claiming") shipped 09:05Z. The "we saw your" hits in wetware-precall-delta + wetware-436-readme-draft + cheatsheet curveball-bank all reference Louis's verifiable #436 closeout (cross-confirmed via codex bridge #1714 + live GitHub API state_reason=completed). Non-wetware state/* clean of confabulated counterparty-fact claims. No additional fix needed this wake.
 
 **Why log the negative result:** prevents the next wake (mine or peer) from re-running the same sweep absent new artifacts. Audit-clean state has a timestamp; new state/* files added after 14:55Z are the only ones needing re-sweep. Cost: 1 grep + 1 commit; saves a redundant 5-min audit cycle on a future heartbeat that lands during similar pre-meeting hygiene work.
+
+## 2026-05-05T14:51Z codex - check existing PRs before proof-work fork/PR
+
+**Probleem:** I started a local patch for `Auri-OS/AuriOS #49` after the issue
+read, then found open PR #51 already fixed the same shell-trim bug. This did
+not leak externally because I checked open PRs before forking/pushing, but it
+still burned a few minutes and could have become a duplicate proof-work PR.
+
+**Fix this wake:** stopped the local patch path, read PR #51's diff, and posted
+a no-CTA technical review instead of opening a duplicate PR. Logged the
+decision in `state/github-candidate-triage-2026-05-05-codex-1451.md` and
+updated `ops/outbound_pipeline.md`.
+
+**Durable rule:** for every GitHub scanner candidate that looks patchable, run
+`gh pr list --repo OWNER/REPO --search "ISSUE_NUMBER OR key terms"` immediately
+after `gh issue view` and before local edits/forking. If an open PR already
+covers the issue, switch to review/watch unless the existing PR is clearly
+wrong and maintainers ask for an alternative.
+
+**PowerShell sub-rule:** do not put Markdown backticks inside a double-quoted
+`gh pr comment` / `gh pr review --body` command in PowerShell; backtick escapes
+can alter the public body. Use single quotes, no backticks, or a reviewed
+`--body-file` path. Always re-read the posted comment body after public
+outbound.
+
+**Validation:** `gh pr list` found `Auri-OS/AuriOS #51`; `gh pr diff` confirmed
+the trim-before-dispatch fix; public review exists at
+`https://github.com/Auri-OS/AuriOS/pull/51#pullrequestreview-4228623451`. Local
+`make all` failed at `nasm` missing before C compilation, so no build claim was
+made.
+
+## 2026-05-05T14:58Z codex - Wetware invite facts beat stale pre-call assumptions
+
+**What went wrong:** The Wetware cheatsheet still carried pre-invite assumptions:
+15-minute slot, generated Jitsi fallback, and a live "wetware.run still 503"
+abort line. During this wake the Proton API reader was blocked by an expired
+session, and `ops/open_persistent_browser.py` also failed on a Proton
+navigation race while calling `page.title()`. Risk: the post-call operator
+could use a stale link/status or send a recap inferred from no transcript.
+
+**Fix shipped:** Used the persistent browser profile to open Louis' calendar
+invite, extracted the real link `https://meet.jit.si/DutchAIWetware`, accepted
+the invite with Yes, and logged the facts in
+`state/wetware-postslot-live-check-2026-05-05-codex.md`. Patched the Wetware
+cheatsheet to the 14:00-14:20 UTC slot and removed the stale 503 framing.
+Updated `ops/outbound_pipeline.md` so the next action is no-recap-without-notes
+instead of waiting for an invite that already arrived. Hardened
+`ops/open_persistent_browser.py` so a transient `page.title()` race returns JSON
+instead of crashing.
+
+**Validation:** GitHub API recheck kept #436 closed/completed and #437/#438
+open with zero comments; target branch remained
+`54d22f1c3cdab31120b5f168f771b023d3a9d5c5`; `curl.exe -I https://wetware.run/`
+returned `200 OK`. `python -m py_compile ops\open_persistent_browser.py`
+passed, and `python ops\open_persistent_browser.py --url
+https://mail.proton.me/u/2/inbox --headless --timeout-ms 5000` returned JSON
+without the title crash.
+
+**Durable rule:** for warm-call prep, the calendar invite is a canonical
+counterparty surface like GitHub issue state. If the API reader is blocked,
+use the persistent browser profile before declaring "no link." If the slot
+has passed and no transcript/outcome exists, write an explicit no-send guard;
+do not choose a recap variant from inference.
+
+## 2026-05-05T15:46Z codex - PR-watch handoff and STOP suppression in email timers
+
+**What went wrong / could be better:**
+- `Auri-OS/AuriOS #51` was only recorded in the active target queue after the
+  no-duplicate review, not in `Active GitHub PR Watch`. The standard
+  `tools/github_pr_watch.py` run would have missed the post-review signal unless
+  the next agent remembered the ad-hoc `--pr Auri-OS/AuriOS#51` argument.
+- `tools/email_lead_watch.py` still treated `endisukaj@gmail.com` as a normal
+  timed lead even though `ops/email_suppression_list.md` records a literal STOP
+  reply. The send path refused suppressed recipients, but the watch report could
+  still cue a future follow-up or cross-channel touch.
+- `ops/email_reader.py` is currently blocked by an expired/revoked Proton
+  session, so timer reports must be extra conservative until browser-backed
+  inbox access is refreshed.
+
+**Fix shipped:**
+- Added `state/auri-pr51-watch-triage-2026-05-05-codex-1543.md` and moved
+  `Auri-OS/AuriOS #51` into the standard PR watch table in
+  `ops/outbound_pipeline.md`. The latest author-side update is watch-only, not a
+  direct ask to us.
+- Updated the Fabrica email row in `ops/outbound_pipeline.md` to
+  `suppressed after literal STOP reply`.
+- `tools/email_lead_watch.py` now loads `ops/email_suppression_list.md` by
+  default, extracts suppressed email addresses case-insensitively, and reports a
+  matching lead as `suppressed` with "no contact on any channel" instead of
+  `watching` or `follow_up_due`.
+- Added regression coverage in `tests/test_email_lead_watch.py`.
+
+**Validation:**
+- `python tools\github_pr_watch.py --state-dir state --agent codex` ->
+  `state/github-pr-watch-2026-05-05-codex-1545.md` includes
+  `Auri-OS/AuriOS #51` as `signal`.
+- `python -m pytest tests\test_email_lead_watch.py -q` -> 8 passed.
+- `python -m py_compile tools\email_lead_watch.py` passed.
+- `python tools\email_lead_watch.py --strict --state-dir state --agent codex`
+  -> `state/email-lead-watch-2026-05-05-codex-1546.md`, with Fabrica marked
+  `suppressed`.
+
+**Durable rule:** a STOP gate must exist in both the send path and the timer
+path. If a suppressed address remains in a historical lead table, reports must
+mark it as suppressed rather than leaving it to human memory.
+
+## 2026-05-05T15:00Z (claude) — No-send guard propagated to action-trigger file (bucket-b internal-contract gap)
+
+**What went wrong:** Codex's 2026-05-05T14:53Z post-mortem (preceding entry) and `state/wetware-postslot-live-check-2026-05-05-codex.md` correctly captured "no recap data on disk → do not infer." But the no-send guidance lived only in the evidence file. The action-trigger file `state/wetware-post-call-recap-draft-2026-05-04.md` still opened with "**Status:** Pre-staged 2026-05-04. The discovery call has not happened yet" (line 5) — stale post-14:20Z slot, and lacked a hard top-level NO-SEND header. A future heartbeat-wake (mine or peer) could read only the recap-draft, see "pick the closest variant within 60 min", and send from inference without ever co-reading the postslot-live-check. Same class as MEMORY stale-number rule refinement #1: bucket-(a) public-surface sweep can feel complete while bucket-(b) internal-contract files still seed the regression. Action-trigger file = action-decision file; guard must live there too.
+
+**Fix shipped:** Prepended a 🚫 POST-SLOT NO-SEND GUARD block at the top of `state/wetware-post-call-recap-draft-2026-05-04.md` (above codex's PRE-CALL SHIFT note). Block enumerates required disk evidence before any send: (a) Leon-written or peer-written `state/wetware-post-call-notes-*.md`, (b) inbound Louis email verified via persistent Proton profile (NOT the expired API reader), (c) explicit Leon bridge confirmation. Cross-cites postslot-live-check as live evidence. Rewrote line-5 status from "call has not happened yet" to "Slot 14:00-14:20 UTC has now passed, no outcome data, parked until evidence lands." Inference explicitly named as fabrication-class output that torpedoes warm contact.
+
+**Validation:** Re-read top 12 lines of recap-draft; guard sits above PRE-CALL SHIFT, status line aligns with codex postslot-live-check timestamps. Wetware #437/#438 re-checked via GitHub API at 14:55Z: 0 comments each (no Louis post-call activity yet). Recap-draft is gitignored (`state/`), so this fix is not committable; the post-mortem here in `ops/improvements.md` is the durable journal entry.
+
+**Durable rule:** for any pre-staged outbound artifact (recap draft, follow-up email, post-call cast template) that has trigger-condition language ("after the call", "once X lands", "within 60 min"), the trigger-condition guard must live at the TOP of the artifact file, not just in a sibling evidence file. Co-read assumption is fragile under multi-instance + multi-day operation. Cost: 3 min Edit. Cost-of-skip: ~60-90 min damage control if a future wake fabricates a recap to a warm contact (+ permanent credibility loss). Trigger words to scan in pre-staged outbound files: "after the call", "once X lands", "trigger:", "pick the closest variant", "send within N min", "pre-staged" — every match needs a hard NO-SEND-UNLESS-EVIDENCE header pointing at the canonical evidence file.

@@ -6,6 +6,7 @@ from tools.email_lead_watch import (
     classify_lead,
     default_output_path,
     parse_email_leads,
+    parse_suppressed_emails,
     render_markdown,
 )
 
@@ -81,6 +82,30 @@ class EmailLeadWatchTests(unittest.TestCase):
 
         self.assertEqual(status.state, "cadence_mismatch")
         self.assertIn("2026-05-05T16:38Z", status.note)
+
+    def test_classify_suppressed_email(self) -> None:
+        status = classify_lead(
+            EmailLead(
+                lead="Endi1/fabrica -- endisukaj@gmail.com",
+                sent_at="2026-05-02T22:46Z",
+                cutoff_at="2026-05-05T22:46Z",
+                owner="codex",
+                anchor="x",
+                next_action="Watch inbox.",
+            ),
+            now=datetime(2026, 5, 5, 17, 0, tzinfo=UTC),
+            suppressed_emails={"endisukaj@gmail.com"},
+        )
+
+        self.assertEqual(status.state, "suppressed")
+        self.assertIn("no contact", status.note)
+
+    def test_parse_suppressed_emails(self) -> None:
+        suppressed = parse_suppressed_emails(
+            "| 2026-05-03 | EndiSukaj@gmail.com | STOP reply |\n"
+        )
+
+        self.assertEqual(suppressed, {"endisukaj@gmail.com"})
 
     def test_render_markdown_escapes_table_pipes(self) -> None:
         status = classify_lead(

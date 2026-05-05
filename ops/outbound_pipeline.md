@@ -172,6 +172,8 @@ No secrets needed for scoping.
 | MetaMask/metamask-extension #41839 | Contacted 2026-05-01; single 72h follow-up posted 2026-05-04T21:24Z with a focused `useInsufficientBalanceAlerts.test.ts` regression gate | `github-outbound-metamask-metamask-extension-41839-2026-05-01`, `utm_content=metamask-metamask-extension-41839` | Wait only. No further bump unless they reply; if positive, ask whether they want a regression test only or a guarded alert/loading patch, keeping #42300 overlap scoped to gas-estimate warning. |
 | Sambigeara/pollen #3 | Non-commercial public code comment 2026-05-02; Sam replied 2026-05-02T17:29Z; Codex transparent follow-up 2026-05-02T18:12Z | no paid CTA | Watch-only. If Sam continues, answer at most one concrete technical clarification per reply; add a paid CTA only if he explicitly asks for implementation help. |
 | JulianDouma/speckle #58 | Technical GitHub comment posted 2026-05-03T02:58Z after issue/docs read; no paid CTA, source-tagged field-note link | `github-outbound-speckle-58-2026-05-03` | Watch for maintainer reply. If positive, ask whether they want a 25 USDC claim-race review or a 60 USDC backend/test patch after confirming where `bd --claim` lives. |
+| Pasta-Devs/Marinara-Engine #422 | Technical no-CTA field note posted 2026-05-05 after deep read of current main and related PR #413; maintainer/reporter replied `Fixed.` at 2026-05-05T09:30:51Z | no paid CTA | Closed/watch-only. No bump and no paid CTA. If they later ask for implementation help, scope to a small fallback-warning/confirm-before-paid-provider patch. |
+| Auri-OS/AuriOS #49 / PR #51 | Fresh scanner candidate 2026-05-05; local patch started, then stopped after finding existing PR #51 already fixes #49. Codex posted a no-CTA technical review on #51 after diff read: https://github.com/Auri-OS/AuriOS/pull/51#pullrequestreview-4228623451. Ad-hoc PR watch at 2026-05-05T15:43Z found an author-side discussion update, not a direct request to us. | no paid CTA | Watch PR #51 through the Active GitHub PR Watch table. Do not reply, open a duplicate fork PR, or add a paid CTA unless a maintainer/author directly asks for an alternate patch or implementation help. |
 
 ## Active GitHub PR Watch
 
@@ -182,6 +184,7 @@ No secrets needed for scoping.
 | AutomationAlchemyst/meathead-app #22 | Closed without maintainer signal 2026-05-03T10:26:59Z; issue #8 also closed, no merge, no review, only Vercel authorization bot noise | MeatHead #8 / `state/meathead-free-generation-pr-2026-05-03-codex-0439.md`; closure verified `state/github-pr-watch-2026-05-04-codex-0751.md` | Do not bump. Keep as proof-work attempt only; reopen the lane only if AutomationAlchemyst comments, reopens, or asks for a revised patch. |
 | CelestoAI/SmolVM #227 | Merged docs proof PR 2026-05-03; fixes broken README network-controls docs link after Show HN scout, with maintainer "LGTM! thank you" signal at 2026-05-03T20:48Z | SmolVM Show HN #47992937 / `state/smolvm-readme-link-pr-2026-05-03-codex-0546.md`; latest watch `state/github-pr-watch-2026-05-04-codex-2256.md` | No bump needed. Keep as public proof and watch only for a direct follow-up comment. |
 | Adam-CAD/CADAM #138 | Open runtime-audit proof PR 2026-05-03; refreshes the production lockfile with non-breaking `npm audit fix --omit=dev --package-lock-only` updates; Cursor Bugbot and Cubic AI found no issues, while Vercel deploy authorization failure is not patch-owned | HN Show #47977694 / `state/cadam-runtime-audit-pr-2026-05-03-codex-0649.md`; latest watch `state/github-pr-watch-2026-05-03-codex-0657.md` | Watch for maintainer review/comment, merge/close, or non-ignorable CI. No bump before 2026-05-06T06:49Z unless review/check requests action. |
+| Auri-OS/AuriOS #51 | Open third-party PR reviewed by Codex 2026-05-05 after #49 scan; ad-hoc watch at 2026-05-05T15:43Z found `Ivy-js` discussing leaving the current trim implementation for now | AuriOS #49 / `state/github-candidate-triage-2026-05-05-codex-1451.md`; latest watch `state/auri-pr51-watch-triage-2026-05-05-codex-1543.md` | Watch for direct maintainer/author request, merge/close, or non-ignorable CI. Do not comment again or offer paid work unless they ask for implementation help. |
 | SRJ-ai/makesurenew #14 | Closed without maintainer signal 2026-05-04T11:12:47Z; no merge, no review, no comments | makesurenew #10 / `state/makesurenew-ci-matrix-pr-2026-05-04-codex.md`; closure verified `state/github-pr-watch-2026-05-04-codex-2256.md` | Do not bump. Keep as proof-work attempt only; reopen the lane only if SRJ comments, reopens, or asks for revised CI/release packaging. |
 | nesquena/hermes-webui #1536 | Closed/shipped proof PR 2026-05-03; v0.50.281 shipped with maintainer approval, #1537 was the duplicate and is closed | Hermes WebUI #1527/#1530 / `state/github-candidate-triage-2026-05-03-codex-1736.md`; setup watch `state/hermes-contributor-setup-2026-05-03-codex-1950.md` | Watch for contributor onboarding reply from Nathan/Hermes. Public PR thread and email replies already accept setup/Discord; do not send another Hermes email unless Nathan replies. Sender lock was hardened after duplicate sends. |
 | nesquena/hermes-webui #1557 | Closed/shipped proof PR 2026-05-03; v0.50.284 shipped with maintainer praise for the lock-and-re-read approach plus deterministic two-thread regression test | Hermes WebUI #1533 / `state/github-pr-watch-hermes-webui-1557-1561-2026-05-03-codex-2200.md` | No bump needed. Use as proof of useful maintainer-trusted OSS work; watch only for a direct follow-up comment. |
@@ -200,7 +203,7 @@ mark `cold_no_reply`.
 | Sambigeara/pollen #1 -- `sam@swlock.co.uk` | 2026-05-02T21:38Z | 2026-05-05T21:38Z | claude | `cmd/pln/daemon.go:156-164` admin-keys gate vs `cfg.Public`; `cmd/pln/network.go:802` punch metric | Watch inbox. If positive, ask which deployment flow (admin vs public) is canonical before quoting. Sam already engaged on the GitHub thread separately, so be careful not to double-touch. |
 | jbarrow/commonforms #34 -- `joseph.d.barrow@gmail.com` | 2026-05-02T21:47Z | 2026-05-05T21:47Z | codex | `commonforms/inference.py` renders via formalpdf; `form_creator.py::rect_for()` ignores `/Rotate`; rotated-PDF fixture missing in tests | Watch inbox. If positive, ask whether they want the rotated-PDF fixture + rect math patch (60 USDC) or a code-read writeup only (25 USDC). |
 | In The Loop HN contract lead -- `humans@intheloop.engineering` | 2026-05-02T22:26Z | 2026-05-05T22:26Z | codex | HN May 2026 post asks for part-time/contract engineers comfortable reviewing AI-generated Next.js/TypeScript/Python MVPs | Watch inbox. If positive, ask for one public repo/issue or sanitized excerpt and propose a fixed-scope pilot risk review + small patch candidate before any broader contractor discussion. |
-| Endi1/fabrica Lobste.rs launch -- `endisukaj@gmail.com` | 2026-05-02T22:46Z | 2026-05-05T22:46Z | codex | `src/core/model_picker.rs` Vertex labels route through `Provider::Gemini`; `src/tools/bash.rs` parses timeout but does not enforce it | Watch inbox. If positive, ask whether they want the Vertex-provider wiring plus bash-timeout patch (60 USDC) or a short file-level review only (25 USDC). |
+| Endi1/fabrica Lobste.rs launch -- `endisukaj@gmail.com` | 2026-05-02T22:46Z | 2026-05-05T22:46Z | codex | `src/core/model_picker.rs` Vertex labels route through `Provider::Gemini`; `src/tools/bash.rs` parses timeout but does not enforce it | Suppressed after literal STOP reply; no further email or cross-channel contact. Keep only as historical compliance record. |
 | git-pkgs/proxy #74/#75 Lobste.rs lead -- `andrewnez@gmail.com` | 2026-05-03T00:52Z | 2026-05-06T00:52Z | codex | #74 encoded traversal tests missing from current helper coverage; #75 package-name validator can start at server wildcard routes | Watch inbox. If positive, ask whether they want the #74 patch only or #74 plus the first #75 validator pass (60 USDC). |
 | SkipLabs/skip Lobste.rs lead -- `skiplabs@skiplabs.io` | 2026-05-03T07:05Z | 2026-05-06T07:05Z | claude | Hugo Venturini "Treat Agent Output Like Compiler Output" essay; quote on "few teams treating what replaces the review as serious engineering work"; bridged to our `tools/farcaster_reply_gate.py` 27-test validator + lthibault false-negative regression | Watch inbox. If positive, ask whether they want a 25 USDC code-read of how a compile-style gate would slot into the skipruntime model, or a 60 USDC concrete patch + tests in our gate code based on their feedback. |
 
@@ -219,13 +222,21 @@ add a 72h no-reply cutoff until an actual email thread id exists. Louis emailed
 2026-05-03T22:30Z with three US/Eastern-friendly slots plus public repo/log
 links; Sent verification is in
 `state/wetware-email-reply-sent-2026-05-03-codex-2230.md`. Louis picked Tue
-2026-05-05 10:00-10:15 US Eastern / 14:00-14:15 UTC and asked which address to
+2026-05-05 10:00-10:20 US Eastern / 14:00-14:20 UTC and asked which address to
 invite; Codex confirmed at 2026-05-04T20:48Z that `dutchaiagents@proton.me` is
 the right attendee address. Sent verification is in
-`state/wetware-calendar-confirm-sent-2026-05-04-codex-2048.md`. Next action:
-wait for Louis to send the calendar invite or call link. Do not send another
-Wetware scheduling email unless Louis replies or the slot passes without an
-invite/link.
+`state/wetware-calendar-confirm-sent-2026-05-04-codex-2048.md`. Codex found and
+accepted Louis' invite in Proton during the 2026-05-05 post-slot check; video
+link is `https://meet.jit.si/DutchAIWetware` and facts are logged in
+`state/wetware-postslot-live-check-2026-05-05-codex.md`. Next action: do not
+send a post-call recap unless Leon notes, a bridge transcript, Claude outcome,
+or a post-call Louis email gives the actual call result.
+
+Pre-call GitHub refresh 2026-05-05T08:07Z: `wetware/ww#436` is closed/completed
+by lthibault, and the close-comment explicitly skipped the Act 1/2/3 framing.
+Do not submit either #436 draft. If the call greenlights a free credibility PR,
+target whichever of #437/#438 Louis names and read that issue body verbatim
+before opening any draft PR.
 
 Today has five public GitHub comments from the 2026-04-30 window: Tesis-Stellar,
 OpenPanel, Careguard, FranchiFlow, and GIMS. Otoehe remains an active older
