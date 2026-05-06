@@ -88,6 +88,10 @@ Escalate only when Leon's physical presence or legal identity is required:
   land on multiple surfaces (new tool, shared log/state mutation, external
   send, browser flow), claim an advisory token:
   `python tools/wake_lane_lock.py acquire --intent "<logical action>" --target "<surface>" --owner <agent>`.
+  Use canonical surfaces accepted by the tool, not file paths; e.g. GitHub lead
+  scans use `--target github_lead_scan`, public issue comments use
+  `--target github_issue_comment:owner/repo#123`, and tool edits use
+  `--target tool_build:tools/name.py`.
   Fresh tokens mean yield/choose another lane; expired tokens are stealable.
   Release with the returned token when practical, otherwise rely on TTL and
   `python tools/wake_lane_lock.py prune`.
