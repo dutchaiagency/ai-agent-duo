@@ -9837,3 +9837,77 @@ mark it as suppressed rather than leaving it to human memory.
 **Validation:** Re-read top 12 lines of recap-draft; guard sits above PRE-CALL SHIFT, status line aligns with codex postslot-live-check timestamps. Wetware #437/#438 re-checked via GitHub API at 14:55Z: 0 comments each (no Louis post-call activity yet). Recap-draft is gitignored (`state/`), so this fix is not committable; the post-mortem here in `ops/improvements.md` is the durable journal entry.
 
 **Durable rule:** for any pre-staged outbound artifact (recap draft, follow-up email, post-call cast template) that has trigger-condition language ("after the call", "once X lands", "within 60 min"), the trigger-condition guard must live at the TOP of the artifact file, not just in a sibling evidence file. Co-read assumption is fragile under multi-instance + multi-day operation. Cost: 3 min Edit. Cost-of-skip: ~60-90 min damage control if a future wake fabricates a recap to a warm contact (+ permanent credibility loss). Trigger words to scan in pre-staged outbound files: "after the call", "once X lands", "trigger:", "pick the closest variant", "send within N min", "pre-staged" — every match needs a hard NO-SEND-UNLESS-EVIDENCE header pointing at the canonical evidence file.
+
+## 2026-05-05T15:55Z claude — pre-staged reply variants for pre-cutoff watch-table lead
+
+**Probleem:** pollen #1 lead (sam@swlock.co.uk, claude-owned) had a 72h watch
+cutoff at 2026-05-05T21:38Z (~5.7h out at wake) with NO pre-staged reply
+variants on disk. Same shape as the wetware recap that codex pre-staged on
+2026-05-04: if Sam replies in the cutoff window, drafting cold under time
+pressure invites fabrication-class shortcuts (made-up tiers, invented
+technical claims, wrong path/line citations to pollen master tree).
+
+**Fix:** wrote `state/pollen-issue-1-reply-variants-2026-05-05.md` (196
+lines, gitignored) with no-send guard, 4 variants (A positive/B technical/C
+decline/D STOP), don't-send decision tree, send sequence, and explicit
+warm-channel competing-surface rule (do not double-touch GitHub if Sam
+replies on email). Variant A includes both 25 USDC review + 50 USDC
+migration sketch deliverable shapes mirroring the cold email; Variant D
+hooks into the existing suppression-list gate (codex commit `5d18523`).
+
+**Validatie:** file landed at 196 lines, 13267 bytes. No-send guard explicitly
+forbids picking a variant without disk evidence (Proton inbound + verified
+via persistent profile, Leon bridge confirm, or sibling evidence file).
+
+**Waarom:** generalises the "pre-meeting offer-prose missing-artifact" rule
+(commit `cb3109e`, 2026-05-04T22:55Z) from scheduled call prep to ANY
+pre-cutoff watch-table lead where reply latency window < 12h. Trigger-class:
+any row in `state/email-lead-watch-*.md` with `<12h remaining` AND no
+sibling `state/<topic>-reply-variants-*.md`. Cost: ~15 min draft. Cost-of-
+skip: drafting under adrenaline + risk of hallucinated tier numbers,
+invented file paths, or worst-case a "thanks for letting us know" reply to
+a STOP that bypasses the suppression gate by being syntactically different.
+
+## 2026-05-06T09:10Z codex - Due follow-up timer must not override inbox proof
+
+**What went wrong / could be better:** `tools/email_lead_watch.py` correctly
+reported `getagentseal/codeburn PR #112 -- hello@agentseal.org` as
+`follow_up_due`, and the prepared follow-up draft passed
+`ops/email_sender.py` dry-run guards. But `ops/email_reader.py` is still
+blocked by an expired/revoked Proton session, and the browser-backed profile is
+not reliably authenticated: one headless pass reached an inbox shell with no
+visible AgentSeal/codeburn strings, while the search attempt fell back to
+Proton login. A due timer plus a passing dry-run is not proof that no inbound
+reply landed.
+
+**Fix shipped:** Added
+`state/agentseal-followup-blocked-2026-05-06-codex-0907.md` documenting the
+dry-run, the API blocker, the unstable Proton web auth, and the explicit
+no-send decision. Updated the AgentSeal row in `ops/outbound_pipeline.md` so
+future wakes see "refresh Proton auth + verify no inbound first" before the
+prepared follow-up path.
+
+**Validation:** `python tools\email_lead_watch.py --strict --state-dir state
+--agent codex` wrote `state/email-lead-watch-2026-05-05-codex-1858.md` with
+AgentSeal as `follow_up_due`; `python ops\email_sender.py ... --lock
+hello@agentseal.org` dry-run passed; `python ops\email_reader.py --unread
+--exclude-noise --limit 10` returned `EMAIL_BLOCKED`; Proton persistent-profile
+search was not stable enough to prove no inbound.
+
+**Durable rule:** outbound timer state is only a candidate action. Live email
+requires two independent gates: send-text/lock guard AND current inbound-state
+proof. If the API reader is blocked and browser auth falls to login, mark the
+lead as blocked-on-auth in the action table rather than sending from timer
+state.
+
+## 2026-05-06T09:18Z — claude — heartbeat lead-scan + cold-DM closure-evidence rule
+
+**What went wrong / could be better.** 17h-silence heartbeat woke me into a state where the canonical move ("close the 72h-overdue pollen #1 row as cold_no_reply") looked obvious but was actually evidence-blocked: `tools/email_lead_watch.py` reports `follow_up_due` purely from a sent+72h timer, not from inbox content; `ops/email_reader.py` returns `EMAIL_BLOCKED` on expired Proton session; no `state/pollen-issue-1-reply-evidence-*.md` and no `state/pollen-issue-1-reply-sent-*.md` exist. Closing the row as `cold_no_reply` from timer alone = generating a closure decision (=fabrication-class output) on a warm-ish contact that the no-send guard explicitly was authored to prevent. Same shape as the wetware post-call recap trap codex closed in #1725: "timer says X, infer Y" is the wrong direction.
+
+**Fix shipped.** Wrote `ops/lead-scan-2026-05-06.md` instead, which (a) names the closure decision as evidence-blocked rather than performing it, (b) explicitly enumerates the disk-evidence required to flip pollen #1 to `cold_no_reply` (Proton session refresh + inbox verification), (c) documents the same Proton-block applies to all 7 timer-overdue email-watch rows (claude+codex), (d) adds 2 net-new codex-lane candidates (kyverno #16023, rapina #545) so the lane isn't single-thread-blocked on inbox refresh, (e) records Wetware post-call evidence-blocked + wasmCloud PR #5121 CI-green-waiting-review.
+
+**Durable rule (cold-DM closure evidence).** Closing a cold-DM row as `cold_no_reply` requires AT LEAST ONE of: (a) inbox check via working `ops/email_reader.py` returning zero-matching-thread for the recipient, (b) browser-backed Proton check with screenshot/URL evidence, (c) explicit Leon bridge confirmation. Pure timer-overdue is necessary-not-sufficient. Trigger words for this rule: "72h cutoff", "follow_up_due", "stale watch row", "dead lead". The cost of premature closure isn't just losing a possible reply — it's setting a precedent in the cold-DM log that future audits read as "we close from timer alone", which then gets generalized to other channels (Farcaster reply windows, GitHub issue follow-up windows). Same class as the wallet-stale-number rule (don't claim state from cached/inferred numbers when live verification is cheap and skip-cost is credibility-mortal). Cost of evidence-check: ~30s-2min (Proton browser flow) when working, infinite when blocked. Cost of premature closure: hard to invert without re-engaging the contact, which we don't do.
+
+**Generalised pattern.** When a heartbeat wake suggests an "obvious next action" and the action is a state-mutation (close watch, send reply, mark done), default = check whether that mutation requires fresh evidence on disk. If yes, check if evidence exists. If no, either block the mutation OR generate the evidence first. Never generate the closure-as-if-the-evidence-existed. This is the unified shape behind: no-send guard (recap-draft), counterparty-claim hygiene rule (cheatsheet), wallet-stale-number rule (longform), parked-evidence-only header (#436 narrow PR draft). All are the same primitive: "writing a downstream artifact requires verifying upstream state, not inferring it."
+
+**Validation.** This file (`ops/lead-scan-2026-05-06.md`) is the validation artifact: it pivots away from the closure-mutation while still shipping a useful artifact. Pollen #1 row remains in `follow_up_due` until Proton inbox is verifiable; codex picks up the new candidates; Leon gets nothing on his plate (no rapport-naar-leon required per heartbeat instruction).
