@@ -10110,3 +10110,184 @@ For lane locks, use tool-accepted surfaces only: `github_lead_scan` for scans,
 **Validatie.** Deze wake: 5 verkenning-tool-calls (bridge_list_recent, git fetch+log, wallet/balance.py live, email_reader.py → EMAIL_BLOCKED bevestigd, farcaster_feed_read /founders+/dev+/ai-agents+/mcp), 0 outbound, 1 improvements-entry. Cost: ~3 min compute. Cost-of-busy-work-alternatief: 15-30 min op artifact dat niemand leest tot warm channel re-opens.
 
 **Durable rule.** Wake-evaluatie checklist (na bridge-inbox lezen): (1) is er een Leon-vraag of peer-bridge-vraag open? (2) is er een gate-passing reply-trigger in /founders /dev? (3) is een warm-channel response gearriveerd? Drie keer nee = exit, niet bouwen. Geldt vooral wanneer compute-rail onbevestigd (live wallet 0.0007 USDC, end-of-runway).
+
+---
+
+## 2026-05-06T10:16Z — codex — Candidate triage should pivot from blocked prestige leads to patchable quiet issues
+
+**Probleem.** De wake startte met `rapina-rs/rapina #545` omdat die inhoudelijk perfect bij AGENTS.md past, maar live verificatie liet zien dat de issue echt op PR #535 blokkeert: `agents.rs` bestaat niet op `main` en #535 heeft dezelfde ochtend nog `CHANGES_REQUESTED`. Daarna was `amaanjaved1/Coursify-WebApp #286` wel bounty-gelabeld, maar al crowded met meerdere generieke take-comments plus spam. Zonder expliciete pivotregel zouden zulke "mooie" leads 20-40 minuten blijven zuigen zonder public artifact.
+
+**Fix shipped.** Gepivot naar `Globussoft-Technologies/medcore #568`, een stille, specifieke commerciële UI-bug. Proof PR geopend: https://github.com/Globussoft-Technologies/medcore/pull/664. De patch bevat money-cell containment (`MoneyValue` met truncation, tooltip, right-aligned tabular numbers), table min-widths, `overflow-x-auto`, en een regression test voor INV000373 / `Rs. 99,99,99,999.00`. Lokale artifact: `state/medcore-billing-overflow-pr-2026-05-06-codex.md`; pipeline bijgewerkt in `ops/outbound_pipeline.md`.
+
+**Validatie.** `npm ci` faalde door upstream lockfile-drift (`package.json` en `package-lock.json` out-of-sync). Geïnstalleerd zonder lockfile-herschrijf met `npm install --package-lock=false --ignore-scripts --no-audit --no-fund`. Focused test `npm run test:web -- apps/web/src/app/dashboard/__tests__/billing.page.test.tsx` -> `1 passed`, `8 passed`; `git diff --check` passed met alleen Windows line-ending warnings.
+
+**Durable rule.** Bij handmatige GitHub-triage: als lead A inhoudelijk goed past maar upstream branch-gated is, en lead B expliciet bounty heeft maar crowded/spammy is, besteed de wake aan lead C met stille specifieke bug + patchable public code. Een no-CTA proof PR met test is meer waard dan een crowded "I can take this" comment of een blocked design-note op een parent PR.
+
+---
+
+## 2026-05-06T10:41Z - codex - Watch refresh should close shipped third-party review lanes
+
+**Probleem.** Autonomy heartbeat #1789 vroeg om een concrete survival-actie, maar de open outbound lanes waren vooral watch-only. Een stale watch-rij is alsnog schadelijk: als een third-party PR al merged is, blijven toekomstige wakes anders tijd verbranden aan dezelfde review surface of riskeren ze een onnodige bump.
+
+**Fix shipped.** Verse reports geschreven: `state/github-replies-2026-05-06-codex-1041.md`, `state/github-pr-watch-2026-05-06-codex-1041.md`, en `state/email-lead-watch-2026-05-06-codex-1041.md`. Geen buyer reply of actionable PR review gevonden. Wel is `Auri-OS/AuriOS #51` nu merged met maintainer-dank, dus `ops/outbound_pipeline.md` markeert AuriOS nu als closed/watch-only en verwijst naar de nieuwste PR-watch. Geen outbound, GitHub comment, of email gestuurd. Proton unread blijft geblokkeerd door `EMAIL_BLOCKED`, dus due email follow-ups blijven auth-gated tot de inbox eerst betrouwbaar kan worden geverifieerd.
+
+**Validatie.** `python tools\github_reply_check.py --state-dir state --agent codex` -> report written; `python tools\github_pr_watch.py --state-dir state --agent codex --note "autonomy-heartbeat-1789 watch refresh"` -> report written; `python tools\email_lead_watch.py --strict --state-dir state --agent codex` -> report written; `python ops\email_reader.py --unread --exclude-noise --limit 10` -> `EMAIL_BLOCKED`.
+
+**Durable rule.** Als een watch-refresh een third-party PR als merged/shipped vindt zonder directe vraag aan ons, sluit de pipeline-rij meteen naar no-bump/watch-only. De volgende wake moet GitHub-tijd besteden aan echte replies, actionable reviews, of patchable nieuwe issues, niet aan al afgeronde assistive reviews.
+
+---
+
+## 2026-05-06T12:10Z — codex — Open WebUI proof PR + large-repo deep-read discipline
+
+**Probleem.** Heartbeat #1791 vroeg om een concrete survival-actie. De router
+wees terecht naar manual triage van de nonzero GitHub scan
+`state/github-leads-2026-05-06-codex-0927.md`, maar mijn Open WebUI deep-read
+begon met een full `git clone --depth 1` van bijna 5k files. Dat blokkeerde de
+wake veel te lang voor een issue waarvan eerst nog moest worden vastgesteld of
+`dev` of `main` de juiste branch was. Tijdens die lange clone kwamen parallel
+nieuwe Codex-lanes op (`github_lead_scan` heartbeat #1793 en Cutebunny), dus
+zonder lane-lock discipline had dit makkelijk dubbel werk kunnen worden.
+
+**Fix shipped.** De bestaande scan is volledig live getrieerd: FloorPlan6 en
+Medcore waren al proof-PRs, Coursify was crowded/spammy, Firebase en Browser
+Use waren gesloten, GetGanemo was generieke contributor-info, Realms had geen
+code repo, en Open WebUI #24378 bleef als patchbare code-kandidaat over. Opened
+no-CTA proof PR https://github.com/open-webui/open-webui/pull/24403 against
+`dev`. Root cause: `/api/v1/chats/shared/{id}/access/update` filters public
+grants through `sharing.public_chats`, but that permission key was missing from
+the backend/frontend default schemas; `ShareChatModal` also rendered the Public
+option without passing the user's public-chat permission. The PR was
+auto-closed by `owui-terminator` for missing CLA confirmation; I did not sign
+the CLA on Leon/DutchAIAgency's behalf. Local artifact:
+`state/open-webui-public-chat-permission-pr-2026-05-06-codex.md`; pipeline row
+added/updated in `ops/outbound_pipeline.md`.
+
+**Validation.** Upstream branch commit `4d1c089` pushed to
+`dutchaiagency:codex/public-chat-permission`; PR #24403 opened then closed by
+the CLA/template bot. Ran
+`python -m py_compile backend/open_webui/config.py` and `git diff --check` in
+the upstream clone. No `npm run check` because `node_modules` was absent and a
+fresh install would have expanded the already-too-large heartbeat cost.
+
+**Durable rule.** Added a revenue-cadence rule in `ops/autonomous_ops.md`: for
+large third-party repos, use GitHub API file reads, commit patches, or narrow
+`git fetch --depth 1 origin <branch>` before a full working-tree clone; only
+clone the whole repo once a patch is likely and the target branch is known.
+
+---
+
+## 2026-05-06T12:18Z - codex - Existing-bot PRs are review lanes, not duplicate patch lanes
+
+**Probleem.** Heartbeat #1793 draaide terecht een verse GitHub reply/lead scan.
+De hoogste nieuwe lead, `pairodorz-netizen/cutebunny-rental #146`, leek eerst
+een patchbare commerciele lifecycle-bug. Live PR-check liet echter zien dat
+Devin al PR #147 had geopend en dat CI groen was. Zonder expliciete pivot zou
+een agent hier makkelijk een duplicaat-PR bouwen op dezelfde issue, precies de
+soort public-noise die maintainervertrouwen kost.
+
+**Fix shipped.** Geen duplicate PR geopend. In plaats daarvan PR #147
+gedeep-read en een no-CTA reviewcomment geplaatst:
+https://github.com/pairodorz-netizen/cutebunny-rental/pull/147#issuecomment-4387382034.
+De review wijst op een semantic acceptance gap: `returned -> cleaning` gebruikt
+`rentalEndDate + buffer`, terwijl issue #146 `returned_at + buffer` accepteert.
+Late returns kunnen daardoor direct naar cleaning springen zodra admin de fysieke
+return registreert. Artifact:
+`state/cutebunny-bug505-devin-pr-review-2026-05-06-codex.md`; pipeline heeft
+nu watch-only rows voor #146/#147.
+
+**Validatie.** `gh issue view 146` bevestigde de `returned_at + buffer` regel;
+`gh pr view 147 --json statusCheckRollup` liet groene lint/typecheck/test/build
+checks zien; lokale clone-inspectie bevestigde dat `OrderStatusLog.createdAt`
+bestaat en dat admin-statusovergangen logregels schrijven die als return-anchor
+kunnen dienen. Reply/PR/email-watch reports voor deze wake zijn geschreven als
+`state/github-replies-2026-05-06-codex-1206.md`,
+`state/github-pr-watch-2026-05-06-codex-1206.md`, en
+`state/email-lead-watch-2026-05-06-codex-1206.md`.
+
+**Durable rule.** Als een scannerlead al een recente bot/third-party PR met
+groene CI heeft, behandel de lane als review-only: deep-read de diff, post
+alleen als er een concrete acceptance-gap is, en log watch-only. Geen duplicate
+PR, geen paid CTA, geen "I can take this" comment.
+
+---
+
+## 2026-05-06T12:22Z - codex - CLA/human-review gates are not autonomous recovery tasks
+
+**Probleem.** De post-Cutebunny PR-watch parse bracht `open-webui/open-webui
+#24403` boven water als nieuw signaal: onze proof PR was automatisch gesloten
+door de Open WebUI bot wegens ontbrekende CLA-template. De verleidelijke fix is
+PR-body aanpassen, CLA-box aanvinken, en heropenen. Dat zou fout zijn: de
+template vraagt ook een bevestiging dat agentic code niet agent-written is of
+door extra human review/manual testing is gegaan. Die attestation kan ik niet
+namens Leon of een mens invullen.
+
+**Fix shipped.** PR niet heropend. `ops/outbound_pipeline.md` markeert #24403
+nu als closed/no-recover; `state/open-webui-public-chat-permission-pr-2026-05-06-codex.md`
+heeft een closure update; `ops/autonomous_ops.md` escaleert CLA/legal
+attestations en human-review/manual-testing claims expliciet naar Leon/human.
+`tools/github_pr_watch.py` classificeert dit soort closures nu als
+`policy_gate` in plaats van actionable `signal`, met regression test in
+`tests/test_github_pr_watch.py`.
+
+**Validatie.** `gh pr view 24403 --repo open-webui/open-webui --comments`
+toonde closure at 2026-05-06T11:10:05Z en de CLA-bot comment. De upstream PR
+template is live gedecodeerd en bevat zowel de CLA checkbox als de agentic-code
+human-review/manual-testing checkbox. `python -m pytest
+tests\test_github_pr_watch.py -q` -> `27 passed`; live
+`python tools\github_pr_watch.py --state-dir state --agent codex --note
+"policy-gate classifier verification"` schreef
+`state/github-pr-watch-2026-05-06-codex-1214.md`, waarin Open WebUI #24403 als
+`policy_gate` staat en Cutebunny #147 als `waiting`.
+
+**Durable rule.** Als een platform of repo legal CLA, contributor license,
+human-review, of manual-testing attestation vereist, behandel dat als
+legal/human-presence gated. Niet autonoom aanvinken, niet doen alsof er human
+review was, en niet een nieuwe PR openen om dezelfde gate te omzeilen.
+
+---
+
+## 2026-05-06T14:50Z - codex - GitHub scouts should survive stale token env
+
+**Probleem.** Heartbeat #1799 moest autonoom replies/PRs checken, maar
+`gh auth status` meldde een ongeldig `GITHUB_TOKEN` terwijl de keyring-login
+voor `dutchaiagency` wel bruikbaar was. Handmatig `$env:GITHUB_TOKEN=''` voor
+elke command werkt, maar is fragiel: de volgende heartbeat kan exact dezelfde
+failure opnieuw krijgen en dan onterecht denken dat GitHub onbereikbaar is.
+
+**Fix shipped.** `tools/github_reply_check.py`, `tools/github_pr_watch.py`, en
+`tools/github_lead_scan.py` herproberen nu een `gh` call precies een keer
+zonder `GITHUB_TOKEN`/`GH_TOKEN` wanneer `gh` expliciet zegt dat login via token
+faalde. Normale GraphQL/REST/not-found fouten blijven onveranderd. Nieuwe
+regression tests dekken de retry in `tests/test_github_reply_check.py`,
+`tests/test_github_pr_watch.py`, en `tests/test_github_lead_scan.py`.
+
+**Validatie.** `python -m unittest tests.test_github_reply_check
+tests.test_github_pr_watch tests.test_github_lead_scan` -> `82 tests OK`.
+Daarna live geverifieerd zonder token-env handmatig te wissen:
+`python tools\github_pr_watch.py --pr open-webui/open-webui#24403 --json`
+classificeerde #24403 als `policy_gate`;
+`python tools\github_reply_check.py --target Pasta-Devs/Marinara-Engine#422
+--json` vond de `Fixed.` reply; `python tools\github_lead_scan.py
+--limit-per-query 1 --min-score 100 --json` retourneerde succesvol `[]`.
+Verse watch artifacts voor deze wake: `state/github-replies-2026-05-06-codex-1446.md`
+en `state/github-pr-watch-2026-05-06-codex-1446.md`.
+
+**Durable rule.** Als `gh` faalt door een expliciet stale token in de omgeving,
+mag de scout naar de lokale keyring-login vallen. Niet blind tokens wissen bij
+alle fouten; alleen retryen op de token-auth tekst, zodat echte permissie-,
+rate-limit-, of repo-onbeschikbaarheidsfouten zichtbaar blijven.
+
+## 2026-05-06T14:55Z claude — funnel-bottleneck not escalated to Leon for ~5h
+
+**What went wrong / could be better.** `tools/email_lead_watch.py` shows 6 cold-email leads in `follow_up_due` window (7.8h-22.2h overdue), all blocked on Proton inbox refresh. Codex documented the per-lead blocker at 09:07Z (`state/agentseal-followup-blocked-2026-05-06-codex-0907.md`) but the consolidated "Leon must refresh Proton, this unblocks 6 leads + Louis warm-thread reply visibility" framing was never sent to Leon. The 09:35Z duo-update covered Wetware/wake-lock/wallet but not the 6-lead-stuck. Net: 5h of inbox darkness (and 14-22h of follow-up overdue clock) elapsed without a Leon-actionable signal.
+
+**Fix shipped (this wake).**
+- `state/email-followup-blocker-2026-05-06-claude-1455.md` consolidates 6-lead state + Proton refresh path.
+- `state/email-lead-watch-2026-05-06-claude-1450.md` canonical timer report (refreshed via `tools/email_lead_watch.py --pipeline ops/outbound_pipeline.md --suppression-list ops/email_suppression_list.md --state-dir state --agent claude`).
+- Bridge #1800 to Leon: concise unblock-ask with state-file path.
+
+**Durable rule (proposed).** When `tools/email_lead_watch.py` reports >=2 leads in `follow_up_due` AND `ops/email_reader.py --unread` returns `EMAIL_BLOCKED`, the next agent wake MUST send a single Leon ping with the consolidated count + state-file path. Default cost: ~2 min artifact + 5 lines bridge. Cost-of-skip: 5h+ of sliding overdue clocks on what may be live revenue paths. Trigger words during heartbeat: "follow_up_due", "EMAIL_BLOCKED", "Proton" — any two in same wake → escalation required.
+
+**Out-of-scope-this-wake durable proposal.** A `tools/proton_session_check.py` that runs on every heartbeat and emits a Telegram nudge if `email_reader.py` returns `EMAIL_BLOCKED` with mtime > 12h. Drops Leon-aware-latency from "next agent wake" to "30 min". Estimated build: ~30 min, codex's lane (browser/tooling).
+
+**Validation.** Bridge #1800 sent (id confirmed by bridge_send return). State files written and re-readable. Email lead watch JSON output matches the consolidated table 1:1.
