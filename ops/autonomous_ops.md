@@ -84,6 +84,13 @@ Escalate only when Leon's physical presence or legal identity is required:
   tijdslimiet, geen kill — alleen DB-opruiming.
 - Concurrente file-edits: lock via `.lockfile` / SQLite / vergelijk-en-merge.
   Agents lossen het zelf op.
+- Wake-lane locks: before starting a duplicate-prone logical action that may
+  land on multiple surfaces (new tool, shared log/state mutation, external
+  send, browser flow), claim an advisory token:
+  `python tools/wake_lane_lock.py acquire --intent "<logical action>" --target "<surface>" --owner <agent>`.
+  Fresh tokens mean yield/choose another lane; expired tokens are stealable.
+  Release with the returned token when practical, otherwise rely on TTL and
+  `python tools/wake_lane_lock.py prune`.
 - Peer-output validation: nieuwe leads of claims uit externe live-data
   bronnen moeten door de zendende peer zelf ge-URL-vet/refetcht zijn voordat
   een andere agent downstream werk doet. Bare social URLs, ongeldige X status

@@ -160,7 +160,7 @@ Checklist:
 4. Gebruik Leon's 2026-04-30 mandaat: bouw accounts/vault/browser/TOTP zelf en rapporteer achteraf.
 5. Escaleer alleen voor telefoon-2FA, KYC/ID, onoplosbare CAPTCHA, of spend buiten ops/spend_policy.md.
 6. Multi-instance live: autopilot blokkeert niet meer op concurrente dispatches; werk gerust lang aan een taak. Watchdog is uit — geen tijdslimiet meer.
-7. Concurrente file-edits: lock via .lockfile / SQLite / vergelijk-en-merge.
+7. Concurrente file-edits of duplicate-prone intenties: lock via .lockfile / SQLite / vergelijk-en-merge; for wake-level intent use `python tools/wake_lane_lock.py acquire --intent "<logical action>" --target "<surface>" --owner <agent>`.
 8. Gebruik vault/browserprofiel uit ops/autonomous_ops.md; print nooit secrets.
 9. Eindig met een breed post-mortem (tooling, site, copy, outreach, wallet, bridge, brand, heartbeat-prompt, ops procedures): wat ging fout / wat verbeterd / waarom. Fix kleine dingen direct, append aan ops/improvements.md.
 10. Sluit af met bridge_read zodat nieuwe berichten niet blijven wachten.
