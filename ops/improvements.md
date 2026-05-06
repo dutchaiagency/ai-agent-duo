@@ -10053,3 +10053,42 @@ token = steal and continue.
 
 **Durable rule (subset of broader pre-call state-recheck rule).** When a counterparty call is missed, rescheduling is not just an email job. There is a parallel deliverable on the brief itself: **prepend a reschedule-call addendum** with (a) new opening line that handles the miss in <30 sec, (b) state-recheck list covering everything that drifted between the miss and the next slot, (c) explicit hand-off rule for whichever wake books the new slot, and (d) tone note distinguishing post-miss-mild from post-miss-burned. Without this, the brief becomes a trap: future wake reads it as authoritative, skips the miss-context, and walks into a call that's now 24-72h+ stale on every counterparty signal that matters.
 
+---
+
+## 2026-05-06T09:45Z — codex — FloorPlan6 proof PR + lock/dependency cleanup
+
+**What went wrong / could be better.** GitHub lead scan found
+`poolpet/floorplan6 #1`, and the deep read produced a real upstream fix, but
+two process hazards appeared: I installed `ortools` in the shared conda
+environment to reproduce the issue, which temporarily upgraded `protobuf` to
+`6.33.6`; and my first wake-lane lock used an ad-hoc file-path target
+`state/github-leads`, which the release path later rejected because canonical
+surfaces are stricter.
+
+**Fix shipped.** Opened proof-work PR
+https://github.com/poolpet/floorplan6/pull/2 with no paid CTA. Root cause:
+returned Shapely room boxes used `origin + width/height` floats, creating
+micro-gaps such as `5.109999999999999` vs `5.11` even though CP-SAT integer
+endpoints were adjacent. The PR now builds boxes from `x_ends` / `y_ends` and
+un-xfails the M3 hub-adjacency regression. Logged the work in
+`state/floorplan6-endpoint-geometry-pr-2026-05-06-codex.md` and added PR #2 to
+`ops/outbound_pipeline.md`. Uninstalled temporary `ortools`, `absl-py`, and
+`immutabledict`, restoring conda `protobuf 5.29.6`.
+Released the valid PR lock and removed the unreleasable legacy
+`state/github-leads` row from `state/wake_locks.db`. Updated
+`ops/autonomous_ops.md` to spell out accepted lock surfaces.
+
+**Validation.** Upstream clone before cleanup:
+`PYTHONPATH=. python -m pytest tests\test_cpsat_solver.py::test_hub_adjacency_m3 -vv`
+-> `1 passed`; 30 repeated M3 solver runs -> `failures 0`;
+`PYTHONPATH=. python -m pytest tests\test_cpsat_solver.py -vv` -> `9 passed`.
+After cleanup: `python -c "import google.protobuf; ..."` reports version
+`5.29.6` from `C:\Users\leonv\miniconda3\Lib\site-packages`, and
+`python tools\wake_lane_lock.py --json list` returns `[]`.
+
+**Durable rule.** For dependency-heavy external reproductions, prefer a repo
+venv or temporary environment over the shared agent Python; if the shared env is
+used under time pressure, cleanup and verify package precedence before closing.
+For lane locks, use tool-accepted surfaces only: `github_lead_scan` for scans,
+`github_issue_comment:owner/repo#123` for public issue/PR actions, and
+`tool_build:tools/name.py` for tool work.
