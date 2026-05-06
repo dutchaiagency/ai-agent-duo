@@ -1,4 +1,5 @@
 import datetime as dt
+import json
 import tempfile
 import unittest
 from contextlib import closing
@@ -11,11 +12,48 @@ class WakeLaneLockTests(unittest.TestCase):
     def open_db(self, path: Path):
         return locks.connect(path)
 
-    def test_intent_hash_normalizes_whitespace_and_case(self) -> None:
+    def test_intent_hash_normalization_contract(self) -> None:
         self.assertEqual(
-            locks.intent_hash(" Calendar   Nudge "),
-            locks.intent_hash("calendar nudge"),
+            locks.normalize_intent("  Build\tcalendar_nudge   tool "),
+            "build calendar nudge tool",
         )
+        self.assertEqual(
+            locks.intent_hash("build calendar nudge tool"),
+            locks.intent_hash("Build calendar_nudge tool"),
+        )
+        self.assertEqual(locks.intent_hash("Build calendar_nudge tool"), "e80b8eca97dccb29")
+        self.assertNotEqual(
+            locks.intent_hash("calendar_nudge.py"),
+            locks.intent_hash("calendar nudge py"),
+        )
+
+    def test_target_surface_validation_contract(self) -> None:
+        self.assertEqual(
+            locks.normalize_surface(" TOOL_BUILD:tools\\calendar_nudge.py "),
+            "tool_build:tools/calendar_nudge.py",
+        )
+        self.assertEqual(locks.normalize_surface("farcaster_reply"), "farcaster_reply")
+        with self.assertRaisesRegex(ValueError, "target surface must match"):
+            locks.normalize_surface("farcaster-reply")
+        with self.assertRaisesRegex(ValueError, "target surface must match"):
+            locks.normalize_surface("fc_reply")
+        with self.assertRaisesRegex(ValueError, "target surface must match"):
+            locks.normalize_surface("fc reply")
+
+    def test_default_ttl_is_15_minutes_with_seconds_override(self) -> None:
+        self.assertEqual(locks.DEFAULT_TTL_SECONDS, 900)
+        args = locks.build_parser().parse_args(
+            [
+                "acquire",
+                "--intent",
+                "long browser job",
+                "--target",
+                "browser_flow:coderlegion",
+                "--ttl",
+                "1800",
+            ]
+        )
+        self.assertEqual(args.ttl, 1800)
 
     def test_acquire_blocks_fresh_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -26,7 +64,7 @@ class WakeLaneLockTests(unittest.TestCase):
                 first = locks.acquire_lock(
                     conn,
                     key=key,
-                    target_surface="tools/calendar_nudge.py",
+                    target_surface="tool_build:tools/calendar_nudge.py",
                     intent="calendar nudge",
                     owner="codex",
                     ttl=dt.timedelta(minutes=30),
@@ -36,7 +74,7 @@ class WakeLaneLockTests(unittest.TestCase):
                 second = locks.acquire_lock(
                     conn,
                     key=key,
-                    target_surface="TOOLS/CALENDAR_NUDGE.PY",
+                    target_surface="TOOL_BUILD:TOOLS\\CALENDAR_NUDGE.PY",
                     intent="calendar nudge",
                     owner="claude",
                     ttl=dt.timedelta(minutes=30),
@@ -58,7 +96,7 @@ class WakeLaneLockTests(unittest.TestCase):
                 first = locks.acquire_lock(
                     conn,
                     key=key,
-                    target_surface="tools/calendar_nudge.py",
+                    target_surface="tool_build:tools/calendar_nudge.py",
                     intent="calendar nudge",
                     owner="codex",
                     ttl=dt.timedelta(minutes=10),
@@ -68,7 +106,7 @@ class WakeLaneLockTests(unittest.TestCase):
                 second = locks.acquire_lock(
                     conn,
                     key=key,
-                    target_surface="tools/calendar_nudge.py",
+                    target_surface="tool_build:tools/calendar_nudge.py",
                     intent="calendar nudge",
                     owner="claude",
                     ttl=dt.timedelta(minutes=10),
@@ -90,7 +128,7 @@ class WakeLaneLockTests(unittest.TestCase):
                 first = locks.acquire_lock(
                     conn,
                     key=key,
-                    target_surface="github:wetware/ww#437",
+                    target_surface="github_issue_comment:wetware/ww#437",
                     intent="reply follow-up",
                     owner="codex",
                     ttl=dt.timedelta(minutes=30),
@@ -99,7 +137,7 @@ class WakeLaneLockTests(unittest.TestCase):
                 second = locks.acquire_lock(
                     conn,
                     key=key,
-                    target_surface="email:louis",
+                    target_surface="email_send_recipient_louis",
                     intent="reply follow-up",
                     owner="claude",
                     ttl=dt.timedelta(minutes=30),
@@ -117,7 +155,7 @@ class WakeLaneLockTests(unittest.TestCase):
                 result = locks.acquire_lock(
                     conn,
                     key=key,
-                    target_surface="tools/calendar_nudge.py",
+                    target_surface="tool_build:tools/calendar_nudge.py",
                     intent="calendar nudge",
                     owner="codex",
                     ttl=dt.timedelta(minutes=30),
@@ -126,7 +164,7 @@ class WakeLaneLockTests(unittest.TestCase):
                     locks.release_lock(
                         conn,
                         key=key,
-                        target_surface="tools/calendar_nudge.py",
+                        target_surface="tool_build:tools/calendar_nudge.py",
                         token="wrong",
                     )
                 )
@@ -134,7 +172,7 @@ class WakeLaneLockTests(unittest.TestCase):
                     locks.release_lock(
                         conn,
                         key=key,
-                        target_surface="tools/calendar_nudge.py",
+                        target_surface="tool_build:tools/calendar_nudge.py",
                         token=result.record.token,
                     )
                 )
@@ -142,9 +180,51 @@ class WakeLaneLockTests(unittest.TestCase):
                     locks.row_for(
                         conn,
                         key=key,
-                        target_surface="tools/calendar_nudge.py",
+                        target_surface="tool_build:tools/calendar_nudge.py",
                     )
                 )
+
+    def test_force_release_writes_audit_log(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / "wake_locks.db"
+            audit = Path(tmp) / "wake_locks_audit.log"
+            key = locks.intent_hash("stuck lane")
+            with closing(self.open_db(db)) as conn:
+                locks.acquire_lock(
+                    conn,
+                    key=key,
+                    target_surface="github_issue_comment:wetware/ww#437",
+                    intent="stuck lane",
+                    owner="codex",
+                    ttl=dt.timedelta(minutes=30),
+                    pid=111,
+                )
+                released = locks.release_lock(
+                    conn,
+                    key=key,
+                    target_surface="github_issue_comment:wetware/ww#437",
+                    force=True,
+                    owner="claude",
+                    audit_log=audit,
+                    reason="stuck token rescue",
+                )
+                self.assertTrue(released)
+                self.assertIsNone(
+                    locks.row_for(
+                        conn,
+                        key=key,
+                        target_surface="github_issue_comment:wetware/ww#437",
+                    )
+                )
+
+            [line] = audit.read_text(encoding="utf-8").splitlines()
+            event = json.loads(line)
+            self.assertEqual(event["event"], "force_release")
+            self.assertEqual(event["intent_hash"], key)
+            self.assertEqual(event["target_surface"], "github_issue_comment:wetware/ww#437")
+            self.assertEqual(event["owner"], "claude")
+            self.assertEqual(event["previous_owner"], "codex")
+            self.assertTrue(event["released"])
 
     def test_prune_removes_only_expired_locks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -154,7 +234,7 @@ class WakeLaneLockTests(unittest.TestCase):
                 locks.acquire_lock(
                     conn,
                     key=locks.intent_hash("old"),
-                    target_surface="surface:old",
+                    target_surface="browser_flow:old",
                     intent="old",
                     owner="codex",
                     ttl=dt.timedelta(minutes=1),
@@ -163,7 +243,7 @@ class WakeLaneLockTests(unittest.TestCase):
                 locks.acquire_lock(
                     conn,
                     key=locks.intent_hash("fresh"),
-                    target_surface="surface:fresh",
+                    target_surface="browser_flow:fresh",
                     intent="fresh",
                     owner="codex",
                     ttl=dt.timedelta(minutes=30),
@@ -174,7 +254,7 @@ class WakeLaneLockTests(unittest.TestCase):
                 remaining = locks.list_locks(conn)
 
             self.assertEqual(pruned, 1)
-            self.assertEqual([record.target_surface for record in remaining], ["surface:fresh"])
+            self.assertEqual([record.target_surface for record in remaining], ["browser_flow:fresh"])
 
     def test_cli_returns_busy_exit_code_for_fresh_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -187,7 +267,7 @@ class WakeLaneLockTests(unittest.TestCase):
                     "--intent",
                     "calendar nudge",
                     "--target",
-                    "tools/calendar_nudge.py",
+                    "tool_build:tools/calendar_nudge.py",
                     "--owner",
                     "codex",
                 ]
@@ -200,7 +280,7 @@ class WakeLaneLockTests(unittest.TestCase):
                     "--intent",
                     "calendar nudge",
                     "--target",
-                    "tools/calendar_nudge.py",
+                    "tool_build:tools/calendar_nudge.py",
                     "--owner",
                     "claude",
                 ]
@@ -220,7 +300,7 @@ class WakeLaneLockTests(unittest.TestCase):
                     "--intent",
                     "calendar nudge",
                     "--target",
-                    "tools/calendar_nudge.py",
+                    "tool_build:tools/calendar_nudge.py",
                     "--json",
                 ]
             )

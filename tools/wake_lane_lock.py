@@ -5,6 +5,20 @@ The lock is intentionally repo-local and advisory. It gives a wake a cheap way
 to claim a logical intent before choosing a concrete file, browser flow, or
 outbound surface. Fresh locks block duplicate work; expired locks are stolen so
 crashed wakes do not permanently block the lane.
+
+Intent normalization is deliberately small and stable: lowercase, treat
+underscores as word separators, collapse whitespace runs to one space, and
+strip leading/trailing whitespace. Other punctuation is preserved, so
+``calendar_nudge.py`` and ``calendar nudge py`` stay distinct. The resulting
+intent hash is ``sha256(normalized_intent)[:16]`` unless ``--intent-hash`` is
+provided as an explicit override.
+
+Target surfaces are canonical lowercase snake-case names with an optional
+``:detail`` suffix, for example ``farcaster_reply``,
+``github_issue_comment:owner/repo#123``, or
+``tool_build:tools/calendar_nudge.py``. Invalid surfaces fail at acquire time
+so aliases like ``farcaster-reply``, ``fc_reply``, and ``fc reply`` do not
+silently miss each other in the ``(intent_hash, target_surface)`` key.
 """
 
 from __future__ import annotations
@@ -30,8 +44,40 @@ except ImportError:  # pragma: no cover - direct script execution
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DB = ROOT / "state" / "wake_locks.db"
-DEFAULT_TTL_MINUTES = 120
-HASH_RE = re.compile(r"^[a-z0-9][a-z0-9_.:-]{3,127}$")
+DEFAULT_TTL_SECONDS = 900
+DEFAULT_AUDIT_LOG = ROOT / "state" / "wake_locks_audit.log"
+INTENT_HASH_RE = re.compile(r"^[a-z0-9][a-z0-9_.:-]{3,127}$")
+SURFACE_RE = re.compile(r"^[a-z][a-z0-9_]*(?::[a-z0-9][a-z0-9_./#@+-]*)?$")
+CANONICAL_SURFACE_BASES = frozenset(
+    {
+        "browser_flow",
+        "devto_comment",
+        "devto_post",
+        "farcaster_cast",
+        "farcaster_reply",
+        "funnel_doc",
+        "github_issue_comment",
+        "github_lead_scan",
+        "github_pr_comment",
+        "lead_scan",
+        "longform_edit",
+        "outbound_pipeline",
+        "research_doc",
+        "tool_build",
+    }
+)
+CANONICAL_SURFACE_BASE_PREFIXES = ("email_send_recipient_",)
+SURFACE_EXAMPLES = (
+    "farcaster_reply",
+    "email_send_recipient_leon",
+    "github_issue_comment:owner/repo#123",
+    "tool_build:tools/calendar_nudge.py",
+)
+SURFACE_HINT = (
+    "target surface must match "
+    f"{SURFACE_RE.pattern!r} and use a documented surface family; "
+    f"examples: {', '.join(SURFACE_EXAMPLES)}"
+)
 
 
 def utc_now() -> dt.datetime:
@@ -49,12 +95,33 @@ def stamp(value: dt.datetime) -> str:
     return value.astimezone(dt.UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def normalize_key(value: str) -> str:
-    return re.sub(r"\s+", " ", value.strip().lower())
+def normalize_intent(value: str) -> str:
+    """Normalize work intent before hashing.
+
+    Rules: lowercase, convert underscores to spaces, collapse whitespace runs
+    to one space, strip leading/trailing whitespace, and preserve other
+    punctuation.
+    """
+
+    return re.sub(r"\s+", " ", value.replace("_", " ").strip().lower())
+
+
+def normalize_surface(value: str) -> str:
+    normalized = value.strip().lower().replace("\\", "/")
+    if not normalized:
+        raise ValueError("target surface must not be empty")
+    if not SURFACE_RE.match(normalized):
+        raise ValueError(SURFACE_HINT)
+    base = normalized.split(":", 1)[0]
+    if base not in CANONICAL_SURFACE_BASES and not base.startswith(
+        CANONICAL_SURFACE_BASE_PREFIXES
+    ):
+        raise ValueError(SURFACE_HINT)
+    return normalized
 
 
 def intent_hash(intent: str) -> str:
-    normalized = normalize_key(intent)
+    normalized = normalize_intent(intent)
     if not normalized:
         raise ValueError("intent must not be empty")
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
@@ -62,7 +129,7 @@ def intent_hash(intent: str) -> str:
 
 def validate_hash(value: str) -> str:
     normalized = value.strip().lower()
-    if not HASH_RE.match(normalized):
+    if not INTENT_HASH_RE.match(normalized):
         raise ValueError(
             "intent hash must be 4-128 chars: lowercase letters, digits, _, ., :, or -"
         )
@@ -72,10 +139,10 @@ def validate_hash(value: str) -> str:
 def resolve_intent_hash(intent: str | None, supplied_hash: str | None) -> tuple[str, str]:
     if supplied_hash:
         digest = validate_hash(supplied_hash)
-        return digest, normalize_key(intent or supplied_hash)
+        return digest, normalize_intent(intent or supplied_hash)
     if not intent:
         raise ValueError("provide --intent or --intent-hash")
-    return intent_hash(intent), normalize_key(intent)
+    return intent_hash(intent), normalize_intent(intent)
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
@@ -146,6 +213,7 @@ def row_for(
     key: str,
     target_surface: str,
 ) -> LockRecord | None:
+    normalized_target = normalize_surface(target_surface)
     row = conn.execute(
         """
         SELECT intent_hash, target_surface, token, owner, pid, intent,
@@ -153,7 +221,7 @@ def row_for(
         FROM wake_lane_locks
         WHERE intent_hash=? AND target_surface=?
         """,
-        (key, target_surface),
+        (key, normalized_target),
     ).fetchone()
     return LockRecord.from_row(row) if row else None
 
@@ -171,12 +239,12 @@ def acquire_lock(
     metadata: str = "{}",
 ) -> AcquireResult:
     now = (now or utc_now()).astimezone(dt.UTC)
+    if ttl.total_seconds() <= 0:
+        raise ValueError("ttl must be positive")
     expires_at = now + ttl
     pid = os.getpid() if pid is None else pid
     token = uuid.uuid4().hex
-    normalized_target = normalize_key(target_surface)
-    if not normalized_target:
-        raise ValueError("target surface must not be empty")
+    normalized_target = normalize_surface(target_surface)
 
     conn.execute("BEGIN IMMEDIATE")
     try:
@@ -231,14 +299,35 @@ def release_lock(
     target_surface: str,
     token: str | None = None,
     force: bool = False,
+    owner: str = "",
+    audit_log: Path | None = None,
+    reason: str = "",
 ) -> bool:
-    normalized_target = normalize_key(target_surface)
+    normalized_target = normalize_surface(target_surface)
     if force:
+        previous = row_for(conn, key=key, target_surface=normalized_target)
         cur = conn.execute(
             "DELETE FROM wake_lane_locks WHERE intent_hash=? AND target_surface=?",
             (key, normalized_target),
         )
-        return cur.rowcount > 0
+        released = cur.rowcount > 0
+        if audit_log is not None:
+            append_audit(
+                audit_log,
+                {
+                    "event": "force_release",
+                    "ts": stamp(utc_now()),
+                    "intent_hash": key,
+                    "target_surface": normalized_target,
+                    "owner": owner.strip() or default_agent_name(),
+                    "released": released,
+                    "reason": reason.strip(),
+                    "previous_owner": previous.owner if previous else None,
+                    "previous_pid": previous.pid if previous else None,
+                    "previous_expires_at": previous.expires_at if previous else None,
+                },
+            )
+        return released
     if not token:
         raise ValueError("release requires --token unless --force is used")
     cur = conn.execute(
@@ -249,6 +338,13 @@ def release_lock(
         (key, normalized_target, token.strip()),
     )
     return cur.rowcount > 0
+
+
+def append_audit(path: Path, event: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, sort_keys=True, separators=(",", ":")))
+        handle.write("\n")
 
 
 def prune_expired(
@@ -318,7 +414,11 @@ def print_payload(payload: dict | list[dict], *, as_json: bool) -> None:
 def add_intent_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--intent", help="Human-readable logical work intent")
     parser.add_argument("--intent-hash", help="Stable precomputed intent key")
-    parser.add_argument("--target", required=True, help="Surface/lane being claimed")
+    parser.add_argument(
+        "--target",
+        required=True,
+        help=f"Canonical target surface. {SURFACE_HINT}",
+    )
 
 
 def add_subcommand_json_arg(parser: argparse.ArgumentParser) -> None:
@@ -333,6 +433,7 @@ def add_subcommand_json_arg(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Advisory wake-level lane locks.")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
+    parser.add_argument("--audit-log", type=Path, default=DEFAULT_AUDIT_LOG)
     parser.add_argument("--json", action="store_true", help="Emit JSON output")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -340,7 +441,18 @@ def build_parser() -> argparse.ArgumentParser:
     add_subcommand_json_arg(acquire)
     add_intent_args(acquire)
     acquire.add_argument("--owner", default=default_agent_name())
-    acquire.add_argument("--ttl-minutes", type=float, default=DEFAULT_TTL_MINUTES)
+    acquire.add_argument(
+        "--ttl",
+        type=float,
+        default=None,
+        help="Lock TTL in seconds; default is 900 (15 minutes)",
+    )
+    acquire.add_argument(
+        "--ttl-minutes",
+        type=float,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
     acquire.add_argument(
         "--metadata",
         default="{}",
@@ -354,8 +466,10 @@ def build_parser() -> argparse.ArgumentParser:
     release = sub.add_parser("release", help="Release one lock")
     add_subcommand_json_arg(release)
     add_intent_args(release)
+    release.add_argument("--owner", default=default_agent_name())
     release.add_argument("--token", help="Token returned by acquire")
     release.add_argument("--force", action="store_true", help="Delete without token match")
+    release.add_argument("--reason", default="", help="Reason recorded for --force audit")
 
     list_parser = sub.add_parser("list", help="List all locks")
     add_subcommand_json_arg(list_parser)
@@ -380,11 +494,16 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
 
             key, normalized_intent = resolve_intent_hash(args.intent, args.intent_hash)
-            target = normalize_key(args.target)
+            target = normalize_surface(args.target)
 
             if args.command == "acquire":
-                if args.ttl_minutes <= 0:
-                    raise ValueError("--ttl-minutes must be positive")
+                if args.ttl_minutes is not None and args.ttl is not None:
+                    raise ValueError("use --ttl seconds or legacy --ttl-minutes, not both")
+                ttl_seconds = DEFAULT_TTL_SECONDS if args.ttl is None else args.ttl
+                if args.ttl_minutes is not None:
+                    ttl_seconds = args.ttl_minutes * 60
+                if ttl_seconds <= 0:
+                    raise ValueError("--ttl must be positive seconds")
                 json.loads(args.metadata)
                 result = acquire_lock(
                     conn,
@@ -392,7 +511,7 @@ def main(argv: list[str] | None = None) -> int:
                     target_surface=target,
                     intent=normalized_intent,
                     owner=args.owner,
-                    ttl=dt.timedelta(minutes=args.ttl_minutes),
+                    ttl=dt.timedelta(seconds=ttl_seconds),
                     metadata=args.metadata,
                 )
                 payload = {
@@ -419,6 +538,9 @@ def main(argv: list[str] | None = None) -> int:
                     target_surface=target,
                     token=args.token,
                     force=args.force,
+                    owner=args.owner,
+                    audit_log=args.audit_log if args.force else None,
+                    reason=args.reason,
                 )
                 print_payload(
                     {"status": "released" if released else "not-released"},
