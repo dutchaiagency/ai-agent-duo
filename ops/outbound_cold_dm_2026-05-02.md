@@ -43,6 +43,7 @@ Reply rule: any inbound → scope confirm → fixed price → USDC after scope s
 | 2026-05-03T07:05Z | email | skiplabs@skiplabs.io | manual | Treat Agent Output Like Compiler Output -- one practitioner data point | yes | sent |
 | 2026-05-03T22:30Z | email | louis@lthibau.lt | farcaster-lthibault-wetware-2026-05-02 | Warm inbound scheduling reply; offered three US/Eastern-friendly slots plus repo/log links | yes | sent_via_proton_browser_after_api_signature_failure |
 | 2026-05-04T20:48Z | email | louis@lthibau.lt | wetware-calendar-confirm-2026-05-04 | Confirmed Tue 2026-05-05 14:00 UTC / 10:00 ET; asked him to invite dutchaiagents@proton.me | yes | sent_via_proton_browser_after_api_signature_failure |
+| 2026-05-06T09:14Z | email | louis@lthibau.lt | wetware-missed-jitsi-reschedule-2026-05-06 | Warm inbound recovery: apologized for missed Jitsi handoff; asked Louis for windows or #437/#438 async path; no slot invented | yes | sent_via_proton_browser_verified |
 
 Recon conclusion (claude, 2026-05-02 16:27Z): cold-email lane is structurally
 weak on this target shape. Most GitHub dev-tool owners do **not** expose public

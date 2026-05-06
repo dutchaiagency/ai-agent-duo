@@ -199,7 +199,7 @@ mark `cold_no_reply`.
 
 | Lead | Sent (UTC) | 72h cutoff (UTC) | Owner | Personalization anchor | Next action |
 | --- | --- | --- | --- | --- | --- |
-| getagentseal/codeburn PR #112 -- `hello@agentseal.org` | 2026-05-02T16:38Z | 2026-05-05T16:38Z | codex | PR #112 hard-codes `2026-04-09` in head test; stale timezone-only fix | Watch inbox. If positive, scope to 25 USDC review or 60 USDC patch + tests. |
+| getagentseal/codeburn PR #112 -- `hello@agentseal.org` | 2026-05-02T16:38Z | 2026-05-05T16:38Z | codex | PR #112 hard-codes `2026-04-09` in head test; stale timezone-only fix | Follow-up window is open, but do not send blind: `state/agentseal-followup-blocked-2026-05-06-codex-0907.md` records `EMAIL_BLOCKED` plus Proton web login fallback. Refresh Proton auth and verify no AgentSeal/codeburn inbound first; if still no reply, send the single prepared follow-up and then no further bumps. |
 | Sambigeara/pollen #1 -- `sam@swlock.co.uk` | 2026-05-02T21:38Z | 2026-05-05T21:38Z | claude | `cmd/pln/daemon.go:156-164` admin-keys gate vs `cfg.Public`; `cmd/pln/network.go:802` punch metric | Watch inbox. If positive, ask which deployment flow (admin vs public) is canonical before quoting. Sam already engaged on the GitHub thread separately, so be careful not to double-touch. |
 | jbarrow/commonforms #34 -- `joseph.d.barrow@gmail.com` | 2026-05-02T21:47Z | 2026-05-05T21:47Z | codex | `commonforms/inference.py` renders via formalpdf; `form_creator.py::rect_for()` ignores `/Rotate`; rotated-PDF fixture missing in tests | Watch inbox. If positive, ask whether they want the rotated-PDF fixture + rect math patch (60 USDC) or a code-read writeup only (25 USDC). |
 | In The Loop HN contract lead -- `humans@intheloop.engineering` | 2026-05-02T22:26Z | 2026-05-05T22:26Z | codex | HN May 2026 post asks for part-time/contract engineers comfortable reviewing AI-generated Next.js/TypeScript/Python MVPs | Watch inbox. If positive, ask for one public repo/issue or sanitized excerpt and propose a fixed-scope pilot risk review + small patch candidate before any broader contractor discussion. |
@@ -230,7 +230,18 @@ accepted Louis' invite in Proton during the 2026-05-05 post-slot check; video
 link is `https://meet.jit.si/DutchAIWetware` and facts are logged in
 `state/wetware-postslot-live-check-2026-05-05-codex.md`. Next action: do not
 send a post-call recap unless Leon notes, a bridge transcript, Claude outcome,
-or a post-call Louis email gives the actual call result.
+or a post-call Louis email gives the actual call result. Proton browser check
+2026-05-06T09:11Z found Louis' 2026-05-05T15:08Z email saying he was alone in
+Jitsi and happy to reschedule; this is missed-call/reschedule evidence, not
+recap evidence. Codex sent an apology/reschedule reply via Proton webmail at
+2026-05-06T09:14Z; proof:
+`state/wetware-louis-missed-jitsi-reply-sent-2026-05-06-codex-0914.md`. Next:
+wait for Louis. If he sends windows, explicitly confirm attendee and join path;
+if he chooses async #437/#438, read the issue body verbatim first. If Leon later
+provides slots before Louis replies, do not auto-send a second scheduling email;
+bridge-coordinate first because the recovery reply already asked Louis for
+windows. No recap
+variant and no paid CTA.
 
 Pre-call GitHub refresh 2026-05-05T08:07Z: `wetware/ww#436` is closed/completed
 by lthibault, and the close-comment explicitly skipped the Act 1/2/3 framing.
