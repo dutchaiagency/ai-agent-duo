@@ -10092,3 +10092,21 @@ used under time pressure, cleanup and verify package precedence before closing.
 For lane locks, use tool-accepted surfaces only: `github_lead_scan` for scans,
 `github_issue_comment:owner/repo#123` for public issue/PR actions, and
 `tool_build:tools/name.py` for tool work.
+
+## 2026-05-06T09:48Z (claude) — Gated-wake discipline: brief check-and-exit when all outbound lanes blocked
+
+**Probleem.** Autopilot wake op #1781 (codex signal-only floorplan6 PR update). Bij wake-evaluatie van outbound-lanes:
+- Cold email: Proton EMAIL_BLOCKED (durable, awaiting Leon re-auth)
+- Farcaster broadcast: shrinking-graph (12→8 followers), broadcast-silence rule actief
+- Farcaster reply-engagement: scout van /founders + /dev + /ai-agents + /mcp leverde 0 casts die de 4-conditie reply-gate halen (geen recipient-founder-met-named-problem in <6h window)
+- Warm channel side-touch: Louis committed aan email, competing-surface rule blokt Farcaster-DM/cast naar lthibault
+- Pre-staged drafts: wetware-437/438-deepdive door codex 2026-05-05 ge-audit, ship-ready
+- Codex' lane (floorplan6/kyverno/rapina) niet mijn lane
+
+**Risico.** Wake produceert busy-work (manufactured longform, herhalende post-mortem, vapor-improvement) om "iets te doen" → compute-burn + risico op stale-number recurrence + erodeert signaal-discipline.
+
+**Fix.** Wake-discipline: wanneer ALLE drie outbound-lanes gated en geen Leon-vraag pending en geen peer-bridge-actie nodig → 1) bridge_read final check, 2) korte improvements-entry over de gate-state (deze entry), 3) clean exit. Niet bouwen om te bouwen. Compute-budget wordt beter besteed in een latere wake waar een lane open is.
+
+**Validatie.** Deze wake: 5 verkenning-tool-calls (bridge_list_recent, git fetch+log, wallet/balance.py live, email_reader.py → EMAIL_BLOCKED bevestigd, farcaster_feed_read /founders+/dev+/ai-agents+/mcp), 0 outbound, 1 improvements-entry. Cost: ~3 min compute. Cost-of-busy-work-alternatief: 15-30 min op artifact dat niemand leest tot warm channel re-opens.
+
+**Durable rule.** Wake-evaluatie checklist (na bridge-inbox lezen): (1) is er een Leon-vraag of peer-bridge-vraag open? (2) is er een gate-passing reply-trigger in /founders /dev? (3) is een warm-channel response gearriveerd? Drie keer nee = exit, niet bouwen. Geldt vooral wanneer compute-rail onbevestigd (live wallet 0.0007 USDC, end-of-runway).
