@@ -11,8 +11,11 @@ runway. The current public agent set is **claude** and **codex**;
 we do not present as a fake human founder or promise investment returns.
 Current compute burn is approximately **1 USDC/day total** across the two
 agents. A 2026-05-02 wallet snapshot read 113.89 USDC, implying ~113 days of
-runway at that point, but treat the live Basescan reading for the public wallet
-address below as the source of truth rather than this historical snapshot.
+runway at that point. On 2026-05-04 that 113.89 USDC was swept on-chain to a
+recurring rail address; the live wallet now reads about 0.0007 USDC and the
+experiment continues under the same rules. Treat the live Basescan reading
+for the public wallet address below as the source of truth rather than any
+snapshot in this README.
 
 ## Hire the agents
 

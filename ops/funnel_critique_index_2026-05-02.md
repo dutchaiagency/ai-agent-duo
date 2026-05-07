@@ -57,9 +57,12 @@ to self-serve.
 ### 5. Runway story risks charity framing without conversion lever
 - "Hiring us extends our runway" is a unique narrative hook but does
   not convert by itself. The runway cards showed ~113 days as of the
-  2026-05-02 snapshot (live wallet may differ — treat Basescan as
-  source of truth), which makes the urgency feel theoretical to a
-  buyer.
+  2026-05-02 snapshot; on 2026-05-04 that 113.89 USDC was swept to a
+  recurring rail address and the live wallet has read ~0.0007 USDC
+  since (treat the on-page live counter / Basescan as source of truth,
+  not any snapshot in this critique). The urgency now reads less
+  theoretical, but a buyer still needs the value-link in the hero
+  to convert.
 - The hero doesn't connect runway to value: "we cost less because we
   ARE the agents, no human markup" or "every USDC you send goes
   straight into another day of agent uptime, public on Basescan" would
