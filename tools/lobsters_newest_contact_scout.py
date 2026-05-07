@@ -59,6 +59,7 @@ GITHUB_BARE_REPO_REF_RE = re.compile(
     r"(?=$|[\s`),;:\]|<])",
     re.IGNORECASE,
 )
+LOBSTERS_SHORT_ID_RE = re.compile(r"\b([a-z0-9]{6})\b", re.IGNORECASE)
 LOCAL_PATH_OWNERS = {
     ".github",
     "assets",
@@ -694,6 +695,47 @@ def load_touched_repos(paths: list[Path]) -> set[str]:
     return touched
 
 
+def markdown_row_cells(line: str) -> tuple[str, ...]:
+    stripped = line.strip()
+    if not stripped.startswith("|") or not stripped.endswith("|"):
+        return ()
+    placeholder = "\0PIPE\0"
+    body = stripped[1:-1].replace(r"\|", placeholder)
+    return tuple(compact(cell.replace(placeholder, "|")) for cell in body.split("|"))
+
+
+def load_fit_gate_drop_story_ids(paths: list[Path]) -> set[str]:
+    drop_story_ids: set[str] = set()
+    for path in paths:
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            cells = markdown_row_cells(line)
+            if len(cells) < 3:
+                continue
+            story_cell, decision_cell = cells[0], cells[2]
+            if story_cell.lower() == "story" or set(decision_cell) <= {"-", " "}:
+                continue
+            if not decision_cell.upper().startswith("DROP"):
+                continue
+            match = LOBSTERS_SHORT_ID_RE.search(story_cell)
+            if match:
+                drop_story_ids.add(match.group(1).lower())
+    return drop_story_ids
+
+
+def apply_fit_gate_drops(
+    leads: list[ContactLead],
+    drop_story_ids: set[str],
+) -> tuple[list[ContactLead], int]:
+    if not drop_story_ids:
+        return leads, 0
+    filtered = [
+        lead for lead in leads if lead.story.short_id.lower() not in drop_story_ids
+    ]
+    return filtered, len(leads) - len(filtered)
+
+
 def table_escape(value: str) -> str:
     return compact(value).replace("|", "\\|")
 
@@ -709,9 +751,12 @@ def render_markdown(
     leads: list[ContactLead],
     *,
     limit: int,
+    scanned_count: int | None = None,
+    fit_gate_drops: int = 0,
     generated_at: datetime | None = None,
 ) -> str:
     generated_at = generated_at or datetime.now(UTC)
+    scanned_count = len(leads) if scanned_count is None else scanned_count
     candidates = [lead for lead in leads if lead.decision == "candidate_needs_deep_read"]
     already_contacted = [lead for lead in leads if lead.decision == "watch_already_contacted"]
     lines = [
@@ -721,7 +766,8 @@ def render_markdown(
         "",
         "## Summary",
         "",
-        f"- Newest stories scanned: {len(leads)} (limit {limit})",
+        f"- Newest stories scanned: {scanned_count} (limit {limit})",
+        f"- Manual fit-gate drops suppressed: {fit_gate_drops}",
         f"- Candidate leads needing deep read: {len(candidates)}",
         f"- Already-contacted or active-touch leads: {len(already_contacted)}",
     ]
@@ -778,6 +824,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=[Path("ops/outbound_pipeline.md")],
         help="Markdown/text file whose GitHub repo refs should be treated as already touched.",
     )
+    parser.add_argument(
+        "--fit-gate-file",
+        action="append",
+        type=Path,
+        default=[],
+        help="Manual fit-gate markdown whose DROP rows should be suppressed from the report.",
+    )
     parser.add_argument("--write", type=Path)
     parser.add_argument(
         "--state-dir",
@@ -805,7 +858,17 @@ def main(argv: list[str] | None = None) -> int:
         commit_limit=args.commit_limit,
         github_api_url=args.github_api_url,
     )
-    output = render_markdown(leads, limit=args.limit, generated_at=generated_at)
+    leads, fit_gate_drops = apply_fit_gate_drops(
+        leads,
+        load_fit_gate_drop_story_ids(args.fit_gate_file),
+    )
+    output = render_markdown(
+        leads,
+        limit=args.limit,
+        scanned_count=len(stories),
+        fit_gate_drops=fit_gate_drops,
+        generated_at=generated_at,
+    )
     write_path = args.write
     if args.state_dir:
         write_path = state_snapshot_path(args.state_dir, args.agent, generated_at)

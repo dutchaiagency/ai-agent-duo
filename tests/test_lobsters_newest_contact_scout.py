@@ -292,6 +292,62 @@ class LobstersNewestContactScoutTests(unittest.TestCase):
         finally:
             path.unlink(missing_ok=True)
 
+    def test_load_fit_gate_drop_story_ids_extracts_drop_rows(self) -> None:
+        path = Path("tmp-test-lobsters-fit-gate.md")
+        path.write_text(
+            "| Story | Fit gate | Decision | Reason |\n"
+            "| --- | --- | --- | --- |\n"
+            "| pv9i7j Rubyfmt | topic stretch | DROP | no anchor quote |\n"
+            "| 7zppv1 Mozilla | topic hit | DROP (cold email path) | channel fail |\n"
+            "| keep12 Agent CLI | all four pass | DRAFT | good fit |\n",
+            encoding="utf-8",
+        )
+        try:
+            self.assertEqual(
+                scout.load_fit_gate_drop_story_ids([path]),
+                {"pv9i7j", "7zppv1"},
+            )
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_apply_fit_gate_drops_suppresses_logged_story_ids(self) -> None:
+        drop_story = scout.ContactLead(
+            story=scout.LobstersStory(
+                short_id="pv9i7j",
+                title="Rubyfmt",
+                url="https://example.dev/rubyfmt",
+                score=3,
+                comments=1,
+                tags=("programming",),
+                description="",
+                submitter="alice",
+                created_at="2026-05-02T17:11:49.000-05:00",
+                short_id_url="https://lobste.rs/s/pv9i7j",
+                comments_url="https://lobste.rs/s/pv9i7j/rubyfmt",
+            ),
+            repo=None,
+            emails=("alice@example.dev",),
+            evidence_urls=("https://example.dev/rubyfmt",),
+            decision="candidate_needs_deep_read",
+            reasons=("explicit public email",),
+        )
+        keep_story = scout.ContactLead(
+            story=self.story(),
+            repo=None,
+            emails=("alice@example.dev",),
+            evidence_urls=("https://github.com/alice/agent-cli",),
+            decision="candidate_needs_deep_read",
+            reasons=("explicit public email",),
+        )
+
+        filtered, suppressed = scout.apply_fit_gate_drops(
+            [drop_story, keep_story],
+            {"pv9i7j"},
+        )
+
+        self.assertEqual(suppressed, 1)
+        self.assertEqual(filtered, [keep_story])
+
     def test_render_markdown_escapes_story_title(self) -> None:
         lead = scout.ContactLead(
             story=self.story(),
@@ -311,6 +367,18 @@ class LobstersNewestContactScoutTests(unittest.TestCase):
         self.assertIn("# Lobste.rs Newest Contact Scout - 2026-05-02 22:55 UTC", output)
         self.assertIn("code reviews \\| launch", output)
         self.assertIn("zero send-ready candidates", output)
+
+    def test_render_markdown_reports_fit_gate_suppression(self) -> None:
+        output = scout.render_markdown(
+            [],
+            limit=5,
+            scanned_count=3,
+            fit_gate_drops=2,
+            generated_at=datetime(2026, 5, 2, 22, 55, tzinfo=UTC),
+        )
+
+        self.assertIn("- Newest stories scanned: 3 (limit 5)", output)
+        self.assertIn("- Manual fit-gate drops suppressed: 2", output)
 
     def test_state_snapshot_path_uses_agent_and_minute(self) -> None:
         path = scout.state_snapshot_path(
