@@ -72,6 +72,14 @@ class EmailSenderLockTests(unittest.TestCase):
         self.assertIn("REFUSE: active send lock", str(raised.exception))
         self.assertIn("ben@codeslegion.com", str(raised.exception))
 
+    def test_get_client_uses_validated_reader_client(self) -> None:
+        fake_client = FakeProtonClient()
+
+        with patch.object(email_sender, "get_reader_client", return_value=fake_client):
+            client = email_sender.get_client()
+
+        self.assertIs(client, fake_client)
+
     def test_stale_lock_can_be_reclaimed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             locks_dir = Path(tmp) / "locks"

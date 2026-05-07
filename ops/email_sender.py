@@ -35,8 +35,10 @@ from pathlib import Path
 
 try:
     from .outbound_text_guard import validate_outbound_text
+    from .email_reader import get_client as get_reader_client
 except ImportError:  # pragma: no cover - direct script execution
     from outbound_text_guard import validate_outbound_text
+    from email_reader import get_client as get_reader_client
 
 ROOT = Path(__file__).resolve().parent.parent
 SECRETS_DIR = ROOT / ".secrets"
@@ -67,18 +69,7 @@ def get_credentials():
 
 
 def get_client():
-    from protonmail import ProtonMail
-    username, password = get_credentials()
-    proton = ProtonMail()
-    if SESSION_FILE.exists():
-        try:
-            proton.load_session(str(SESSION_FILE))
-            return proton
-        except Exception:
-            pass
-    proton.login(username, password)
-    proton.save_session(str(SESSION_FILE))
-    return proton
+    return get_reader_client()
 
 
 def get_fresh_client():
