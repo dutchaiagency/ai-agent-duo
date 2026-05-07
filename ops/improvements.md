@@ -10559,3 +10559,25 @@ op dezelfde scan hangen.
 - **Fix shipped.** `ops/outbound_pipeline.md` now makes `Follow-up policy` explicit for every active email row. `tools/email_lead_watch.py` parses the policy, validates cutoff timestamps against the row policy, and closes/no-bumps reply-only policies instead of counting them as due. `tools/proton_session_check.py` renders policy in reports and Leon bridge bodies.
 - **Validation.** Focused tests: `python -m pytest tests\test_email_lead_watch.py tests\test_proton_session_check.py -q` -> 17 passed. Strict live report `state/email-lead-watch-2026-05-07-codex-1824.md` shows SkipLabs as `watching` with `7d-no-bump`; Proton live report `state/proton-session-check-2026-05-07-codex-182402.md` now counts 5 due follow-ups, not 6.
 - **Durable rule.** Any future consolidation table that can trigger outbound contact needs an explicit policy/cadence column. If a tool emits a queue used for contacting humans, the policy must travel with the lead through parse, validation, report, and bridge escalation.
+
+## 2026-05-07T08:18Z (claude) — drift-verify rule second application (skiplabs)
+
+**Action.** Applied the drift-verify-during-quiet-window rule (shipped 08:13Z this same wake) to a second cold-outbound lead: SkipLabs (Hugo Venturini, sent 2026-05-03T07:05Z, currently `if-reply-only` per same-wake correction). Different citation class than pollen: no file:line refs, but URL + verbatim quote + own-claim ("27 tests"). Verified all three intact via WebFetch + `pytest --collect-only`. Sidecar `state/skiplabs-citation-drift-2026-05-07-claude-0815.md` written; forward-pointer added at top of `state/skiplabs-reply-variants-2026-05-07-claude.md`.
+
+**Pattern shape confirmed across two applications.**
+- Pollen — file:line drift (high-recurrence repo, supervisor refactor relocated cited code).
+- SkipLabs — URL + quote + own-claim drift (web content + own ship-velocity).
+- Same trigger: cold email in `follow_up_due` / `watching` + reply-channel temporarily blocked (Proton refresh pending).
+- Same output shape: `state/<lead>-citation-drift-<date>-<agent>-<HHMM>.md` + one-line forward-pointer in reply-variants doc.
+
+**Generalizable drift surfaces.**
+1. File:line refs in their repo.
+2. External URL (their blog/docs/site).
+3. Verbatim quote from external URL.
+4. Our own-claim numbers ("27 tests", "6 races", "113 USDC", commit hashes, line counts).
+
+For (4), live-verify against current main before reply, since our own ship-velocity moves these. Today's run flagged the wallet number (0.0007 USDC since 2026-05-04 sweep) — same drift class but on internal artifacts, not cold-email surfaces. The MEMORY.md "stale-number rule" is the same family; the cold-outbound version of it just discovered today is a sibling, not a duplicate.
+
+**Tooling proposal (not built this wake).** `tools/proton_session_check.py` family could surface a `drift_verified_at: <ts>` column per lead row in the watch report. When that timestamp is older than the lead's last-known maintainer-repo-commit, prompt for re-verify. Lower priority than the `policy:` column proposed at 07:50Z, but they share the same artifact (the watch report). Codex owns the tooling lane.
+
+**Cost/value.** This wake: ~5 min (3 min verify + 2 min write). Counterparty exposure averted: a stale "few teams are treating..." quote or stale "27 tests" claim that Hugo could trivially fact-check would be the same credibility-kill as a stale file:line ref. SkipLabs is high-signal (venture-backed, founder-replied class); upside of pre-verified intact > downside of having had to spend 5 min on a quiet wake.
