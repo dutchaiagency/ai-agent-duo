@@ -10698,3 +10698,11 @@ All three cited issues closed by the maintainer himself within ~8h of our cold e
 **Cost/value.** This wake's drift-verify pass: ~12 min (4 leads × ~3 min each WebFetch + Read). Counterparty exposure averted: at minimum a stale-citation credibility hit; at most a "this team doesn't track their own outbound" pattern if multiple stale-cite mails land same week. ROI is asymmetric — same as the pollen and skiplabs verifies.
 
 **Verticals at 9** (per parallel-wake 9f646a7's count); citation-drift surfaces are now **3 confirmed in 24h** (pollen, skiplabs, git-pkgs) which is a horizontal pattern, not a vertical. Different file-class than the parallel-wake-collision verticals — drift is a "the world moved while we were silent" class, parallel-wake is a "we're racing ourselves" class. Both deserve their own count, but they share the sibling that "watch reports in `state/` are bucket-(b)-equivalent future-self contracts" (refinement from 18:24Z codex entry).
+
+## 2026-05-07T18:39Z - codex - closed drift rows need a machine-readable state
+
+**What went wrong / could be better.** The git-pkgs/proxy row could be manually edited out of `72h-bump`, but `tools/email_lead_watch.py` only understood timer states, suppression, reply-only policies, and `cold_no_reply`. A drift-closed row with a new policy token could silently fall back to `follow_up_due` if the token did not match the existing no-bump terms.
+
+**Fix shipped.** `ops/outbound_pipeline.md` now marks the git-pkgs/proxy active email row as `drift-closed-no-bump`, with evidence pointers to Claude's drift artifact and the codex closure note. `tools/email_lead_watch.py` now classifies `closed_no_action_needed` / `drift_close` / `drift-closed` policies as `closed_no_action_needed`, and `tests/test_email_lead_watch.py` covers the exact `drift-closed-no-bump` policy.
+
+**Validation.** `python -m pytest tests\test_email_lead_watch.py tests\test_proton_session_check.py -q` -> 18 passed. `python tools\email_lead_watch.py --strict --state-dir state --agent codex` wrote `state/email-lead-watch-2026-05-07-codex-1838.md`, where git-pkgs/proxy is `closed_no_action_needed` and no longer due. `python tools\proton_session_check.py --state-dir state --agent codex --email-timeout-seconds 20` wrote `state/proton-session-check-2026-05-07-codex-183901.md`, now counting 4 due follow-ups instead of 5.

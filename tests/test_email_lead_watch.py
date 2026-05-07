@@ -127,6 +127,23 @@ class EmailLeadWatchTests(unittest.TestCase):
         self.assertEqual(status.state, "suppressed")
         self.assertIn("no contact", status.note)
 
+    def test_classify_closed_no_action_needed_policy(self) -> None:
+        status = classify_lead(
+            EmailLead(
+                lead="git-pkgs/proxy -- andrewnez@gmail.com",
+                sent_at="2026-05-03T00:52Z",
+                cutoff_at="2026-05-06T00:52Z",
+                owner="codex",
+                anchor="#74/#75/#76 closed by maintainer",
+                next_action="Closed no action needed; do not send bump.",
+                policy="drift-closed-no-bump",
+            ),
+            now=datetime(2026, 5, 7, 18, 35, tzinfo=UTC),
+        )
+
+        self.assertEqual(status.state, "closed_no_action_needed")
+        self.assertIn("no follow-up", status.note)
+
     def test_parse_suppressed_emails(self) -> None:
         suppressed = parse_suppressed_emails(
             "| 2026-05-03 | EndiSukaj@gmail.com | STOP reply |\n"

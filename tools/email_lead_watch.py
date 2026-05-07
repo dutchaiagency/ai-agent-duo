@@ -34,6 +34,14 @@ NO_BUMP_POLICY_TERMS = (
     "no-follow-up",
     "no follow-up",
 )
+CLOSED_NO_ACTION_TERMS = (
+    "closed_no_action_needed",
+    "closed-no-action-needed",
+    "closed no action needed",
+    "drift_close",
+    "drift-close",
+    "drift-closed",
+)
 
 
 @dataclass(frozen=True)
@@ -158,6 +166,8 @@ def policy_allows_follow_up(policy: str) -> bool:
     lowered = policy.lower()
     if "suppressed" in lowered:
         return False
+    if any(term in lowered for term in CLOSED_NO_ACTION_TERMS):
+        return False
     return not any(term in lowered for term in NO_BUMP_POLICY_TERMS)
 
 
@@ -231,10 +241,17 @@ def classify_lead(
     suppressed = lead_email(lead.lead) in (suppressed_emails or set()) or (
         "suppressed" in lead.policy.lower()
     )
+    closed_no_action = any(
+        term in lead.policy.lower() or term in lowered_action
+        for term in CLOSED_NO_ACTION_TERMS
+    )
     follow_up_allowed = policy_allows_follow_up(lead.policy)
     if suppressed:
         state = "suppressed"
         note = "Address is in email suppression list; no contact on any channel."
+    elif closed_no_action:
+        state = "closed_no_action_needed"
+        note = "Cited work is closed or drifted; no follow-up should be sent."
     elif "cold_no_reply" in lowered_action:
         state = "closed"
         note = "Lead is already marked cold_no_reply."
