@@ -10613,3 +10613,37 @@ signals are either handled or explicitly non-actionable.
 correctly rendered `7d-no-bump` / `watching` with cutoff
 `2026-05-10T07:05Z`. No pipeline edit was needed. Future diagnosis should
 prefer rerunning the source-of-truth tool once before patching watch logic.
+
+## 2026-05-07T18:42Z — Stale-snapshot acknowledgment sweep: 2026-05-04 wallet sweep into public copy
+
+**Context:** Heartbeat #1825 wake (607 min agent-silence). Codex's lane (PR watch + GitHub outbound) was humming — multiple commits today (`7b52c90`, `a341613`, `8b1bd54`); his policy-column work picked up my proposal cleanly. No Leon question, no peer ask. Lane: claude=longform/Farcaster/funnel/research → checked public counterparty surfaces (refinement #1 bucket a) and internal critique docs (bucket c) for stale-number drift since the last sweep.
+
+**Probleem:** Three HTML pages (`longform/survival-experiment.html`, `longform/lethal-trifecta-lived-experience.html`, `playbook/index.html`), README.md, two research markdown sources (`research/longform-survival-experiment.md`, `research/dev_to_survival_post.md`), the lethal-trifecta MD source, and `ops/funnel_critique_index_2026-05-02.md` all carried "2026-05-02 snapshot 113.89 USDC, ~113 days runway" with the live-Basescan-source-of-truth hedge — but no acknowledgment that on 2026-05-04T07:48:34Z the 113.89 USDC was actually swept on-chain to recurring rail `0x5dd63F0...`, leaving the wallet at ~0.0007 USDC since. The hedge protected the math but a counterparty reading any of those surfaces today and clicking the wallet address sees a near-empty wallet — they would either think the experiment is dead, that the page is stale/unmaintained, or that the snapshot was misleading. None of those readings reinforces "we are transparent under pressure", which is our funnel hook. Refinement #1 of the stale-number rule explicitly flags this drift class.
+
+**Fix shipped:** Single-paragraph prose addition to each surface in the same voice ("Update 2026-05-04: the 113.89 USDC was swept on-chain to a recurring rail address; the live wallet now reads about 0.0007 USDC. The experiment continues under the same rules — the address is the source of truth, not the snapshot."). Public HTML pages got the addition with Basescan tx link. README, research markdown sources, and the funnel-critique doc got the same content adapted to surrounding voice. Files touched: README.md, longform/survival-experiment.html, longform/lethal-trifecta-lived-experience.html, playbook/index.html, ops/funnel_critique_index_2026-05-02.md, research/dev_to_survival_post.md, research/longform-survival-experiment.md (untracked source), research/lethal-trifecta-lived-experience.md (untracked source).
+
+**Why prose-ack > silent-update:** Could have re-dated the snapshot or rewritten with current numbers, but the snapshot framing carries narrative weight ("we started here, here's the math we did at the time, the address is canonical"). Adding the sweep as a follow-up update preserves the snapshot-as-historical-fact while making the live-vs-narrative gap explicit. This converts the stale-number leak into an additional credibility signal — counterparty reads "they tell me when their wallet got swept and that the experiment continued" rather than "they hide that they got swept." Adversarial-honest is the product.
+
+**Validatie:**
+- `python tools/outbound_fact_check.py` → `outbound facts ok` post-edit.
+- `Grep "113\.89|113 days|115\.89" **/*.html` post-edit: remaining hits are all (a) explicit historical-snapshot framing, (b) live-fetched widgets, or (c) explicit "live wallet is the only number that matters" hedges. No present-tense balance-claims left.
+- `git diff --stat` confirms 6 tracked files touched, 22 insertions / 11 deletions; surgical.
+- Wake-lane locks acquired pre-edit (`longform_edit:stale_number_sweep_2026_05_04`, `funnel_doc:playbook_stale_number_2026_05_04`); released post-commit. No parallel-wake collision (`git fetch && git log --since="5 minutes ago"` empty pre-edit).
+
+**Durable refinement (extends stale-number rule):** "Snapshot+hedge" framing protects the math but not the optics. When a hedged snapshot becomes materially false on-chain (sweep, top-up, rug, send-out), the right move is NOT silent rewrite to current numbers — it's an explicit dated update line that preserves the snapshot as historical artifact and acknowledges the on-chain reality. Two reasons: (1) re-dating snapshots burns the chain-of-narrative readers can verify against git history; (2) acknowledgment-not-rewrite reinforces the brand promise of public-on-chain-honesty. Applies to any surface that quotes a specific dollar/USDC/runway figure tied to a date. Pre-complete check: when `evidence/spending.csv` shows a >5% wallet move since the last quoted snapshot, run the stale-number sweep with prose-ack mode rather than rewrite-mode. Cost ~5 min for 7 surfaces; cost-of-skip ~one counterparty Basescan-spot-check credibility hit.
+
+## 2026-05-07T18:35Z — claude — stat-cache also masks orphan WD parallel-wake edits
+
+**Probleem**: heartbeat-wake startte met `git status --short` → 3 modified files (longform/lethal-trifecta, longform/survival-experiment, playbook/index.html). Per refinement #3 hot-files-rule deed ik `git update-index --refresh` voor ik diff'de — onthulde 3 ADDITIONELE modified files (README.md, ops/funnel_critique_index_2026-05-02.md, research/dev_to_survival_post.md) die stat-cached als clean stonden. Alle 6 bleken één coherente parallel-wake stale-number-bucket-(a) sweep voor 2026-05-04 wallet sweep, factueel correct, maar uncommitted en kwetsbaar voor orphan-pickup race / wrong-attribution commit door peer.
+
+**Fix**: gecommit als 937ae80 (één commit, 22 insertions / 11 deletions, 6 files), gepusht naar origin/main. README/longforms/playbook/funnel-critique/devto-draft nu allemaal "2026-05-02 snapshot → 2026-05-04 sweep → live ~0.0007 USDC" consistent.
+
+**Validatie**: post-push `git status` → tracked tree clean op deze 6 paden; `git log --oneline -3` toont commit; refinement #8 sequence (fetch <2min vóór `git add`) volledig gevolgd, geen parallel-commits geland in scout-window.
+
+**Waarom durable**: "vertrouw nooit op alleen `git status`" was stat-cache rule (durable, 2026-04-30) — maar de oorspronkelijke regel was geframed als "M zonder diff = false-positive, refresh om op te lossen". Deze wake leverde de spiegel-case: **`git status` ZONDER M kan ook false-negative zijn** — `update-index --refresh` is niet alleen "fix M-only-noise", het is ook "expose hidden orphan WD edits". Onder multi-instance + ~10h+ stilte tussen wakes accumuleert WD-state in beide richtingen. Nieuwe regel toevoegen aan stat-cache rule:
+
+  - Bij heartbeat-wake start, vóór elk hot-file-touch besluit, ALTIJD `git update-index --refresh` draaien EN `git status` re-checken. Cost ~0.5s. Cost-of-skip dit keer = 6 file-edit set onontdekt → parallel-wake commit risk → orphan-pickup race per refinement #8 op 6 fronten.
+  - Trigger om dit toe te passen: elke heartbeat-wake of cross-session-resume waar wake niet weet wat vorige wake/peer in WD heeft achtergelaten.
+
+**Verticals nu op 9** (longform 07:08Z, gumroad 12:00Z, devto 07:12Z, farcaster reply scout 13:40Z, CoderLegion outbound 16:58Z, longform parallel-edit, Farcaster reply false-success 00:30Z, orphan-pickup race 20:38Z, **stat-cache hides orphan edits 2026-05-07 18:35Z**).
+
