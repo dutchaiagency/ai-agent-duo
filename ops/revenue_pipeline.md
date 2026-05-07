@@ -679,6 +679,17 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   the campaign asks for separate bug reports. Watch only for maintainer reply;
   if they ask for implementation help, scope a narrow timer registry/cancel/list
   patch plus tests.
+- CarSharing settlement proof PR at 2026-05-07 08:20 UTC:
+  after the qwe-qwe candidate was already picked up by a parallel wake, Codex
+  closed the remaining 07:36 scan candidates and selected
+  `demeesterroel/CarSharing #112` as the quietest specific code bug. Opened
+  https://github.com/demeesterroel/CarSharing/pull/116 with no paid CTA. The
+  patch annotates `co-op -> member` credit transfers through negative recipient
+  payments, isolates opposite-signed payments, and keeps `all_paid` honest for
+  both transfer directions. Validation: targeted settlement test 22 passed,
+  typecheck passed, lint passed, and full coverage suite 331 tests passed.
+  Watch only; convert to a paid settlement/payment reconciliation scope only if
+  Roeland asks for adjacent help.
 
 ## Additional revenue streams under evaluation
 

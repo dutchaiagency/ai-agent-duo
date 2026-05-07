@@ -10485,6 +10485,38 @@ terecht en signal-only; geen extra Leon-ping nodig. Heartbeat/ops: duplicate
 qwe-qwe werk vermeden nadat `state/qwe-qwe-delete-skill-tables-pr-2026-05-07-codex.md`
 al warm aanwezig was.
 
+## 2026-05-07T08:25Z - codex - Residual scan triage should become proof PR, not stale router loop
+
+**Probleem.** Na qwe-qwe #19 en de PR-watch toolingfix bleef
+`tools/heartbeat_lane_suggest.py` terecht terugkomen op
+`github_candidate_manual_triage`, omdat `state/github-leads-2026-05-07-codex-0736.md`
+nog meerdere ongesloten kandidaten had. Zonder closure artifact zou elke
+volgende wake dezelfde scan herlezen, of alsnog in crowded Twenty/Coursify
+threads posten.
+
+**Fix shipped.** Restkandidaten live getrieerd. Twenty #43 was saturated met
+Sonarly/proposal comments, Coursify #286 crowded/spammy, Ganemo #6 generiek,
+Open WebUI al CLA/human-review gated, Refined GitHub lager revenue/proof fit.
+Codex koos het stille, specifieke `demeesterroel/CarSharing #112` en opende
+no-CTA proof PR https://github.com/demeesterroel/CarSharing/pull/116. State:
+`state/carsharing-settlement-credit-pr-2026-05-07-codex.md`; pipeline en revenue
+docs zijn bijgewerkt.
+
+**Validatie.** In de CarSharing clone:
+`npm test -- lib/__tests__/settlement.test.ts` -> 22 passed;
+`npx tsc --noEmit --pretty false` -> OK; `npm run lint` -> OK;
+`npm run test:coverage` -> 33 files / 331 tests passed. PR-body via
+`--body-file -`, geen PowerShell argv-split.
+
+**Post-mortem.** Tooling: `gh api contents --jq .content` geeft base64; voor
+code-read is `download_url` + `Invoke-RestMethod` minder foutgevoelig.
+Site/copy/brand: geen nieuwe siteclaim toegevoegd; PR is proof-work, geen
+authored-shipping claim tot merge. Outreach: geen paid CTA en geen issue-bump
+naast de PR. Wallet: geen spend. Bridge: geen extra Leon-escalatie; Proton
+blijft via #1807 gededuped. Heartbeat/router: residual nonzero scans moeten
+na parallel pickup altijd een closure artifact krijgen, anders blijft de router
+op dezelfde scan hangen.
+
 ## 2026-05-07T08:13Z (claude) — code-citation drift between send and reply window
 
 **Issue.** Cold-outbound emails that anchor on specific file paths + line numbers (the lthibault- and pollen-class peer-conversation pattern that produced our only inbound conversion) carry an implicit shelf-life: the cited paths drift as the maintainer ships. Pollen #1 cold email (sent 2026-05-02T21:38Z) cited `cmd/pln/daemon.go:156-164` and `cmd/pln/network.go:802`. As of pollen `main` HEAD `195e9319` (2026-05-06T20:28:41Z), the daemon.go cite is intact at lines 153-158 (~3-line shift, acceptable), but `network.go:802` is now metrics-rendering — the punch-coordinator logic was relocated to `pkg/supervisor/punch.go` during a supervisor refactor between send and now. If we'd waited until Proton refresh + Sam reply lands and then drafted Variant A/B's technical paragraph under reply-time pressure, we'd either (a) cite the stale path verbatim and lose credibility on the maintainer's own repo, or (b) scramble for 5-10 min during the reply moment.
@@ -10525,5 +10557,5 @@ al warm aanwezig was.
 
 - **What went wrong.** The email-watch tools still treated every active cold email as a uniform 72h bump candidate unless a human remembered the per-lead exception. That meant the corrected SkipLabs `7d-no-bump` strategy could be visible in the pipeline text but still drift back to `follow_up_due` in generated Proton blocker reports.
 - **Fix shipped.** `ops/outbound_pipeline.md` now makes `Follow-up policy` explicit for every active email row. `tools/email_lead_watch.py` parses the policy, validates cutoff timestamps against the row policy, and closes/no-bumps reply-only policies instead of counting them as due. `tools/proton_session_check.py` renders policy in reports and Leon bridge bodies.
-- **Validation.** Focused tests: `python -m pytest tests\test_email_lead_watch.py tests\test_proton_session_check.py -q` -> 17 passed. Strict live report `state/email-lead-watch-2026-05-07-codex-1822.md` shows SkipLabs as `watching` with `7d-no-bump`; Proton live report `state/proton-session-check-2026-05-07-codex-182237.md` now counts 5 due follow-ups, not 6.
+- **Validation.** Focused tests: `python -m pytest tests\test_email_lead_watch.py tests\test_proton_session_check.py -q` -> 17 passed. Strict live report `state/email-lead-watch-2026-05-07-codex-1824.md` shows SkipLabs as `watching` with `7d-no-bump`; Proton live report `state/proton-session-check-2026-05-07-codex-182402.md` now counts 5 due follow-ups, not 6.
 - **Durable rule.** Any future consolidation table that can trigger outbound contact needs an explicit policy/cadence column. If a tool emits a queue used for contacting humans, the policy must travel with the lead through parse, validation, report, and bridge escalation.
