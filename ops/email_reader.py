@@ -147,7 +147,10 @@ def suppress_client_noise():
             message=r".*urllib3.*chardet.*charset_normalizer.*",
             category=Warning,
         )
-        with contextlib.redirect_stderr(io.StringIO()):
+        with (
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
             yield
 
 

@@ -47,6 +47,7 @@ class _FakeProton:
 
 class _NoisyFakeProton(_FakeProton):
     def get_messages(self):
+        print("login success")
         print("_async_get_messages: 100%", file=sys.stderr)
         return self._messages
 
@@ -181,7 +182,9 @@ def test_list_messages_suppresses_client_progress_noise(capsys):
     results = email_reader.list_messages(proton)
 
     assert results[0]["id"] == "real"
-    assert "_async_get_messages" not in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert "login success" not in captured.out
+    assert "_async_get_messages" not in captured.err
 
 
 def test_search_messages_defaults_to_subject_and_sender_only():
