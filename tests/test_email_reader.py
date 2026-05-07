@@ -59,6 +59,23 @@ class _FakeSessionProton:
         if path in self.fail_paths:
             raise RuntimeError("bad session")
 
+    def get_messages(self):
+        return []
+
+
+class _ValidatingFakeSessionProton(_FakeSessionProton):
+    def __init__(self, fail_paths=(), expired_paths=()):
+        super().__init__(fail_paths=fail_paths)
+        self.expired_paths = {str(path) for path in expired_paths}
+
+    def get_messages(self):
+        current_path = self.loaded_paths[-1]
+        if current_path in self.expired_paths:
+            raise RuntimeError(
+                "Can't update tokens, status: 400 json: {'Error': 'Invalid refresh token'}"
+            )
+        return []
+
 
 def test_is_noise_sender_matches_known_substrings():
     assert email_reader.is_noise_sender("<UserMail [no-reply@notify.proton.me]>")
@@ -227,6 +244,33 @@ def test_load_saved_session_tries_backup_and_restores_canonical_file(monkeypatch
         assert loaded == backup
         assert proton.loaded_paths == [str(current), str(backup)]
         assert current.read_text(encoding="utf-8") == "good"
+
+
+def test_load_saved_session_skips_expired_backup_when_validating(monkeypatch):
+    with tempfile.TemporaryDirectory() as tmp:
+        secrets = Path(tmp)
+        expired = secrets / "proton_session.pickle.bak-expired"
+        valid = secrets / "proton_session.pickle.bak-valid"
+        current = secrets / "proton_session.pickle"
+        expired.write_text("expired", encoding="utf-8")
+        valid.write_text("valid", encoding="utf-8")
+        import os
+
+        os.utime(expired, (1_700_000_100, 1_700_000_100))
+        os.utime(valid, (1_700_000_000, 1_700_000_000))
+        monkeypatch.setattr(email_reader, "SECRETS_DIR", secrets)
+        monkeypatch.setattr(email_reader, "SESSION_FILE", current)
+        proton = _ValidatingFakeSessionProton(expired_paths=(expired,))
+
+        loaded = email_reader.load_saved_session(
+            proton,
+            validate=email_reader.validate_saved_session,
+        )
+
+        assert loaded == valid
+        assert proton.loaded_paths == [str(expired), str(valid)]
+        assert not expired.exists()
+        assert current.read_text(encoding="utf-8") == "valid"
 
 
 def test_captcha_errors_are_classified_without_importing_protonmail():

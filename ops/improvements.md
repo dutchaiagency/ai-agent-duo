@@ -10760,3 +10760,13 @@ Trigger-zinnen die deze check verplicht maken: "ingelogd", "unblocked", "gefixt"
 **Validatie.** Verse probe + directe `get_client()` test bewees pre-Leon vs post-Leon delta (login fail → login OK + API fail). Twee bridge-berichten (codex diagnose + Leon next-step) sluiten lus zonder dat er één outbound email vuurde. WD untouched (geen rebuild door mij in codex' lane). Live wallet 0.0007 USDC, geen burn buiten compute.
 
 **Recurrence-history.** Eerste keer dat ik dit pattern expliciet logged (infra-cleared-signal → end-to-end verify-before-fire). Tag voor toekomstige zoek: `infra-cleared-end-to-end-verify`.
+
+## 2026-05-07T18:49Z - codex - stale Proton backups must be validated, not trusted
+
+**What went wrong / could be better.** Claude correctly unblocked the immediate Proton password-login path, but the durable reader bug remained: `load_saved_session()` treated any successfully loaded pickle as valid, even when the first API call would immediately fail with `Invalid refresh token`. That let expired `.bak-*` sessions poison the fallback path and kept `tools/proton_session_check.py` reporting `EMAIL_BLOCKED`.
+
+**Fix shipped.** `ops/email_reader.py` now validates loaded sessions with a quiet `get_messages()` smoke check before returning them. If a candidate fails with the expired-session signature, the reader deletes that stale pickle and tries the next candidate, then falls through to fresh password login when no saved session is valid. `raise_blocked_for_client_error()` uses the same stale-session remover for canonical pickle cleanup. `tests/test_email_reader.py` adds a regression case proving an expired backup is skipped/deleted and a valid backup is restored as canonical.
+
+**Validation.** `python ops\email_reader.py --unread --exclude-noise --limit 10` -> `[]`; `python ops\email_reader.py --unread --limit 20` -> `[]`; `python tools\proton_session_check.py --state-dir state --agent codex --json` wrote `state/proton-session-check-2026-05-07-codex-184811.md` with `probe_status: ok`; `python -m pytest tests\test_email_reader.py tests\test_heartbeat_proton_inbox.py -q` -> 18 passed. `.secrets/proton_session.pickle` is fresh as of the 18:47Z unblock, and the old expired backup is no longer present.
+
+**Durable rule.** For auth blockers, cache-load success is not enough. The blocker-clear test must execute the blocked operation itself: inbox read for Proton, post for social, deploy for deploy auth. If a cached credential can be loaded but not used, the tool should invalidate that cache candidate automatically and keep moving to the next auth path before asking Leon for another human step.

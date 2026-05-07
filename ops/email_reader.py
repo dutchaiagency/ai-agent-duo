@@ -68,13 +68,40 @@ def session_candidates() -> tuple[Path, ...]:
     return tuple(candidates)
 
 
-def load_saved_session(proton) -> Path | None:
-    """Try every saved Proton session; canonicalize a working backup."""
+def remove_stale_session(path: Path) -> None:
+    """Drop an expired session token so future runs do not retry it forever."""
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError:
+        # If Windows has the file locked, skip it for this process; the
+        # validation loop still falls through to a fresh login.
+        pass
+
+
+def validate_saved_session(proton) -> None:
+    """Force token refresh now, while we can still try another auth path."""
+    quiet_client_call(proton.get_messages)
+
+
+def load_saved_session(proton, validate=None) -> Path | None:
+    """Try every saved Proton session; canonicalize a validated backup."""
     for session_path in session_candidates():
         try:
             proton.load_session(str(session_path))
         except Exception:
             continue
+
+        if validate is not None:
+            try:
+                validate(proton)
+            except Exception as exc:
+                if is_session_expired_error(exc):
+                    remove_stale_session(session_path)
+                    continue
+                raise
+
         if session_path != SESSION_FILE:
             try:
                 shutil.copy2(session_path, SESSION_FILE)
@@ -96,10 +123,7 @@ def is_session_expired_error(exc: Exception) -> bool:
 
 def raise_blocked_for_client_error(exc: Exception) -> None:
     if is_session_expired_error(exc):
-        try:
-            SESSION_FILE.unlink()
-        except FileNotFoundError:
-            pass
+        remove_stale_session(SESSION_FILE)
         raise EmailLoginBlocked(
             "Saved Proton session is expired or revoked. Refresh "
             ".secrets/proton_session.pickle in a browser-backed login, then "
@@ -139,7 +163,7 @@ def get_client():
         username, password = get_credentials()
         proton = ProtonMail()
 
-        if load_saved_session(proton):
+        if load_saved_session(proton, validate=validate_saved_session):
             return proton
 
         try:
