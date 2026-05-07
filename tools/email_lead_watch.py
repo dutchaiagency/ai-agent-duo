@@ -19,8 +19,21 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 WATCH_HEADING = "## Active Email Lead Watch"
 EXPECTED_FOLLOW_UP_HOURS = 72
+DEFAULT_FOLLOW_UP_POLICY = "72h-bump"
 DEFAULT_SUPPRESSION_LIST = Path("ops/email_suppression_list.md")
 EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+POLICY_DURATION_RE = re.compile(
+    r"(?P<amount>\d+)\s*(?P<unit>h|hr|hrs|hour|hours|d|day|days)\b",
+    re.IGNORECASE,
+)
+NO_BUMP_POLICY_TERMS = (
+    "if-reply-only",
+    "reply-only",
+    "no-bump",
+    "no bump",
+    "no-follow-up",
+    "no follow-up",
+)
 
 
 @dataclass(frozen=True)
@@ -31,6 +44,7 @@ class EmailLead:
     owner: str
     anchor: str
     next_action: str
+    policy: str = DEFAULT_FOLLOW_UP_POLICY
 
 
 @dataclass(frozen=True)
@@ -42,11 +56,17 @@ class EmailLeadStatus:
     cutoff_at: str
     hours_to_cutoff: float | None
     next_action: str
+    policy: str = DEFAULT_FOLLOW_UP_POLICY
     note: str = ""
 
 
 def strip_inline_code(value: str) -> str:
     return value.replace("`", "").strip()
+
+
+def normalize_policy(value: str) -> str:
+    value = strip_inline_code(value)
+    return value or DEFAULT_FOLLOW_UP_POLICY
 
 
 def split_table_row(line: str) -> list[str]:
@@ -80,6 +100,11 @@ def parse_email_leads(markdown: str) -> list[EmailLead]:
                 owner=strip_inline_code(cells[3]),
                 anchor=strip_inline_code(cells[4]),
                 next_action=strip_inline_code(cells[5]),
+                policy=(
+                    normalize_policy(cells[6])
+                    if len(cells) >= 7
+                    else DEFAULT_FOLLOW_UP_POLICY
+                ),
             )
         )
     return leads
@@ -111,8 +136,29 @@ def parse_utc_timestamp(value: str) -> datetime:
     return parsed.astimezone(UTC)
 
 
-def expected_cutoff(sent_at: datetime) -> datetime:
-    return sent_at + timedelta(hours=EXPECTED_FOLLOW_UP_HOURS)
+def policy_delta(policy: str) -> timedelta:
+    match = POLICY_DURATION_RE.search(policy)
+    if not match:
+        return timedelta(hours=EXPECTED_FOLLOW_UP_HOURS)
+    amount = int(match.group("amount"))
+    unit = match.group("unit").lower()
+    if unit.startswith("d"):
+        return timedelta(days=amount)
+    return timedelta(hours=amount)
+
+
+def expected_cutoff(
+    sent_at: datetime,
+    policy: str = DEFAULT_FOLLOW_UP_POLICY,
+) -> datetime:
+    return sent_at + policy_delta(policy)
+
+
+def policy_allows_follow_up(policy: str) -> bool:
+    lowered = policy.lower()
+    if "suppressed" in lowered:
+        return False
+    return not any(term in lowered for term in NO_BUMP_POLICY_TERMS)
 
 
 def format_hours(hours: float | None) -> str:
@@ -144,6 +190,7 @@ def classify_lead(
             cutoff_at=lead.cutoff_at,
             hours_to_cutoff=None,
             next_action=lead.next_action,
+            policy=lead.policy,
             note="Sent timestamp is not ISO-8601 UTC.",
         )
 
@@ -158,10 +205,11 @@ def classify_lead(
             cutoff_at=lead.cutoff_at,
             hours_to_cutoff=None,
             next_action=lead.next_action,
-            note="72h cutoff timestamp is not ISO-8601 UTC.",
+            policy=lead.policy,
+            note="Cutoff timestamp is not ISO-8601 UTC.",
         )
 
-    expected = expected_cutoff(sent_dt)
+    expected = expected_cutoff(sent_dt, lead.policy)
     if cutoff_dt != expected:
         return EmailLeadStatus(
             state="cadence_mismatch",
@@ -171,21 +219,35 @@ def classify_lead(
             cutoff_at=lead.cutoff_at,
             hours_to_cutoff=(cutoff_dt - now).total_seconds() / 3600,
             next_action=lead.next_action,
-            note=f"Cutoff should be {expected.strftime('%Y-%m-%dT%H:%MZ')}.",
+            policy=lead.policy,
+            note=(
+                f"Cutoff for policy {lead.policy} should be "
+                f"{expected.strftime('%Y-%m-%dT%H:%MZ')}."
+            ),
         )
 
     hours = (cutoff_dt - now).total_seconds() / 3600
     lowered_action = lead.next_action.lower()
-    suppressed = lead_email(lead.lead) in (suppressed_emails or set())
+    suppressed = lead_email(lead.lead) in (suppressed_emails or set()) or (
+        "suppressed" in lead.policy.lower()
+    )
+    follow_up_allowed = policy_allows_follow_up(lead.policy)
     if suppressed:
         state = "suppressed"
         note = "Address is in email suppression list; no contact on any channel."
     elif "cold_no_reply" in lowered_action:
         state = "closed"
         note = "Lead is already marked cold_no_reply."
+    elif not follow_up_allowed:
+        if hours <= 0:
+            state = "closed"
+            note = f"Policy {lead.policy} forbids a follow-up bump; close if no reply."
+        else:
+            state = "watching"
+            note = f"Policy {lead.policy} is reply-only; no follow-up bump."
     elif hours <= 0:
         state = "follow_up_due"
-        note = "72h no-reply follow-up window is open."
+        note = f"{lead.policy} no-reply follow-up window is open."
     else:
         state = "watching"
         note = "No follow-up before cutoff."
@@ -198,6 +260,7 @@ def classify_lead(
         cutoff_at=lead.cutoff_at,
         hours_to_cutoff=hours,
         next_action=lead.next_action,
+        policy=lead.policy,
         note=note,
     )
 
@@ -223,18 +286,19 @@ def render_markdown(
     lines = [
         f"# Email Lead Watch - {generated_at.strftime('%Y-%m-%d %H:%M UTC')}",
         "",
-        "| State | Lead | Owner | Sent | 72h cutoff | Timer | Next action | Note |",
-        "| --- | --- | --- | --- | --- | ---: | --- | --- |",
+        "| State | Lead | Owner | Sent | Cutoff | Timer | Policy | Next action | Note |",
+        "| --- | --- | --- | --- | --- | ---: | --- | --- | --- |",
     ]
     for status in statuses:
         lines.append(
-            "| {state} | {lead} | {owner} | {sent} | {cutoff} | {timer} | {action} | {note} |".format(
+            "| {state} | {lead} | {owner} | {sent} | {cutoff} | {timer} | {policy} | {action} | {note} |".format(
                 state=status.state,
                 lead=md_escape(status.lead),
                 owner=md_escape(status.owner),
                 sent=status.sent_at,
                 cutoff=status.cutoff_at,
                 timer=format_hours(status.hours_to_cutoff),
+                policy=md_escape(status.policy),
                 action=md_escape(status.next_action),
                 note=md_escape(status.note or "-"),
             )
@@ -283,7 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Exit non-zero on malformed timestamps or non-72h cutoff cadence.",
+        help="Exit non-zero on malformed timestamps or policy/cutoff cadence drift.",
     )
     return parser
 

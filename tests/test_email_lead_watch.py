@@ -14,10 +14,10 @@ from tools.email_lead_watch import (
 PIPELINE = """
 ## Active Email Lead Watch
 
-| Lead | Sent (UTC) | 72h cutoff (UTC) | Owner | Personalization anchor | Next action |
-| --- | --- | --- | --- | --- | --- |
-| owner/repo #1 -- `a@example.com` | 2026-05-02T16:38Z | 2026-05-05T16:38Z | codex | file.py:1 | Watch inbox. |
-| Other lead -- `b@example.com` | 2026-05-02T21:47Z | 2026-05-05T21:47Z | claude | form.py | Ask scope. |
+| Lead | Sent (UTC) | Cutoff (UTC) | Owner | Personalization anchor | Next action | Policy |
+| --- | --- | --- | --- | --- | --- | --- |
+| owner/repo #1 -- `a@example.com` | 2026-05-02T16:38Z | 2026-05-05T16:38Z | codex | file.py:1 | Watch inbox. | 72h-bump |
+| Other lead -- `b@example.com` | 2026-05-02T21:47Z | 2026-05-09T21:47Z | claude | form.py | Ask scope. | 7d-if-reply-only |
 
 Codeslegion is inbound and excluded.
 
@@ -32,7 +32,9 @@ class EmailLeadWatchTests(unittest.TestCase):
         self.assertEqual(len(leads), 2)
         self.assertEqual(leads[0].lead, "owner/repo #1 -- a@example.com")
         self.assertEqual(leads[0].owner, "codex")
-        self.assertEqual(leads[1].cutoff_at, "2026-05-05T21:47Z")
+        self.assertEqual(leads[0].policy, "72h-bump")
+        self.assertEqual(leads[1].cutoff_at, "2026-05-09T21:47Z")
+        self.assertEqual(leads[1].policy, "7d-if-reply-only")
 
     def test_classify_watching_before_cutoff(self) -> None:
         status = classify_lead(
@@ -66,6 +68,31 @@ class EmailLeadWatchTests(unittest.TestCase):
 
         self.assertEqual(status.state, "follow_up_due")
         self.assertIn("window is open", status.note)
+
+    def test_reply_only_policy_watches_until_cutoff_then_closes(self) -> None:
+        lead = EmailLead(
+            lead="lead",
+            sent_at="2026-05-03T07:05Z",
+            cutoff_at="2026-05-10T07:05Z",
+            owner="claude",
+            anchor="x",
+            next_action="Watch inbox.",
+            policy="7d-if-reply-only",
+        )
+
+        watching = classify_lead(
+            lead,
+            now=datetime(2026, 5, 7, 18, 20, tzinfo=UTC),
+        )
+        closed = classify_lead(
+            lead,
+            now=datetime(2026, 5, 10, 8, 0, tzinfo=UTC),
+        )
+
+        self.assertEqual(watching.state, "watching")
+        self.assertIn("reply-only", watching.note)
+        self.assertEqual(closed.state, "closed")
+        self.assertIn("forbids a follow-up bump", closed.note)
 
     def test_classify_cadence_mismatch(self) -> None:
         status = classify_lead(
@@ -126,6 +153,8 @@ class EmailLeadWatchTests(unittest.TestCase):
         self.assertIn("# Email Lead Watch - 2026-05-02 22:31 UTC", markdown)
         self.assertIn("lead \\| with pipe", markdown)
         self.assertIn("Ask A \\| B.", markdown)
+        self.assertIn("| State | Lead | Owner | Sent | Cutoff | Timer | Policy |", markdown)
+        self.assertIn("72h-bump", markdown)
 
     def test_default_output_path_uses_generated_minute(self) -> None:
         path = default_output_path(

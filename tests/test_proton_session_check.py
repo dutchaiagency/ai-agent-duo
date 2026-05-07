@@ -12,6 +12,7 @@ from tools.proton_session_check import (
     default_report_path,
     due_followups,
     latest_bridge_nudge_at,
+    render_report,
     send_bridge_message,
 )
 
@@ -19,7 +20,12 @@ from tools.proton_session_check import (
 NOW = datetime(2026, 5, 7, 0, 35, tzinfo=UTC)
 
 
-def _status(state: str, lead: str, cutoff: str = "2026-05-06T12:00Z") -> EmailLeadStatus:
+def _status(
+    state: str,
+    lead: str,
+    cutoff: str = "2026-05-06T12:00Z",
+    policy: str = "72h-bump",
+) -> EmailLeadStatus:
     return EmailLeadStatus(
         state=state,
         lead=lead,
@@ -28,6 +34,7 @@ def _status(state: str, lead: str, cutoff: str = "2026-05-06T12:00Z") -> EmailLe
         cutoff_at=cutoff,
         hours_to_cutoff=-12.5,
         next_action="Check inbox before follow-up.",
+        policy=policy,
         note="",
     )
 
@@ -153,7 +160,27 @@ def test_bridge_body_lists_due_leads_and_report_path() -> None:
 
     assert "2 email leads" in body
     assert "state/report.md" in body
-    assert "lead A" in body
+    assert "lead A (72h-bump)" in body
+
+
+def test_render_report_surfaces_policy_column() -> None:
+    statuses = [
+        _status("follow_up_due", "lead A", policy="72h-bump"),
+        _status("watching", "lead B", cutoff="2026-05-10T12:00Z", policy="7d-if-reply-only"),
+    ]
+    assessment = assess(
+        statuses,
+        _blocked_probe(),
+        now=NOW,
+        min_due=2,
+        cooldown=timedelta(hours=12),
+        state={},
+    )
+
+    report = render_report(assessment, statuses, _blocked_probe())
+
+    assert "| State | Lead | Owner | Cutoff | Timer | Policy | Next action |" in report
+    assert "7d-if-reply-only" in report
 
 
 def test_default_report_path_uses_seconds_to_avoid_same_minute_overwrite(tmp_path: Path) -> None:

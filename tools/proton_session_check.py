@@ -293,19 +293,20 @@ def render_report(
         f"Probe: `{probe.status}` (return code {probe.returncode}; {probe.detail})",
         f"Due follow-ups: {assessment.due_count} (threshold {assessment.min_due})",
         "",
-        "| State | Lead | Owner | 72h cutoff | Timer | Next action |",
-        "| --- | --- | --- | --- | ---: | --- |",
+        "| State | Lead | Owner | Cutoff | Timer | Policy | Next action |",
+        "| --- | --- | --- | --- | ---: | --- | --- |",
     ]
     for status in statuses:
         if status.state not in {"follow_up_due", "watching", "suppressed"}:
             continue
         lines.append(
-            "| {state} | {lead} | {owner} | {cutoff} | {timer} | {action} |".format(
+            "| {state} | {lead} | {owner} | {cutoff} | {timer} | {policy} | {action} |".format(
                 state=status.state,
                 lead=md_escape(status.lead),
                 owner=md_escape(status.owner),
                 cutoff=status.cutoff_at,
                 timer=format_timer(status.hours_to_cutoff),
+                policy=md_escape(status.policy),
                 action=md_escape(status.next_action),
             )
         )
@@ -324,7 +325,7 @@ def build_bridge_body(
     report_path: Path | None,
 ) -> str:
     report = report_path.as_posix() if report_path is not None else "(no report file)"
-    lead_lines = "\n".join(f"- {status.lead}" for status in due[:8])
+    lead_lines = "\n".join(f"- {status.lead} ({status.policy})" for status in due[:8])
     if len(due) > 8:
         lead_lines += f"\n- ... plus {len(due) - 8} more"
     return (
