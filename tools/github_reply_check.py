@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -197,8 +198,36 @@ def normalize_rest_issue(
     }
 
 
+def should_retry_without_token_env(exc: subprocess.CalledProcessError) -> bool:
+    if not (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")):
+        return False
+    note = f"{exc.stderr or ''}\n{exc.stdout or ''}".lower()
+    return (
+        "failed to log in to github.com using token" in note
+        and ("github_token" in note or "gh_token" in note)
+    )
+
+
+def gh_env_without_tokens() -> dict[str, str]:
+    env = os.environ.copy()
+    env.pop("GITHUB_TOKEN", None)
+    env.pop("GH_TOKEN", None)
+    return env
+
+
 def gh_json(cmd: list[str]) -> Any:
-    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    try:
+        proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        if not should_retry_without_token_env(exc):
+            raise
+        proc = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=gh_env_without_tokens(),
+        )
     return json.loads(proc.stdout or "{}")
 
 

@@ -1,5 +1,6 @@
 import json
 import io
+import os
 import subprocess
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -13,6 +14,7 @@ from tools.github_pr_watch import (
     check_targets,
     default_output_path,
     fetch_pr,
+    gh_json,
     main,
     parse_target_spec,
     parse_watch_targets,
@@ -237,6 +239,35 @@ class GitHubPRWatchTests(unittest.TestCase):
         )
 
         self.assertEqual(status.state, "closed_no_signal")
+
+    def test_closed_pr_with_missing_cla_bot_is_policy_gate(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=1),
+            {
+                "author": {"login": "dutchaiagency"},
+                "createdAt": "2026-05-06T11:10:00Z",
+                "state": "CLOSED",
+                "comments": [
+                    comment(
+                        "owui-terminator",
+                        "2026-05-06T11:10:04Z",
+                        (
+                            "STOP: MISSING CLA. @dutchaiagency, your PR "
+                            "description is missing the Contributor License "
+                            "Agreement confirmation. The CLA is required for "
+                            "ALL PRs and this PR will be closed."
+                        ),
+                    )
+                ],
+                "reviews": [],
+                "latestReviews": [],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "policy_gate")
+        self.assertEqual(status.latest_signal_author, "owui-terminator")
+        self.assertIn("human/legal review", status.note)
 
     def test_closed_pr_with_release_note_by_agent_is_shipped(self) -> None:
         def fake_fetch(_target):  # type: ignore[no-untyped-def]
@@ -693,6 +724,39 @@ class GitHubPRWatchTests(unittest.TestCase):
 
         with patch("tools.github_pr_watch.subprocess.run", fake_run):
             self.assertEqual(fetch_pr(PullTarget("owner/repo", 7))["number"], 7)
+
+    def test_gh_json_retries_without_invalid_token_env(self) -> None:
+        calls: list[dict[str, str] | None] = []
+
+        def fake_run(cmd, check, capture_output, text, env=None):  # type: ignore[no-untyped-def]
+            calls.append(env)
+            if len(calls) == 1:
+                raise subprocess.CalledProcessError(
+                    returncode=1,
+                    cmd=cmd,
+                    stderr=(
+                        "X Failed to log in to github.com using token "
+                        "(GITHUB_TOKEN)\n"
+                        "- The token in GITHUB_TOKEN is invalid."
+                    ),
+                )
+            self.assertIsNotNone(env)
+            self.assertNotIn("GITHUB_TOKEN", env)
+            self.assertNotIn("GH_TOKEN", env)
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout='{"ok": true}',
+                stderr="",
+            )
+
+        with (
+            patch.dict(os.environ, {"GITHUB_TOKEN": "bad", "GH_TOKEN": "bad"}),
+            patch("tools.github_pr_watch.subprocess.run", fake_run),
+        ):
+            self.assertEqual(gh_json(["gh", "pr", "view"]), {"ok": True})
+
+        self.assertEqual(len(calls), 2)
 
     def test_repo_not_found_is_unavailable_not_generic_error(self) -> None:
         def fake_fetch(_target):  # type: ignore[no-untyped-def]

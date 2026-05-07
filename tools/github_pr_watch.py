@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -380,6 +381,23 @@ def is_ship_timeline_item(item: dict[str, str]) -> bool:
     )
 
 
+def is_policy_gate_timeline_item(item: dict[str, str]) -> bool:
+    body = item["body"].lower()
+    return (
+        ("missing cla" in body and "contributor license agreement" in body)
+        or (
+            "contributor license agreement" in body
+            and "required" in body
+            and ("closed" in body or "not be reviewed" in body)
+        )
+        or (
+            "agentic ai code" in body
+            and ("human review" in body or "manual testing" in body)
+            and "closure" in body
+        )
+    )
+
+
 def classify_pr(
     target: PullTarget, payload: dict[str, Any], *, agent_login: str
 ) -> PullStatus:
@@ -430,6 +448,21 @@ def classify_pr(
     }
     if signals:
         latest = max(signals, key=lambda item: parse_github_time(item["created_at"]))
+        policy_gate = pr_state == "CLOSED" and is_policy_gate_timeline_item(latest)
+        if policy_gate:
+            return PullStatus(
+                **base,
+                state="policy_gate",
+                latest_signal_author=latest["author"],
+                latest_signal_at=latest["created_at"],
+                latest_signal_excerpt=excerpt(
+                    f"{latest['kind']}: {latest['body']}".strip()
+                ),
+                note=(
+                    "PR is closed by a repo policy/legal/template gate; do not "
+                    "auto-recover without human/legal review."
+                ),
+            )
         shipped = pr_state == "MERGED" or (
             pr_state == "CLOSED" and is_ship_timeline_item(latest)
         )
@@ -486,8 +519,36 @@ def classify_pr(
     )
 
 
+def should_retry_without_token_env(exc: subprocess.CalledProcessError) -> bool:
+    if not (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")):
+        return False
+    note = f"{exc.stderr or ''}\n{exc.stdout or ''}".lower()
+    return (
+        "failed to log in to github.com using token" in note
+        and ("github_token" in note or "gh_token" in note)
+    )
+
+
+def gh_env_without_tokens() -> dict[str, str]:
+    env = os.environ.copy()
+    env.pop("GITHUB_TOKEN", None)
+    env.pop("GH_TOKEN", None)
+    return env
+
+
 def gh_json(cmd: list[str]) -> Any:
-    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    try:
+        proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        if not should_retry_without_token_env(exc):
+            raise
+        proc = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=gh_env_without_tokens(),
+        )
     return json.loads(proc.stdout or "{}")
 
 

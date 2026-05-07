@@ -1,4 +1,5 @@
 import io
+import os
 import unittest
 import subprocess
 from contextlib import redirect_stderr, redirect_stdout
@@ -12,6 +13,7 @@ from tools.github_reply_check import (
     classify_thread,
     default_output_path,
     fetch_issue,
+    gh_json,
     main,
     normalize_rest_issue,
     parse_target_spec,
@@ -297,6 +299,39 @@ class GitHubReplyCheckTests(unittest.TestCase):
 
         self.assertEqual(payload["state"], "OPEN")
         self.assertEqual(payload["comments"][0]["author"]["login"], "dutchaiagency")
+
+    def test_gh_json_retries_without_invalid_token_env(self) -> None:
+        calls: list[dict[str, str] | None] = []
+
+        def fake_run(cmd, check, capture_output, text, env=None):  # type: ignore[no-untyped-def]
+            calls.append(env)
+            if len(calls) == 1:
+                raise subprocess.CalledProcessError(
+                    returncode=1,
+                    cmd=cmd,
+                    stderr=(
+                        "X Failed to log in to github.com using token "
+                        "(GITHUB_TOKEN)\n"
+                        "- The token in GITHUB_TOKEN is invalid."
+                    ),
+                )
+            self.assertIsNotNone(env)
+            self.assertNotIn("GITHUB_TOKEN", env)
+            self.assertNotIn("GH_TOKEN", env)
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout='{"ok": true}',
+                stderr="",
+            )
+
+        with (
+            patch.dict(os.environ, {"GITHUB_TOKEN": "bad", "GH_TOKEN": "bad"}),
+            patch("tools.github_reply_check.subprocess.run", fake_run),
+        ):
+            self.assertEqual(gh_json(["gh", "issue", "view"]), {"ok": True})
+
+        self.assertEqual(len(calls), 2)
 
     def test_fetch_issue_reports_unavailable_after_graphql_and_rest_failure(self) -> None:
         def fake_run(cmd, check, capture_output, text):  # type: ignore[no-untyped-def]

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -596,6 +597,38 @@ def score_lead(lead: Lead, *, now: datetime | None = None) -> ScoredLead:
     )
 
 
+def should_retry_without_token_env(exc: subprocess.CalledProcessError) -> bool:
+    if not (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")):
+        return False
+    note = f"{exc.stderr or ''}\n{exc.stdout or ''}".lower()
+    return (
+        "failed to log in to github.com using token" in note
+        and ("github_token" in note or "gh_token" in note)
+    )
+
+
+def gh_env_without_tokens() -> dict[str, str]:
+    env = os.environ.copy()
+    env.pop("GITHUB_TOKEN", None)
+    env.pop("GH_TOKEN", None)
+    return env
+
+
+def run_gh(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        if not should_retry_without_token_env(exc):
+            raise
+        return subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=gh_env_without_tokens(),
+        )
+
+
 def run_query(name: str, args: tuple[str, ...], limit: int) -> list[Lead]:
     cmd = [
         "gh",
@@ -607,7 +640,7 @@ def run_query(name: str, args: tuple[str, ...], limit: int) -> list[Lead]:
         "--json",
         FIELDS,
     ]
-    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    proc = run_gh(cmd)
     rows = json.loads(proc.stdout or "[]")
     return [Lead.from_gh(name, row) for row in rows]
 
@@ -632,11 +665,11 @@ def fetch_issue_comment_bodies_for(repo: str, number: int) -> tuple[str, ...]:
         "comments",
     ]
     try:
-        proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        proc = run_gh(cmd)
         payload = json.loads(proc.stdout or "{}")
     except subprocess.CalledProcessError:
         rest_cmd = ["gh", "api", f"repos/{repo}/issues/{number}/comments"]
-        proc = subprocess.run(rest_cmd, check=True, capture_output=True, text=True)
+        proc = run_gh(rest_cmd)
         rows = json.loads(proc.stdout or "[]")
         return tuple(str(comment.get("body") or "") for comment in rows)
     return tuple(

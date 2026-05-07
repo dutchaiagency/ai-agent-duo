@@ -1,5 +1,8 @@
+import os
+import subprocess
 import unittest
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 from tools.github_lead_scan import (
     Lead,
@@ -8,6 +11,7 @@ from tools.github_lead_scan import (
     enrich_scored_with_comments,
     filter_scored,
     render_markdown,
+    run_gh,
     score_lead,
 )
 
@@ -957,6 +961,34 @@ class GitHubLeadScanTests(unittest.TestCase):
             active_target_keys(path),
             {("owner/repo-one", 3), ("other/repo-two", 8)},
         )
+
+    def test_run_gh_retries_without_invalid_token_env(self) -> None:
+        calls: list[dict[str, str] | None] = []
+
+        def fake_run(cmd, check, capture_output, text, env=None):  # type: ignore[no-untyped-def]
+            calls.append(env)
+            if len(calls) == 1:
+                raise subprocess.CalledProcessError(
+                    returncode=1,
+                    cmd=cmd,
+                    stderr=(
+                        "X Failed to log in to github.com using token "
+                        "(GITHUB_TOKEN)\n"
+                        "- The token in GITHUB_TOKEN is invalid."
+                    ),
+                )
+            self.assertIsNotNone(env)
+            self.assertNotIn("GITHUB_TOKEN", env)
+            self.assertNotIn("GH_TOKEN", env)
+            return subprocess.CompletedProcess(cmd, 0, stdout="[]", stderr="")
+
+        with (
+            patch.dict(os.environ, {"GITHUB_TOKEN": "bad", "GH_TOKEN": "bad"}),
+            patch("tools.github_lead_scan.subprocess.run", fake_run),
+        ):
+            self.assertEqual(run_gh(["gh", "search", "issues"]).stdout, "[]")
+
+        self.assertEqual(len(calls), 2)
 
     def tmp_path(self, name: str, content: str):
         from pathlib import Path

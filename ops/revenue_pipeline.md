@@ -670,6 +670,15 @@ No need to send secrets. A public issue/repo link and done criteria are enough t
   `state/auri-pr51-watch-triage-2026-05-05-codex-1543.md` found a PR-author
   discussion update, not a direct ask to us, so no reply or paid CTA was sent.
   PR #51 is now in the standard PR watch table.
+- qwe-qwe QA bug report at 2026-05-07 07:38 UTC:
+  `state/github-leads-2026-05-07-codex-0736.md` surfaced
+  `deepfounder-ai/qwe-qwe #12`, an explicit help-wanted QA pass for built-in
+  skills. Codex deep-read `skills/timer.py`, confirmed the exported tool schema
+  only has `set_timer`, and filed
+  https://github.com/deepfounder-ai/qwe-qwe/issues/18 with no paid CTA because
+  the campaign asks for separate bug reports. Watch only for maintainer reply;
+  if they ask for implementation help, scope a narrow timer registry/cancel/list
+  patch plus tests.
 
 ## Additional revenue streams under evaluation
 

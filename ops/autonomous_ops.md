@@ -12,6 +12,8 @@ Escalate only when Leon's physical presence or legal identity is required:
 
 - Phone-verified 2FA, SMS, or authenticator approval on Leon's device.
 - KYC, passport, ID photo, bank onboarding, or fiat cashout.
+- Legal attestations such as CLA acceptance, contributor license agreements, or
+  statements that human review/manual testing happened.
 - CAPTCHA or risk challenge that cannot be solved through normal browser use.
 
 ## Non-negotiable operating limits
@@ -63,6 +65,12 @@ Escalate only when Leon's physical presence or legal identity is required:
   Proton. `--lock <topic>` only adds an extra workflow lock; it never replaces
   recipient/body dedupe. If Proton returns an invalid/missing signature error,
   inspect Sent mail before retrying; the sender must not auto-resend.
+- Proton session blocker: before manual email follow-ups, run
+  `python tools/proton_session_check.py --state-dir state --agent <agent> --send`.
+  It combines `tools/email_lead_watch.py` due windows with
+  `ops/email_reader.py` EMAIL_BLOCKED detection and sends at most one
+  deduped Leon nudge per cooldown/recent bridge ping. Do not repeat manual
+  Proton-refresh asks while this tool reports `no_nudge`.
 - Budget baseline (per Leon 2026-05-02 07:03 UTC): total compute is
   1 EUR/day across 2 agents, about 0.50 EUR/agent/day. Spend compute on
   concrete survival work; do not conserve it by idling when there is executable
@@ -157,27 +165,34 @@ Discovery flow:
    bounty, or productized-offer checks; follow its lane unless fresh bridge or
    inbound evidence overrides it.
 3. Check active leads and public replies.
-4. Check the portfolio lanes in `ops/revenue_pipeline.md`: service work,
+4. Run `python tools/proton_session_check.py --state-dir state --agent <agent> --send`
+   before any cold-email follow-up decision; if it reports Proton blocked,
+   wait for inbox refresh instead of blind follow-up.
+5. For large third-party repos, use GitHub API file reads, `gh api` commit
+   patches, or a narrow `git fetch --depth 1 origin <branch>` before a full
+   working-tree clone. Only clone the whole repo when a patch is likely and the
+   exact branch is known.
+6. Check the portfolio lanes in `ops/revenue_pipeline.md`: service work,
    content/inbound, marketplaces/bounties, productized offers, listings,
    partnerships, and paper-only market research.
-5. Prefer direct scoped work over stale bounty feeds, but keep at least two
+7. Prefer direct scoped work over stale bounty feeds, but keep at least two
    independent lanes moving unless active paid delivery is underway.
-6. Every third heartbeat, re-fetch the 3-5 most recent saturated/pending bounty
+8. Every third heartbeat, re-fetch the 3-5 most recent saturated/pending bounty
    leads before scouting new surfaces. Treat unlinked Algora bounty cards as
    `verify_manually`, not candidates, until a canonical open issue or maintainer
    confirmation exists.
-7. Every other heartbeat during content pushes, run
+9. Every other heartbeat during content pushes, run
    `python tools/devto_engagement_check.py --state-dir state --agent codex`
    so the public dev.to API is pulled with `per_page=100` and logged in the
    canonical `state/devto-engagement-YYYY-MM-DD-codex-HHMM.md` shape.
-8. When the router suggests `outbound_traffic_generation`, do a
+10. When the router suggests `outbound_traffic_generation`, do a
    channel-poverty audit first: check Farcaster cooldown and recent
    bridge-to-Leon account-unlock asks. If a human-account unlock ask is already
    pending, do not repeat it; use the slot for a non-duplicative cast or
    nonpublic code/reply/delivery work.
-9. Send at most 5 targeted, relevant outbound messages per day per channel.
-10. Stop any channel after 20 targeted messages without replies.
-11. Use compute aggressively for concrete survival work; avoid duplicate
+11. Send at most 5 targeted, relevant outbound messages per day per channel.
+12. Stop any channel after 20 targeted messages without replies.
+13. Use compute aggressively for concrete survival work; avoid duplicate
    public noise, spam, or low-signal loops.
 
 ## Weekly self-audit
