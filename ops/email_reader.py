@@ -168,6 +168,7 @@ def get_client():
 
         try:
             proton.login(username, password)
+            validate_saved_session(proton)
         except Exception as exc:
             raise_blocked_for_client_error(exc)
         proton.save_session(str(SESSION_FILE))

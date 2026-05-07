@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "ops"))
 
@@ -75,6 +77,36 @@ class _ValidatingFakeSessionProton(_FakeSessionProton):
                 "Can't update tokens, status: 400 json: {'Error': 'Invalid refresh token'}"
             )
         return []
+
+
+class _FreshLoginFakeProton:
+    def __init__(self, fail_validation=False):
+        self.fail_validation = fail_validation
+        self.login_args = None
+        self.saved_paths = []
+        self.get_messages_calls = 0
+
+    def login(self, username: str, password: str):
+        self.login_args = (username, password)
+
+    def save_session(self, path: str):
+        self.saved_paths.append(path)
+
+    def get_messages(self):
+        self.get_messages_calls += 1
+        if self.fail_validation:
+            raise RuntimeError(
+                "Can't update tokens, status: 400 json: {'Error': 'Invalid refresh token'}"
+            )
+        return []
+
+
+def _install_fake_protonmail(monkeypatch, proton):
+    monkeypatch.setitem(
+        sys.modules,
+        "protonmail",
+        SimpleNamespace(ProtonMail=lambda: proton),
+    )
 
 
 def test_is_noise_sender_matches_known_substrings():
@@ -271,6 +303,43 @@ def test_load_saved_session_skips_expired_backup_when_validating(monkeypatch):
         assert proton.loaded_paths == [str(expired), str(valid)]
         assert not expired.exists()
         assert current.read_text(encoding="utf-8") == "valid"
+
+
+def test_get_client_validates_fresh_login_before_saving(monkeypatch):
+    with tempfile.TemporaryDirectory() as tmp:
+        secrets = Path(tmp)
+        current = secrets / "proton_session.pickle"
+        monkeypatch.setattr(email_reader, "SECRETS_DIR", secrets)
+        monkeypatch.setattr(email_reader, "SESSION_FILE", current)
+        monkeypatch.setattr(email_reader, "get_credentials", lambda: ("user", "pass"))
+        proton = _FreshLoginFakeProton()
+        _install_fake_protonmail(monkeypatch, proton)
+
+        client = email_reader.get_client()
+
+        assert client is proton
+        assert proton.login_args == ("user", "pass")
+        assert proton.get_messages_calls == 1
+        assert proton.saved_paths == [str(current)]
+
+
+def test_get_client_blocks_when_fresh_login_session_is_revoked(monkeypatch):
+    with tempfile.TemporaryDirectory() as tmp:
+        secrets = Path(tmp)
+        current = secrets / "proton_session.pickle"
+        monkeypatch.setattr(email_reader, "SECRETS_DIR", secrets)
+        monkeypatch.setattr(email_reader, "SESSION_FILE", current)
+        monkeypatch.setattr(email_reader, "get_credentials", lambda: ("user", "pass"))
+        proton = _FreshLoginFakeProton(fail_validation=True)
+        _install_fake_protonmail(monkeypatch, proton)
+
+        with pytest.raises(email_reader.EmailLoginBlocked):
+            email_reader.get_client()
+
+        assert proton.login_args == ("user", "pass")
+        assert proton.get_messages_calls == 1
+        assert proton.saved_paths == []
+        assert not current.exists()
 
 
 def test_captcha_errors_are_classified_without_importing_protonmail():
