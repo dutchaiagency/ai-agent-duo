@@ -55,6 +55,21 @@ class GitHubReplyCheckTests(unittest.TestCase):
             ],
         )
 
+    def test_parse_targets_captures_handled_reply_marker(self) -> None:
+        pipeline = """
+## Active Non-Farcaster Target Queue
+
+| Lead | Status | Intake tag | Next action |
+| --- | --- | --- | --- |
+| owner/repo-one #3 | Contacted | `tag` | Closed; handled reply through 2026-05-07T07:37:51Z. |
+
+## Reply Handling
+"""
+        targets = parse_targets(pipeline)
+
+        self.assertEqual(len(targets), 1)
+        self.assertEqual(targets[0].handled_reply_through, "2026-05-07T07:37:51Z")
+
     def test_parse_ad_hoc_target_specs(self) -> None:
         self.assertEqual(
             parse_target_spec("owner/repo#3"),
@@ -126,6 +141,49 @@ class GitHubReplyCheckTests(unittest.TestCase):
         self.assertEqual(status.state, "reply")
         self.assertEqual(status.latest_reply_author, "maintainer")
         self.assertIn("Yes, use notes.", status.latest_reply_excerpt)
+
+    def test_handled_reply_marker_suppresses_stale_reply_action(self) -> None:
+        status = classify_thread(
+            Target(
+                repo="owner/repo",
+                number=1,
+                handled_reply_through="2026-05-07T07:37:51Z",
+            ),
+            {
+                "title": "Issue",
+                "url": "https://github.com/owner/repo/issues/1",
+                "comments": [
+                    comment("dutchaiagency", "2026-05-03T11:00:00Z"),
+                    comment("maintainer", "2026-05-07T07:37:51Z", "Fixed."),
+                ],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "handled_reply")
+        self.assertIn("already marked handled", status.note)
+
+    def test_newer_reply_after_handled_marker_stays_actionable(self) -> None:
+        status = classify_thread(
+            Target(
+                repo="owner/repo",
+                number=1,
+                handled_reply_through="2026-05-07T07:37:51Z",
+            ),
+            {
+                "title": "Issue",
+                "url": "https://github.com/owner/repo/issues/1",
+                "comments": [
+                    comment("dutchaiagency", "2026-05-03T11:00:00Z"),
+                    comment("maintainer", "2026-05-07T07:37:51Z", "Fixed."),
+                    comment("maintainer", "2026-05-07T08:00:00Z", "Can you patch?"),
+                ],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "reply")
+        self.assertIn("Can you patch?", status.latest_reply_excerpt)
 
     def test_no_agent_comment_is_reported(self) -> None:
         status = classify_thread(

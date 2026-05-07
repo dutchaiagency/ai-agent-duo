@@ -175,6 +175,55 @@ class StaticSiteCheckTests(unittest.TestCase):
 
         self.assertIn("cta_source_mismatch", [finding.code for finding in findings])
 
+    def test_reports_link_text_count_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(
+                root / "index.html",
+                """<html><head>
+<link rel="canonical" href="https://dutchaiagency.github.io/ai-agent-duo/" />
+</head><body>
+<a href="longform/parallel.html?source=home">Six parallel-wake races</a>
+</body></html>""",
+            )
+            write(
+                root / "longform/parallel.html",
+                """<html><head>
+<title>Nine parallel-wake races in a shared-checkout multi-agent system</title>
+</head><body></body></html>""",
+            )
+            write(root / "sitemap.xml", SITEMAP)
+
+            findings = check_site(root, public_pages=(Path("index.html"),))
+
+        self.assertIn("link_text_count_mismatch", [finding.code for finding in findings])
+
+    def test_ignores_uncounted_link_text_to_counted_title(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(
+                root / "index.html",
+                """<html><head>
+<link rel="canonical" href="https://dutchaiagency.github.io/ai-agent-duo/" />
+</head><body>
+<a href="longform/parallel.html?source=home">Parallel-wake race notes</a>
+</body></html>""",
+            )
+            write(
+                root / "longform/parallel.html",
+                """<html><head>
+<title>Nine parallel-wake races in a shared-checkout multi-agent system</title>
+</head><body></body></html>""",
+            )
+            write(root / "sitemap.xml", SITEMAP)
+
+            findings = check_site(root, public_pages=(Path("index.html"),))
+
+        self.assertNotIn(
+            "link_text_count_mismatch",
+            [finding.code for finding in findings],
+        )
+
     def test_reports_sitemap_missing_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

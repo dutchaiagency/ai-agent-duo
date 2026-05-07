@@ -86,6 +86,27 @@ def utm_content_for_github_lead(repo: str, number: int) -> str:
     return normalize_source(f"{repo}-{number}")
 
 
+def github_outbound_utm_defaults(
+    repo: str,
+    number: int,
+    *,
+    day: date | str | None = None,
+) -> dict[str, str]:
+    if not repo or number <= 0:
+        raise ValueError("repo and positive issue number are required")
+    if day is None:
+        day_value = datetime.now(UTC).date().isoformat()
+    elif isinstance(day, date):
+        day_value = day.isoformat()
+    else:
+        day_value = day
+    return {
+        "utm_medium": "github",
+        "utm_campaign": f"outbound-{day_value}",
+        "utm_content": utm_content_for_github_lead(repo, number),
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate source-tagged Dutch AI Agents intake links."
@@ -112,10 +133,17 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    utm_medium = args.utm_medium
+    utm_campaign = args.utm_campaign
+    utm_content = args.utm_content
     if args.repo or args.issue:
         if not args.repo or not args.issue:
             raise SystemExit("--repo and --issue must be used together")
         source = source_for_github_lead(args.repo, args.issue, day=args.date)
+        defaults = github_outbound_utm_defaults(args.repo, args.issue, day=args.date)
+        utm_medium = utm_medium or defaults["utm_medium"]
+        utm_campaign = utm_campaign or defaults["utm_campaign"]
+        utm_content = utm_content or defaults["utm_content"]
     elif args.source:
         source = args.source
     else:
@@ -124,9 +152,9 @@ def main() -> int:
         build_intake_url(
             source,
             target=args.target,
-            utm_medium=args.utm_medium,
-            utm_campaign=args.utm_campaign,
-            utm_content=args.utm_content,
+            utm_medium=utm_medium,
+            utm_campaign=utm_campaign,
+            utm_content=utm_content,
         )
     )
     return 0

@@ -26,6 +26,11 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 TARGET_RE = re.compile(
     r"^\|\s*(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\s+#(?P<number>\d+)\s*\|"
 )
+HANDLED_REPLY_THROUGH_RE = re.compile(
+    r"\bhandled reply through "
+    r"(?P<at>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\b",
+    re.IGNORECASE,
+)
 TARGET_SPEC_RE = re.compile(
     r"^(?:https://github\.com/)?"
     r"(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)"
@@ -39,6 +44,7 @@ TARGET_SPEC_RE = re.compile(
 class Target:
     repo: str
     number: int
+    handled_reply_through: str = ""
 
     @property
     def label(self) -> str:
@@ -81,8 +87,15 @@ def parse_targets(markdown: str) -> list[Target]:
         match = TARGET_RE.match(line)
         if not match:
             continue
+        handled_match = HANDLED_REPLY_THROUGH_RE.search(line)
         targets.append(
-            Target(repo=match.group("repo"), number=int(match.group("number")))
+            Target(
+                repo=match.group("repo"),
+                number=int(match.group("number")),
+                handled_reply_through=(
+                    handled_match.group("at") if handled_match else ""
+                ),
+            )
         )
     return targets
 
@@ -167,6 +180,25 @@ def classify_thread(
         )
 
     latest_reply = max(replies, key=lambda c: parse_github_time(c["createdAt"]))
+    latest_reply_at = str(latest_reply["createdAt"])
+    if target.handled_reply_through:
+        handled_dt = parse_github_time(target.handled_reply_through)
+        if parse_github_time(latest_reply_at) <= handled_dt:
+            return ReplyStatus(
+                repo=target.repo,
+                number=target.number,
+                state="handled_reply",
+                issue_title=str(payload.get("title") or ""),
+                issue_url=str(payload.get("url") or ""),
+                last_agent_comment_at=last_agent_at,
+                latest_reply_author=comment_author(latest_reply),
+                latest_reply_at=latest_reply_at,
+                latest_reply_excerpt=excerpt(str(latest_reply.get("body") or "")),
+                note=(
+                    "Latest non-agent reply is already marked handled in "
+                    f"pipeline through {target.handled_reply_through}."
+                ),
+            )
     return ReplyStatus(
         repo=target.repo,
         number=target.number,
@@ -175,7 +207,7 @@ def classify_thread(
         issue_url=str(payload.get("url") or ""),
         last_agent_comment_at=last_agent_at,
         latest_reply_author=comment_author(latest_reply),
-        latest_reply_at=str(latest_reply["createdAt"]),
+        latest_reply_at=latest_reply_at,
         latest_reply_excerpt=excerpt(str(latest_reply.get("body") or "")),
     )
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -42,6 +43,34 @@ META_URL_FIELDS = {
     "twitter:image:src",
 }
 IGNORED_SCHEMES = {"mailto", "tel", "javascript", "data"}
+COUNT_WORDS = (
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
+    "twenty",
+)
+COUNT_WORD_PATTERN = re.compile(r"\b(" + "|".join(COUNT_WORDS) + r")\b", re.IGNORECASE)
+LEADING_COUNT_WORD_PATTERN = re.compile(
+    r"^[^\w]*(" + "|".join(COUNT_WORDS) + r")\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -60,11 +89,26 @@ class LinkRef:
 
 
 @dataclass(frozen=True)
+class TextLinkRef:
+    source: Path
+    href: str
+    text: str
+    line: int
+
+
+@dataclass(frozen=True)
 class TrackedCta:
     source: Path
     href: str
     cta_source: str
     line: int
+
+
+@dataclass
+class OpenAnchor:
+    href: str
+    line: int
+    text_parts: list[str]
 
 
 class SiteHTMLParser(HTMLParser):
@@ -73,15 +117,24 @@ class SiteHTMLParser(HTMLParser):
         self.source = source
         self.ids: set[str] = set()
         self.links: list[LinkRef] = []
+        self.text_links: list[TextLinkRef] = []
         self.tracked_ctas: list[TrackedCta] = []
         self.canonical: str | None = None
+        self.title = ""
+        self._title_parts: list[str] = []
+        self._in_title = False
+        self._anchor_stack: list[OpenAnchor] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
         values = {name.lower(): value for name, value in attrs if value is not None}
         if "id" in values:
             self.ids.add(values["id"])
 
-        if tag.lower() == "meta" and "content" in values:
+        if tag == "title":
+            self._in_title = True
+
+        if tag == "meta" and "content" in values:
             meta_key = values.get("property") or values.get("name")
             if meta_key and meta_key.lower() in META_URL_FIELDS:
                 self.links.append(
@@ -93,7 +146,7 @@ class SiteHTMLParser(HTMLParser):
                     )
                 )
 
-        for attr in LOCAL_ATTRS.get(tag.lower(), ()):
+        for attr in LOCAL_ATTRS.get(tag, ()):
             if attr in values:
                 self.links.append(
                     LinkRef(
@@ -104,7 +157,10 @@ class SiteHTMLParser(HTMLParser):
                     )
                 )
 
-        if tag.lower() == "a" and "href" in values and "data-cta-source" in values:
+        if tag == "a" and "href" in values:
+            self._anchor_stack.append(OpenAnchor(values["href"], self.getpos()[0], []))
+
+        if tag == "a" and "href" in values and "data-cta-source" in values:
             self.tracked_ctas.append(
                 TrackedCta(
                     self.source,
@@ -114,13 +170,51 @@ class SiteHTMLParser(HTMLParser):
                 )
             )
 
-        if tag.lower() == "link" and values.get("rel", "").lower() == "canonical":
+        if tag == "link" and values.get("rel", "").lower() == "canonical":
             self.canonical = values.get("href")
+
+    def handle_data(self, data: str) -> None:
+        if self._in_title:
+            self._title_parts.append(data)
+        if self._anchor_stack:
+            self._anchor_stack[-1].text_parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag == "title":
+            self._in_title = False
+            self.title = normalize_text("".join(self._title_parts))
+        if tag == "a" and self._anchor_stack:
+            anchor = self._anchor_stack.pop()
+            self.text_links.append(
+                TextLinkRef(
+                    self.source,
+                    anchor.href,
+                    normalize_text("".join(anchor.text_parts)),
+                    anchor.line,
+                )
+            )
+
+
+def normalize_text(value: str) -> str:
+    return " ".join(value.split())
+
+
+def leading_count_token(value: str) -> str | None:
+    match = LEADING_COUNT_WORD_PATTERN.search(normalize_text(value))
+    if not match:
+        return None
+    return match.group(1).lower()
+
+
+def count_tokens(value: str) -> set[str]:
+    return {match.group(1).lower() for match in COUNT_WORD_PATTERN.finditer(value)}
 
 
 def parse_html(path: Path) -> SiteHTMLParser:
     parser = SiteHTMLParser(path)
     parser.feed(path.read_text(encoding="utf-8", errors="replace"))
+    parser.title = normalize_text("".join(parser._title_parts))
     return parser
 
 
@@ -326,6 +420,32 @@ def check_site(
                             f"line {link.line}: {link.value!r} targets missing #{fragment} in {target_rel}",
                         )
                     )
+
+        for text_link in parser.text_links:
+            target = resolve_local_target(root, full_path, text_link.href, base_url)
+            if target is None or not target.exists():
+                continue
+            if target.suffix.lower() not in (".html", ".htm"):
+                continue
+
+            target_parser = cached_html_parser(target)
+            target_count = leading_count_token(target_parser.title)
+            link_counts = count_tokens(text_link.text)
+            if not target_count or not link_counts or target_count in link_counts:
+                continue
+
+            target_rel = safe_relative(target, root)
+            findings.append(
+                Finding(
+                    "link_text_count_mismatch",
+                    rel_path,
+                    (
+                        f"line {text_link.line}: href={text_link.href!r} "
+                        f"uses count token(s) {sorted(link_counts)!r}, but "
+                        f"{target_rel} title starts with {target_count!r}"
+                    ),
+                )
+            )
 
         for cta in parser.tracked_ctas:
             if not should_source_tag_cta(cta.href, base_url):

@@ -3,6 +3,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from tools.intake_link import (
     build_intake_url,
+    github_outbound_utm_defaults,
     normalize_source,
     source_for_github_lead,
     utm_content_for_github_lead,
@@ -61,6 +62,85 @@ class IntakeLinkTests(unittest.TestCase):
             utm_content_for_github_lead("Openpanel-dev/openpanel", 356),
             "openpanel-dev-openpanel-356",
         )
+
+    def test_github_outbound_defaults_include_campaign_medium_and_content(self) -> None:
+        self.assertEqual(
+            github_outbound_utm_defaults(
+                "Openpanel-dev/openpanel",
+                356,
+                day="2026-04-30",
+            ),
+            {
+                "utm_medium": "github",
+                "utm_campaign": "outbound-2026-04-30",
+                "utm_content": "openpanel-dev-openpanel-356",
+            },
+        )
+
+    def test_cli_repo_mode_adds_standard_utm_defaults(self) -> None:
+        import contextlib
+        import io
+        from unittest import mock
+
+        from tools import intake_link
+
+        stdout = io.StringIO()
+        with mock.patch(
+            "sys.argv",
+            [
+                "intake_link.py",
+                "--repo",
+                "Openpanel-dev/openpanel",
+                "--issue",
+                "356",
+                "--date",
+                "2026-04-30",
+            ],
+        ):
+            with contextlib.redirect_stdout(stdout):
+                self.assertEqual(intake_link.main(), 0)
+
+        query = self.query(stdout.getvalue().strip())
+        self.assertEqual(
+            query["source"],
+            ["github-outbound-openpanel-dev-openpanel-356-2026-04-30"],
+        )
+        self.assertEqual(query["utm_source"], ["dutchaiagency"])
+        self.assertEqual(query["utm_medium"], ["github"])
+        self.assertEqual(query["utm_campaign"], ["outbound-2026-04-30"])
+        self.assertEqual(query["utm_content"], ["openpanel-dev-openpanel-356"])
+
+    def test_cli_repo_mode_keeps_explicit_utm_overrides(self) -> None:
+        import contextlib
+        import io
+        from unittest import mock
+
+        from tools import intake_link
+
+        stdout = io.StringIO()
+        with mock.patch(
+            "sys.argv",
+            [
+                "intake_link.py",
+                "--repo",
+                "Openpanel-dev/openpanel",
+                "--issue",
+                "356",
+                "--date",
+                "2026-04-30",
+                "--utm-medium",
+                "dm",
+                "--utm-content",
+                "custom-thread",
+            ],
+        ):
+            with contextlib.redirect_stdout(stdout):
+                self.assertEqual(intake_link.main(), 0)
+
+        query = self.query(stdout.getvalue().strip())
+        self.assertEqual(query["utm_medium"], ["dm"])
+        self.assertEqual(query["utm_campaign"], ["outbound-2026-04-30"])
+        self.assertEqual(query["utm_content"], ["custom-thread"])
 
     def test_rejects_empty_source(self) -> None:
         with self.assertRaises(ValueError):
