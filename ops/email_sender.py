@@ -47,6 +47,8 @@ LOG_FILE = ROOT / "ops" / "outbound_cold_dm_2026-05-02.md"
 SUPPRESSION_FILE = ROOT / "ops" / "email_suppression_list.md"
 LOCKS_DIR = ROOT / "state" / "locks"
 LOCK_TTL_SECONDS = 120
+LOG_LOCK_TTL_SECONDS = 30
+LOG_LOCK_WAIT_SECONDS = 10
 RECIPIENT_LOCK_TTL_SECONDS = 600
 BODY_DEDUPE_LOCK_TTL_SECONDS = 24 * 60 * 60
 EMAIL_RE = re.compile(r"^[^@\s|]+@[^@\s|]+\.[^@\s|]+$")
@@ -168,6 +170,46 @@ def acquire_send_lock(topic: str, ttl_seconds: int = LOCK_TTL_SECONDS) -> Path:
         return path
 
 
+def acquire_transient_lock(
+    topic: str,
+    *,
+    ttl_seconds: int = LOG_LOCK_TTL_SECONDS,
+    wait_seconds: int = LOG_LOCK_WAIT_SECONDS,
+) -> Path:
+    path = send_lock_path(topic)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.time() + wait_seconds
+
+    while True:
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:
+                stat = path.stat()
+            except FileNotFoundError:
+                continue
+
+            age = time.time() - stat.st_mtime
+            if age >= ttl_seconds:
+                try:
+                    path.unlink()
+                except FileNotFoundError:
+                    pass
+                continue
+            if time.time() >= deadline:
+                raise SystemExit(
+                    "REFUSE: active transient lock for "
+                    f"{topic!r} ({age:.0f}s old, ttl {ttl_seconds}s): {path}"
+                )
+            time.sleep(0.1)
+            continue
+
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            ts = dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+            handle.write(f"topic: {topic}\ncreated_utc: {ts}\npid: {os.getpid()}\n")
+        return path
+
+
 def acquire_live_send_locks(
     *,
     to_addr: str,
@@ -199,39 +241,46 @@ def append_log_row(to_addr: str, subject: str, source: str, personalization: str
         f"{personalization[:80].replace('|', '/')} | "
         f"{'yes' if status == 'sent' else 'no'} | {status} |\n"
     )
-    text = LOG_FILE.read_text(encoding="utf-8")
-    marker = "(rows appended as actions complete)\n"
-    target_marker = "## Targets (GitHub-sourced read-only discovery)"
-    targets_idx = text.find(target_marker)
-    if targets_idx == -1:
-        raise SystemExit("Targets section missing in log file")
+    lock_path = acquire_transient_lock("log:outbound_cold_dm_2026-05-02")
+    try:
+        text = LOG_FILE.read_text(encoding="utf-8")
+        marker = "(rows appended as actions complete)\n"
+        target_marker = "## Targets (GitHub-sourced read-only discovery)"
+        targets_idx = text.find(target_marker)
+        if targets_idx == -1:
+            raise SystemExit("Targets section missing in log file")
 
-    # Preferred path for older/newer logs that carry an explicit insertion marker.
-    after_targets = text.find(marker, targets_idx)
-    if after_targets != -1:
-        insert_at = after_targets + len(marker)
-    else:
-        header_idx = text.find("| ts (UTC) |", targets_idx)
-        separator_idx = text.find("| --- |", header_idx)
-        if header_idx == -1 or separator_idx == -1:
-            raise SystemExit("Targets table header missing")
-        line_start = text.find("\n", separator_idx)
-        if line_start == -1:
-            raise SystemExit("Targets table separator is unterminated")
-        line_start += 1
-        insert_at = len(text)
-        cursor = line_start
-        while cursor < len(text):
-            next_line = text.find("\n", cursor)
-            if next_line == -1:
-                next_line = len(text)
-            line = text[cursor:next_line]
-            if not line.startswith("|"):
-                insert_at = cursor
-                break
-            cursor = next_line + 1
-    new_text = text[:insert_at] + row + text[insert_at:]
-    LOG_FILE.write_text(new_text, encoding="utf-8")
+        # Preferred path for older/newer logs that carry an explicit insertion marker.
+        after_targets = text.find(marker, targets_idx)
+        if after_targets != -1:
+            insert_at = after_targets + len(marker)
+        else:
+            header_idx = text.find("| ts (UTC) |", targets_idx)
+            separator_idx = text.find("| --- |", header_idx)
+            if header_idx == -1 or separator_idx == -1:
+                raise SystemExit("Targets table header missing")
+            line_start = text.find("\n", separator_idx)
+            if line_start == -1:
+                raise SystemExit("Targets table separator is unterminated")
+            line_start += 1
+            insert_at = len(text)
+            cursor = line_start
+            while cursor < len(text):
+                next_line = text.find("\n", cursor)
+                if next_line == -1:
+                    next_line = len(text)
+                line = text[cursor:next_line]
+                if not line.startswith("|"):
+                    insert_at = cursor
+                    break
+                cursor = next_line + 1
+        new_text = text[:insert_at] + row + text[insert_at:]
+        LOG_FILE.write_text(new_text, encoding="utf-8")
+    finally:
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def send_message_with_signature_guard(proton, *, to_addr: str, subject: str, body: str):

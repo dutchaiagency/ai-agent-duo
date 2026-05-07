@@ -69,6 +69,26 @@ class EmailLeadWatchTests(unittest.TestCase):
         self.assertEqual(status.state, "follow_up_due")
         self.assertIn("window is open", status.note)
 
+    def test_classify_follow_up_sent_watches_without_second_bump(self) -> None:
+        status = classify_lead(
+            EmailLead(
+                lead="lead",
+                sent_at="2026-05-02T16:38Z",
+                cutoff_at="2026-05-05T16:38Z",
+                owner="codex",
+                anchor="x",
+                next_action=(
+                    "Follow-up sent 2026-05-07T18:55Z; monitor inbox only; "
+                    "no further bumps."
+                ),
+                policy="72h-bump-sent",
+            ),
+            now=datetime(2026, 5, 7, 19, 0, tzinfo=UTC),
+        )
+
+        self.assertEqual(status.state, "watching_after_follow_up")
+        self.assertIn("already sent", status.note)
+
     def test_reply_only_policy_watches_until_cutoff_then_closes(self) -> None:
         lead = EmailLead(
             lead="lead",

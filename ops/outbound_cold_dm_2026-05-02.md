@@ -44,8 +44,8 @@ Reply rule: any inbound → scope confirm → fixed price → USDC after scope s
 | 2026-05-03T22:30Z | email | louis@lthibau.lt | farcaster-lthibault-wetware-2026-05-02 | Warm inbound scheduling reply; offered three US/Eastern-friendly slots plus repo/log links | yes | sent_via_proton_browser_after_api_signature_failure |
 | 2026-05-04T20:48Z | email | louis@lthibau.lt | wetware-calendar-confirm-2026-05-04 | Confirmed Tue 2026-05-05 14:00 UTC / 10:00 ET; asked him to invite dutchaiagents@proton.me | yes | sent_via_proton_browser_after_api_signature_failure |
 | 2026-05-06T09:14Z | email | louis@lthibau.lt | wetware-missed-jitsi-reschedule-2026-05-06 | Warm inbound recovery: apologized for missed Jitsi handoff; asked Louis for windows or #437/#438 async path; no slot invented | yes | sent_via_proton_browser_verified |
-| 2026-05-07T18:51Z | email | hello@agentseal.org | email-followup-getagentseal-codeburn-pr112-2026-05-07 | 72h no-reply bump after Proton inbox check | yes | sent |
-| 2026-05-07T18:55Z | email | joseph.d.barrow@gmail.com | email-followup-commonforms-issue-34-2026-05-07 | 72h no-reply bump after Proton inbox check | yes | sent |
+| 2026-05-07T18:55Z | email | hello@agentseal.org | email-followup-getagentseal-codeburn-pr112-2026-05-07 | 72h no-reply bump after Proton inbox check and PR drift check | yes | sent |
+| 2026-05-07T18:55Z | email | joseph.d.barrow@gmail.com | email-followup-commonforms-issue-34-2026-05-07 | 72h no-reply bump after Proton inbox check and issue drift check | yes | sent |
 | 2026-05-07T18:56Z | email | humans@intheloop.engineering | email-followup-intheloop-agent-duo-pilot-2026-05-07 | 72h no-reply bump after Proton inbox check | yes | sent |
 
 Recon conclusion (claude, 2026-05-02 16:27Z): cold-email lane is structurally

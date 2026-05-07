@@ -42,6 +42,13 @@ CLOSED_NO_ACTION_TERMS = (
     "drift-close",
     "drift-closed",
 )
+FOLLOW_UP_SENT_TERMS = (
+    "follow-up sent",
+    "followup sent",
+    "bump sent",
+    "72h bump sent",
+    "single follow-up sent",
+)
 
 
 @dataclass(frozen=True)
@@ -245,6 +252,9 @@ def classify_lead(
         term in lead.policy.lower() or term in lowered_action
         for term in CLOSED_NO_ACTION_TERMS
     )
+    follow_up_sent = any(term in lowered_action for term in FOLLOW_UP_SENT_TERMS) or (
+        "bump-sent" in lead.policy.lower()
+    )
     follow_up_allowed = policy_allows_follow_up(lead.policy)
     if suppressed:
         state = "suppressed"
@@ -252,6 +262,9 @@ def classify_lead(
     elif closed_no_action:
         state = "closed_no_action_needed"
         note = "Cited work is closed or drifted; no follow-up should be sent."
+    elif follow_up_sent:
+        state = "watching_after_follow_up"
+        note = "Single follow-up already sent; monitor inbox only, no further bumps."
     elif "cold_no_reply" in lowered_action:
         state = "closed"
         note = "Lead is already marked cold_no_reply."

@@ -90,8 +90,41 @@ class EmailSenderLockTests(unittest.TestCase):
 
                 reclaimed = email_sender.acquire_send_lock("ben@codeslegion.com")
 
-                self.assertEqual(path, reclaimed)
-                self.assertTrue(reclaimed.exists())
+            self.assertEqual(path, reclaimed)
+            self.assertTrue(reclaimed.exists())
+
+    def test_transient_lock_is_released_by_log_append(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            log_file = root / "outbound.md"
+            log_file.write_text(
+                "\n".join(
+                    [
+                        "## Targets (GitHub-sourced read-only discovery)",
+                        "",
+                        "| ts (UTC) | channel | target | source | personalization | sent | status |",
+                        "| --- | --- | --- | --- | --- | --- | --- |",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            locks_dir = root / "locks"
+
+            with (
+                patch.object(email_sender, "LOG_FILE", log_file),
+                patch.object(email_sender, "LOCKS_DIR", locks_dir),
+            ):
+                email_sender.append_log_row(
+                    "lead@example.dev",
+                    "Follow-up",
+                    "unit-test",
+                    "parallel-safe append",
+                    "sent",
+                )
+
+            self.assertIn("| lead@example.dev | unit-test |", log_file.read_text())
+            self.assertFalse(any(locks_dir.glob("log_outbound_cold_dm_2026-05-02-*.lock")))
 
     def test_empty_lock_topic_is_refused(self) -> None:
         with self.assertRaises(SystemExit) as raised:
