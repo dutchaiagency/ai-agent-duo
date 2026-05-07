@@ -162,7 +162,7 @@ class GitHubPRWatchTests(unittest.TestCase):
             agent_login="dutchaiagency",
         )
 
-        self.assertEqual(status.state, "shipped")
+        self.assertEqual(status.state, "shipped_authored")
         self.assertEqual(status.latest_signal_author, "maintainer")
         self.assertIn("ship/release signal", status.note)
 
@@ -182,9 +182,34 @@ class GitHubPRWatchTests(unittest.TestCase):
             agent_login="dutchaiagency",
         )
 
-        self.assertEqual(status.state, "shipped")
+        self.assertEqual(status.state, "shipped_authored")
         self.assertEqual(status.latest_signal_author, "maintainer")
         self.assertIn("PR is merged", status.note)
+
+    def test_merged_reviewed_third_party_pr_is_shipped_reviewed(self) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=51),
+            {
+                "author": {"login": "Ivy-js"},
+                "createdAt": "2026-05-02T18:00:00Z",
+                "state": "MERGED",
+                "comments": [
+                    comment("dutchaiagency", "2026-05-02T18:30:00Z", "Reviewed."),
+                    comment(
+                        "maintainer",
+                        "2026-05-02T19:00:00Z",
+                        "LGTM thanks for contributing!",
+                    ),
+                ],
+                "reviews": [],
+                "latestReviews": [],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "shipped_reviewed")
+        self.assertEqual(status.pr_author, "Ivy-js")
+        self.assertIn("review/comment credit", status.note)
 
     def test_merged_pr_without_non_agent_signal_is_shipped(self) -> None:
         status = classify_pr(
@@ -203,9 +228,38 @@ class GitHubPRWatchTests(unittest.TestCase):
             agent_login="dutchaiagency",
         )
 
-        self.assertEqual(status.state, "shipped")
+        self.assertEqual(status.state, "shipped_authored")
         self.assertEqual(status.latest_signal_author, "maintainer")
         self.assertEqual(status.latest_signal_excerpt, "merged")
+
+    def test_merged_reviewed_third_party_pr_without_signal_is_shipped_reviewed(
+        self,
+    ) -> None:
+        status = classify_pr(
+            PullTarget(repo="owner/repo", number=147),
+            {
+                "author": {"login": "devin-ai-integration"},
+                "createdAt": "2026-05-02T18:00:00Z",
+                "updatedAt": "2026-05-02T19:00:00Z",
+                "mergedAt": "2026-05-02T19:00:00Z",
+                "mergedBy": {"login": "maintainer"},
+                "state": "MERGED",
+                "comments": [],
+                "reviews": [
+                    review(
+                        "dutchaiagency",
+                        "2026-05-02T18:30:00Z",
+                        "Reviewed a semantic gap.",
+                    )
+                ],
+                "latestReviews": [],
+            },
+            agent_login="dutchaiagency",
+        )
+
+        self.assertEqual(status.state, "shipped_reviewed")
+        self.assertEqual(status.pr_author, "devin-ai-integration")
+        self.assertIn("review/comment credit", status.note)
 
     def test_detects_review_after_latest_agent_activity(self) -> None:
         status = classify_pr(
@@ -303,7 +357,7 @@ class GitHubPRWatchTests(unittest.TestCase):
                 agent_login="dutchaiagency",
             )
 
-        self.assertEqual(statuses[0].state, "shipped")
+        self.assertEqual(statuses[0].state, "shipped_authored")
         self.assertEqual(statuses[0].latest_signal_author, "github-release")
         self.assertIn("v0.50.281", statuses[0].latest_signal_excerpt)
         self.assertIn("#1536 by @dutchaiagency", statuses[0].note)
@@ -669,6 +723,9 @@ class GitHubPRWatchTests(unittest.TestCase):
         )
 
         self.assertIn("# GitHub PR Watch - 2026-05-02 19:05 UTC", markdown)
+        self.assertIn("| State | PR | PR author | PR state |", markdown)
+        self.assertIn("| signal | [owner/repo #1]", markdown)
+        self.assertIn("| dutchaiagency | OPEN |", markdown)
         self.assertIn("A \\| B", markdown)
         self.assertIn("REVIEW_REQUIRED / UNSTABLE", markdown)
 

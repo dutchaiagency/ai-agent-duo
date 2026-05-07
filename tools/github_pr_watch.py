@@ -96,6 +96,7 @@ class PullStatus:
     pr_state: str = ""
     title: str = ""
     url: str = ""
+    pr_author: str = ""
     last_agent_activity_at: str = ""
     latest_signal_author: str = ""
     latest_signal_at: str = ""
@@ -398,6 +399,16 @@ def is_policy_gate_timeline_item(item: dict[str, str]) -> bool:
     )
 
 
+def is_agent_authored_pr(pr_author: str, *, agent_login: str) -> bool:
+    return bool(pr_author) and pr_author.lower() == agent_login.lower()
+
+
+def shipped_state(pr_author: str, *, agent_login: str) -> str:
+    if is_agent_authored_pr(pr_author, agent_login=agent_login):
+        return "shipped_authored"
+    return "shipped_reviewed"
+
+
 def classify_pr(
     target: PullTarget, payload: dict[str, Any], *, agent_login: str
 ) -> PullStatus:
@@ -419,6 +430,7 @@ def classify_pr(
             pr_state=str(payload.get("state") or ""),
             title=str(payload.get("title") or ""),
             url=str(payload.get("url") or ""),
+            pr_author=pr_author,
             review_decision=str(payload.get("reviewDecision") or ""),
             merge_state_status=str(payload.get("mergeStateStatus") or ""),
             check_summary=check_rollup_summary(payload),
@@ -441,6 +453,7 @@ def classify_pr(
         "pr_state": str(payload.get("state") or ""),
         "title": str(payload.get("title") or ""),
         "url": str(payload.get("url") or ""),
+        "pr_author": pr_author,
         "last_agent_activity_at": last_agent_at,
         "review_decision": str(payload.get("reviewDecision") or ""),
         "merge_state_status": str(payload.get("mergeStateStatus") or ""),
@@ -466,32 +479,58 @@ def classify_pr(
         shipped = pr_state == "MERGED" or (
             pr_state == "CLOSED" and is_ship_timeline_item(latest)
         )
+        shipped_note = ""
+        if shipped and is_agent_authored_pr(pr_author, agent_login=agent_login):
+            shipped_note = (
+                "PR is merged; latest non-agent signal shown."
+                if pr_state == "MERGED"
+                else (
+                    "Closed PR has maintainer ship/release signal after latest "
+                    "agent activity."
+                )
+            )
+        elif shipped:
+            shipped_note = (
+                f"PR is merged, but author is {pr_author or 'unknown'}; frame as "
+                "review/comment credit only."
+                if pr_state == "MERGED"
+                else (
+                    f"Closed PR has ship/release signal, but author is "
+                    f"{pr_author or 'unknown'}; frame as review/comment credit only."
+                )
+            )
         return PullStatus(
             **base,
-            state="shipped" if shipped else "signal",
+            state=shipped_state(pr_author, agent_login=agent_login)
+            if shipped
+            else "signal",
             latest_signal_author=latest["author"],
             latest_signal_at=latest["created_at"],
             latest_signal_excerpt=excerpt(
                 f"{latest['kind']}: {latest['body']}".strip()
             ),
-            note=(
-                "PR is merged; latest non-agent signal shown."
-                if pr_state == "MERGED"
-                else "Closed PR has maintainer ship/release signal after latest agent activity."
-                if shipped
-                else ""
-            ),
+            note=shipped_note,
         )
 
     if pr_state == "MERGED":
         merged_at = str(payload.get("mergedAt") or payload.get("updatedAt") or "")
+        if is_agent_authored_pr(pr_author, agent_login=agent_login):
+            note = (
+                "PR is merged with no non-agent comment or review after latest "
+                "agent activity."
+            )
+        else:
+            note = (
+                f"PR is merged, but author is {pr_author or 'unknown'}; frame as "
+                "review/comment credit only."
+            )
         return PullStatus(
             **base,
-            state="shipped",
+            state=shipped_state(pr_author, agent_login=agent_login),
             latest_signal_author=actor_login(payload, field="mergedBy") or "github-pr",
             latest_signal_at=merged_at,
             latest_signal_excerpt="merged",
-            note="PR is merged with no non-agent comment or review after latest agent activity.",
+            note=note,
         )
 
     if pr_state in {"CLOSED", "MERGED"}:
@@ -934,16 +973,25 @@ def apply_release_ship_signal(
     published_at = release_time(release)
     url = release_url(release)
     url_suffix = f" {url}" if url else ""
+    if is_agent_authored_pr(status.pr_author, agent_login=agent_login):
+        note = (
+            "Closed PR appears shipped via release notes referencing "
+            f"#{target.number} by @{agent_login}.{url_suffix}"
+        )
+    else:
+        note = (
+            "Closed PR appears in release notes referencing "
+            f"#{target.number} by @{agent_login}, but PR author is "
+            f"{status.pr_author or 'unknown'}; frame as review/release credit only."
+            f"{url_suffix}"
+        )
     return replace(
         status,
-        state="shipped",
+        state=shipped_state(status.pr_author, agent_login=agent_login),
         latest_signal_author="github-release",
         latest_signal_at=published_at,
         latest_signal_excerpt=excerpt(f"{tag}: {release_text(release)}"),
-        note=(
-            "Closed PR appears shipped via release notes referencing "
-            f"#{target.number} by @{agent_login}.{url_suffix}"
-        ),
+        note=note,
     )
 
 
@@ -961,8 +1009,8 @@ def render_markdown(
     lines = [
         f"# GitHub PR Watch - {generated_at.strftime('%Y-%m-%d %H:%M UTC')}",
         "",
-        "| State | PR | PR state | Last agent activity | Latest signal | Review / merge / checks | Note |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| State | PR | PR author | PR state | Last agent activity | Latest signal | Review / merge / checks | Note |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for result in results:
         pr = result.label
@@ -984,7 +1032,8 @@ def render_markdown(
             if part
         )
         lines.append(
-            f"| {result.state} | {pr} | {result.pr_state or '-'} | "
+            f"| {result.state} | {pr} | {md_escape(result.pr_author or '-')} | "
+            f"{result.pr_state or '-'} | "
             f"{result.last_agent_activity_at or '-'} | {md_escape(signal)} | "
             f"{md_escape(review)} | {md_escape(result.note or '-')} |"
         )
