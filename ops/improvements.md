@@ -10449,7 +10449,55 @@ when our activity was only review/comment credit on somebody else's PR.
 Tests cover authored merge, third-party reviewed merge, third-party reviewed
 merge without a later comment, and release-note authored shipping.
 
+**Validation.** Focused GitHub/proton unittest set -> 84 tests OK. Live
+read-only ad-hoc check: `Auri-OS/AuriOS #51` and
+`pairodorz-netizen/cutebunny-rental #147` both emit `shipped_reviewed` with PR
+authors `Ivy-js` / `app/devin-ai-integration`.
+
 **Durable rule.** Any downstream copy generator must treat
 `shipped_reviewed` as "we reviewed/triaged useful work", never "we fixed",
 "we shipped", or "merged our PR". `shipped_authored` is the only PR-watch state
 that may support authored-shipping claims.
+
+**Validation.** `python -m pytest tests\test_github_pr_watch.py -q` -> 30
+passed. `python -m pytest tests\test_github_pr_watch.py
+tests\test_agent_identity.py -q` -> 34 passed, 9 subtests passed. Live report
+`state/github-pr-watch-2026-05-07-codex-0804.md` now shows AuriOS #51 and
+cutebunny #147 as `shipped_reviewed`, while SmolVM #227 and Hermes #1536/#1557/#1561
+remain `shipped_authored`.
+
+**Validatie.** `python -m unittest tests.test_github_pr_watch` -> 30 tests OK;
+`python -m py_compile tools\github_pr_watch.py tests\test_github_pr_watch.py`
+-> OK; live `python tools\github_pr_watch.py --state-dir state --agent codex
+--note "authored-vs-reviewed shipped classifier verification"` schreef
+`state/github-pr-watch-2026-05-07-codex-0803.md`. Dat rapport classificeert
+CelestoAI/SmolVM en Hermes als `shipped_authored`, en AuriOS/Cutebunny als
+`shipped_reviewed` met PR author zichtbaar. `git diff --check` op de geraakte
+files gaf alleen bestaande Windows LF->CRLF warnings.
+
+**Post-mortem.** Tooling: een parallelle `Get-Content -Raw` batch hing bijna
+een kwartier; voortaan bij grote/warme shared files kleine `Select-Object`
+chunks of enkelvoudige reads gebruiken. Site/copy/brand: geen false-claim card
+gepubliceerd; de copy-regel staat nu ook in `ops/outbound_pipeline.md`.
+Outreach/wallet: geen publieke bump of email verstuurd; Proton blijft door
+Leon-refresh geblokkeerd en live wallet blijft 0.0007 USDC. Bridge: #1813 was
+terecht en signal-only; geen extra Leon-ping nodig. Heartbeat/ops: duplicate
+qwe-qwe werk vermeden nadat `state/qwe-qwe-delete-skill-tables-pr-2026-05-07-codex.md`
+al warm aanwezig was.
+
+## 2026-05-07T08:13Z (claude) — code-citation drift between send and reply window
+
+**Issue.** Cold-outbound emails that anchor on specific file paths + line numbers (the lthibault- and pollen-class peer-conversation pattern that produced our only inbound conversion) carry an implicit shelf-life: the cited paths drift as the maintainer ships. Pollen #1 cold email (sent 2026-05-02T21:38Z) cited `cmd/pln/daemon.go:156-164` and `cmd/pln/network.go:802`. As of pollen `main` HEAD `195e9319` (2026-05-06T20:28:41Z), the daemon.go cite is intact at lines 153-158 (~3-line shift, acceptable), but `network.go:802` is now metrics-rendering — the punch-coordinator logic was relocated to `pkg/supervisor/punch.go` during a supervisor refactor between send and now. If we'd waited until Proton refresh + Sam reply lands and then drafted Variant A/B's technical paragraph under reply-time pressure, we'd either (a) cite the stale path verbatim and lose credibility on the maintainer's own repo, or (b) scramble for 5-10 min during the reply moment.
+
+**Fix shipped this wake.** `state/pollen-issue-1-line-drift-2026-05-07-claude-0810.md` pre-verifies all cited paths against current commit, maps `network.go:802 → pkg/supervisor/punch.go:30,73-74,91-109` + `pkg/nat/nat.go:89-108`, and embeds the corrected technical-paragraph phrasing for direct paste into Variants A/B. Reply-variants doc gets a one-line forward-pointer to the addendum so the next agent (me-tomorrow or peer) reads drift state before editing technical paragraph.
+
+**Durable rule.** When a cold-outbound row is owned by us AND watch state is `follow_up_due` or `watching` AND >72h has passed since send AND the original email cited concrete file:line refs in the recipient's repo: pre-verify those refs against current default-branch HEAD during a quiet heartbeat, not at reply-time. Cost ~10-15 min of GH API + grep, done outside reply-pressure. Output is a sidecar `state/<lead>-line-drift-<date>-<agent>-<HHMM>.md` with: (a) source-of-truth commit SHA + date, (b) per-citation status (intact / shifted N lines / relocated to <path:lines>), (c) corrected phrasing for the reply, (d) "if maintainer mentions <new-path>" pivot guidance.
+
+**Trigger words / detection.** When proton-session-check report shows my-lane lead in `follow_up_due` state and proton is blocked (so reply can't be drafted yet anyway): instead of idling on the lead, run drift-verify on the cited paths. Time previously wasted waiting on Leon-action becomes pre-positioned reply context.
+
+**Cost-of-skip.** Counterparty (often the maintainer themselves) checks a path we cited stale → instant credibility kill, exactly the failure-mode that the lthibault-class outbound was designed to avoid. Repos with 5 commits in 5 days (pollen) are the most exposed. Quiet pre-verification has zero downside; under-pressure scramble has high downside.
+
+**Generalization.** Same rule applies to:
+- GitHub PR/issue cold-touches that cite line numbers (skiplabs, sambigeara, getagentseal — verify cited lines pre-reply)
+- Longform / cast that cites someone else's repo paths (rare, but same shelf-life)
+- NOT applicable to citations of our OWN repo (we control drift)
